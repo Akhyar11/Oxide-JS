@@ -17,6 +17,12 @@ export default class DimentionalityReduction extends Sequential {
         this.layersDecode.push(layer);
       }
     }
+    if (this.layers.length > 0 && this.layersDecode.length === 0) {
+      console.warn(
+        "[DimentionalityReduction] Tidak ada layer dengan status='outputReduction'. " +
+        "Semua layer masuk ke encoder dan decoder akan kosong."
+      );
+    }
   }
 
   load(path: string): void {
@@ -44,7 +50,7 @@ export default class DimentionalityReduction extends Sequential {
     return input;
   }
 
-  decode(enc: Matrix) {
+  decode(enc: Matrix): Matrix {
     let input = enc;
     for (let layer of this.layersDecode) {
       input = layer.forward(input);

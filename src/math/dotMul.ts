@@ -6,7 +6,7 @@ import Matrix from "../matrix";
  * @returns Number
  */
 export default function dotMul(a: Matrix): number {
-  let value: number = 0;
+  let value: number = 1;
 
   if (a._shape[0] === 1) {
     for (let j = 0; j < a._shape[1]; j++) {

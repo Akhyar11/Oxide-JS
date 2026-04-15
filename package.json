@@ -1,9 +1,9 @@
 {
-  "name": "ML V1",
+  "name": "ML V2",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npx ts-node test/test.ts",
     "start": "clear && tsc && time node build/main.js"
   },
   "keywords": [],

@@ -1,0 +1,487 @@
+[
+    {
+        "instruction": "Hitung hasil penjumlahan.",
+        "input": "45 + 55",
+        "output": "100"
+    },
+    {
+        "instruction": "Selesaikan pengurangan berikut.",
+        "input": "120 - 45",
+        "output": "75"
+    },
+    {
+        "instruction": "Berapakah hasil perkalian ini?",
+        "input": "7 x 8",
+        "output": "56"
+    },
+    {
+        "instruction": "Bagi angka berikut.",
+        "input": "144 / 12",
+        "output": "12"
+    },
+    {
+        "instruction": "Hitung operasi campuran.",
+        "input": "(10 + 5) * 3",
+        "output": "Langkah 1: 10 + 5 = 15. Langkah 2: 15 * 3 = 45. Jadi hasilnya adalah 45."
+    },
+    {
+        "instruction": "Selesaikan soal cerita.",
+        "input": "Ani punya 12 permen, lalu membeli 18 lagi. Berapa totalnya?",
+        "output": "12 + 18 = 30 permen."
+    },
+    {
+        "instruction": "Hitung penjumlahan.",
+        "input": "123 + 456",
+        "output": "579"
+    },
+    {
+        "instruction": "Hitung pengurangan.",
+        "input": "1000 - 250",
+        "output": "750"
+    },
+    {
+        "instruction": "Hitung perkalian.",
+        "input": "15 * 4",
+        "output": "60"
+    },
+    {
+        "instruction": "Hitung pembagian.",
+        "input": "250 / 5",
+        "output": "50"
+    },
+    {
+        "instruction": "Tentukan nilai x.",
+        "input": "x + 5 = 12",
+        "output": "x = 12 - 5, maka x = 7."
+    },
+    {
+        "instruction": "Hitung kuadrat.",
+        "input": "9 pangkat 2",
+        "output": "81"
+    },
+    {
+        "instruction": "Hitung akar kuadrat.",
+        "input": "Akar dari 64",
+        "output": "8"
+    },
+    {
+        "instruction": "Penjumlahan desimal.",
+        "input": "0.5 + 0.75",
+        "output": "1.25"
+    },
+    {
+        "instruction": "Perkalian desimal.",
+        "input": "0.2 * 5",
+        "output": "1"
+    },
+    {
+        "instruction": "Hitung persentase.",
+        "input": "10% dari 200",
+        "output": "20"
+    },
+    {
+        "instruction": "Selesaikan.",
+        "input": "50 + (2 * 10)",
+        "output": "50 + 20 = 70"
+    },
+    {
+        "instruction": "Pengurangan sederhana.",
+        "input": "99 - 18",
+        "output": "81"
+    },
+    {
+        "instruction": "Perkalian sederhana.",
+        "input": "11 * 11",
+        "output": "121"
+    },
+    {
+        "instruction": "Pembagian sederhana.",
+        "input": "63 / 7",
+        "output": "9"
+    },
+    {
+        "instruction": "Berapakah 150 + 350?",
+        "input": "",
+        "output": "500"
+    },
+    {
+        "instruction": "Berapakah 500 - 125?",
+        "input": "",
+        "output": "375"
+    },
+    {
+        "instruction": "Berapakah 6 * 9?",
+        "input": "",
+        "output": "54"
+    },
+    {
+        "instruction": "Berapakah 100 / 4?",
+        "input": "",
+        "output": "25"
+    },
+    {
+        "instruction": "Hitung sisa pembagian (modulo).",
+        "input": "10 mod 3",
+        "output": "1"
+    },
+    {
+        "instruction": "Selesaikan soal cerita.",
+        "input": "Ada 4 mobil, setiap mobil punya 4 roda. Berapa total roda?",
+        "output": "4 * 4 = 16 roda."
+    },
+    {
+        "instruction": "Hitung penjumlahan bertingkat.",
+        "input": "5 + 5 + 5 + 5",
+        "output": "20"
+    },
+    {
+        "instruction": "Hitung pengurangan bertingkat.",
+        "input": "100 - 20 - 30",
+        "output": "50"
+    },
+    {
+        "instruction": "Berapakah 12 * 5?",
+        "input": "",
+        "output": "60"
+    },
+    {
+        "instruction": "Berapakah 80 / 2?",
+        "input": "",
+        "output": "40"
+    },
+    {
+        "instruction": "Hitung 15 + 17.",
+        "input": "",
+        "output": "32"
+    },
+    {
+        "instruction": "Hitung 90 - 45.",
+        "input": "",
+        "output": "45"
+    },
+    {
+        "instruction": "Hitung 13 * 3.",
+        "input": "",
+        "output": "39"
+    },
+    {
+        "instruction": "Hitung 48 / 6.",
+        "input": "",
+        "output": "8"
+    },
+    {
+        "instruction": "Soal cerita.",
+        "input": "Ibu beli 2 lusin telur. 1 lusin adalah 12. Berapa total telur?",
+        "output": "2 * 12 = 24 telur."
+    },
+    {
+        "instruction": "Konversi waktu.",
+        "input": "2 jam berapa menit?",
+        "output": "2 * 60 = 120 menit."
+    },
+    {
+        "instruction": "Konversi waktu.",
+        "input": "180 menit berapa jam?",
+        "output": "180 / 60 = 3 jam."
+    },
+    {
+        "instruction": "Hitung keliling persegi.",
+        "input": "Sisi persegi adalah 5 cm. Berapa kelilingnya?",
+        "output": "4 * 5 = 20 cm."
+    },
+    {
+        "instruction": "Hitung luas persegi.",
+        "input": "Sisi persegi adalah 4 cm. Berapa luasnya?",
+        "output": "4 * 4 = 16 cm^2."
+    },
+    {
+        "instruction": "Penjumlahan besar.",
+        "input": "1250 + 1250",
+        "output": "2500"
+    },
+    {
+        "instruction": "Pengurangan besar.",
+        "input": "5000 - 1500",
+        "output": "3500"
+    },
+    {
+        "instruction": "Perkalian.",
+        "input": "20 * 30",
+        "output": "600"
+    },
+    {
+        "instruction": "Pembagian.",
+        "input": "1000 / 10",
+        "output": "100"
+    },
+    {
+        "instruction": "Hitung 75 + 25.",
+        "input": "",
+        "output": "100"
+    },
+    {
+        "instruction": "Hitung 200 - 75.",
+        "input": "",
+        "output": "125"
+    },
+    {
+        "instruction": "Hitung 14 * 2.",
+        "input": "",
+        "output": "28"
+    },
+    {
+        "instruction": "Hitung 36 / 4.",
+        "input": "",
+        "output": "9"
+    },
+    {
+        "instruction": "Soal cerita.",
+        "input": "Kakak punya 50 ribu, beli buku 20 ribu. Sisa uang?",
+        "output": "50000 - 20000 = 30000."
+    },
+    {
+        "instruction": "Urutan angka.",
+        "input": "Apa angka setelah 99?",
+        "output": "100"
+    },
+    {
+        "instruction": "Urutan angka.",
+        "input": "Apa angka sebelum 50?",
+        "output": "49"
+    },
+    {
+        "instruction": "Hitung 8 + 7 + 6.",
+        "input": "",
+        "output": "21"
+    },
+    {
+        "instruction": "Hitung 50 / 5 / 2.",
+        "output": "5"
+    },
+    {
+        "instruction": "Hitung 10 * 10 * 10.",
+        "output": "1000"
+    },
+    {
+        "instruction": "Berapakah 1/2 dari 100?",
+        "output": "50"
+    },
+    {
+        "instruction": "Berapakah 1/4 dari 20?",
+        "output": "5"
+    },
+    {
+        "instruction": "Tambah.",
+        "input": "67 + 33",
+        "output": "100"
+    },
+    {
+        "instruction": "Kurang.",
+        "input": "85 - 26",
+        "output": "59"
+    },
+    {
+        "instruction": "Kali.",
+        "input": "9 * 4",
+        "output": "36"
+    },
+    {
+        "instruction": "Bagi.",
+        "input": "56 / 8",
+        "output": "7"
+    },
+    {
+        "instruction": "Campuran.",
+        "input": "10 + (5 * 2)",
+        "output": "20"
+    },
+    {
+        "instruction": "Campuran.",
+        "input": "(10 + 5) * 2",
+        "output": "30"
+    },
+    {
+        "instruction": "Soal uang.",
+        "input": "Harga 1 pensil 2000. Harga 5 pensil?",
+        "output": "10000"
+    },
+    {
+        "instruction": "Soal jarak.",
+        "input": "Lari 2 km, lalu 3 km lagi. Total?",
+        "output": "5 km"
+    },
+    {
+        "instruction": "Negatif.",
+        "input": "5 - 10",
+        "output": "-5"
+    },
+    {
+        "instruction": "Negatif.",
+        "input": "-3 + -7",
+        "output": "-10"
+    },
+    {
+        "instruction": "Perkalian nol.",
+        "input": "1234 * 0",
+        "output": "0"
+    },
+    {
+        "instruction": "Pembagian satu.",
+        "input": "45 / 1",
+        "output": "45"
+    },
+    {
+        "instruction": "Hitung 2 + 2 * 2.",
+        "output": "6"
+    },
+    {
+        "instruction": "Hitung (2 + 2) * 2.",
+        "output": "8"
+    },
+    {
+        "instruction": "Berapa 10% dari 50?",
+        "output": "5"
+    },
+    {
+        "instruction": "Berapa 50% dari 80?",
+        "output": "40"
+    },
+    {
+        "instruction": "Tambah.",
+        "input": "19 + 19",
+        "output": "38"
+    },
+    {
+        "instruction": "Kurang.",
+        "input": "100 - 1",
+        "output": "99"
+    },
+    {
+        "instruction": "Kali.",
+        "input": "25 * 3",
+        "output": "75"
+    },
+    {
+        "instruction": "Bagi.",
+        "input": "150 / 3",
+        "output": "50"
+    },
+    {
+        "instruction": "Cerita.",
+        "input": "Satu minggu ada berapa hari?",
+        "output": "7 hari"
+    },
+    {
+        "instruction": "Cerita.",
+        "input": "Dua minggu ada berapa hari?",
+        "output": "14 hari"
+    },
+    {
+        "instruction": "Pecahan.",
+        "input": "0.5 sama dengan pecahan apa?",
+        "output": "1/2"
+    },
+    {
+        "instruction": "Pecahan.",
+        "input": "0.25 sama dengan pecahan apa?",
+        "output": "1/4"
+    },
+    {
+        "instruction": "Hitung 12 + 13 + 14.",
+        "output": "39"
+    },
+    {
+        "instruction": "Hitung 100 - 50 - 25.",
+        "output": "25"
+    },
+    {
+        "instruction": "Berapa 5 * 5 * 5?",
+        "output": "125"
+    },
+    {
+        "instruction": "Bagi.",
+        "input": "1000 / 8",
+        "output": "125"
+    },
+    {
+        "instruction": "Tambah desimal.",
+        "input": "1.1 + 2.2",
+        "output": "3.3"
+    },
+    {
+        "instruction": "Kurang desimal.",
+        "input": "5.5 - 1.2",
+        "output": "4.3"
+    },
+    {
+        "instruction": "Ganjil Genap.",
+        "input": "Apakah 7 angka ganjil?",
+        "output": "Ya"
+    },
+    {
+        "instruction": "Ganjil Genap.",
+        "input": "Apakah 10 angka ganjil?",
+        "output": "Tidak, 10 adalah angka genap."
+    },
+    {
+        "instruction": "Kelipatan.",
+        "input": "Sebutkan 3 kelipatan pertama dari 5.",
+        "output": "5, 10, 15"
+    },
+    {
+        "instruction": "Perbandingan.",
+        "input": "Mana yang lebih besar, 15 atau 25?",
+        "output": "25"
+    },
+    {
+        "instruction": "Perbandingan.",
+        "input": "Mana yang lebih kecil, -5 atau -10?",
+        "output": "-10"
+    },
+    {
+        "instruction": "Logika.",
+        "input": "Jika hari ini Senin, 2 hari lagi hari apa?",
+        "output": "Rabu"
+    },
+    {
+        "instruction": "Hitung 44 + 44.",
+        "output": "88"
+    },
+    {
+        "instruction": "Hitung 77 - 22.",
+        "output": "55"
+    },
+    {
+        "instruction": "Hitung 6 * 6.",
+        "output": "36"
+    },
+    {
+        "instruction": "Hitung 40 / 8.",
+        "output": "5"
+    },
+    {
+        "instruction": "Akar.",
+        "input": "Akar dari 100.",
+        "output": "10"
+    },
+    {
+        "instruction": "Pangkat.",
+        "input": "2 pangkat 3.",
+        "output": "8"
+    },
+    {
+        "instruction": "Pangkat.",
+        "input": "5 pangkat 2.",
+        "output": "25"
+    },
+    {
+        "instruction": "Selesaikan.",
+        "input": "10 - (2 + 3)",
+        "output": "5"
+    },
+    {
+        "instruction": "Akhir.",
+        "input": "999 + 1",
+        "output": "1000"
+    }
+]

@@ -6,8 +6,8 @@ export default class Matrix {
   constructor({ array }: { array: matrix2d }) {
     this._value = array;
     this._shape = [
-      array !== undefined ? array.length : 0,
-      array[0] !== undefined ? array[0].length : 0,
+      array.length,
+      array.length > 0 && array[0] !== undefined ? array[0].length : 0,
     ];
   }
 
@@ -21,7 +21,9 @@ export default class Matrix {
   }
 
   /**
-   * Memetakan nilai dari matrix ke dalam sebuah function
+   * Memetakan nilai dari matrix ke dalam sebuah function (MUTASI in-place)
+   * Digunakan internal oleh add/sub/mul/div untuk operasi scalar.
+   * Untuk operasi immutable, gunakan mj.map() dari math/map.ts
    * @param func (value: number) => number
    */
   map(func: (value: number) => number) {
@@ -41,7 +43,7 @@ export default class Matrix {
       if (typeof a === "number") {
         this.map((val) => val + a);
       } else if (a instanceof Matrix) {
-        if (this._shape[0] !== a._shape[0] && this._shape[1] !== a._shape[1]) {
+        if (this._shape[0] !== a._shape[0] || this._shape[1] !== a._shape[1]) {
           throw new Error(
             `bentuk dari a harus sama dengan matrix ${this._shape} != ${a._shape}`
           );
@@ -67,7 +69,7 @@ export default class Matrix {
       if (typeof a === "number") {
         this.map((val) => val - a);
       } else if (a instanceof Matrix) {
-        if (this._shape[0] !== a._shape[0] && this._shape[1] !== a._shape[1]) {
+        if (this._shape[0] !== a._shape[0] || this._shape[1] !== a._shape[1]) {
           throw new Error(
             `bentuk dari a harus sama dengan matrix ${this._shape} != ${a._shape}`
           );
@@ -93,7 +95,7 @@ export default class Matrix {
       if (typeof a === "number") {
         this.map((val) => val * a);
       } else if (a instanceof Matrix) {
-        if (this._shape[0] !== a._shape[0] && this._shape[1] !== a._shape[1]) {
+        if (this._shape[0] !== a._shape[0] || this._shape[1] !== a._shape[1]) {
           throw new Error(
             `bentuk dari a harus sama dengan matrix ${this._shape} != ${a._shape}`
           );
@@ -117,9 +119,10 @@ export default class Matrix {
   div(a: MatrixCollection) {
     try {
       if (typeof a === "number") {
+        if (a === 0) throw new Error("Pembagian dengan nol (scalar = 0) tidak diizinkan");
         this.map((val) => val / a);
       } else if (a instanceof Matrix) {
-        if (this._shape[0] !== a._shape[0] && this._shape[1] !== a._shape[1]) {
+        if (this._shape[0] !== a._shape[0] || this._shape[1] !== a._shape[1]) {
           throw new Error(
             `bentuk dari a harus sama dengan matrix ${this._shape} != ${a._shape}`
           );
@@ -127,6 +130,8 @@ export default class Matrix {
 
         for (let i = 0; i < this._shape[0]; i++) {
           for (let j = 0; j < this._shape[1]; j++) {
+            if (a._value[i][j] === 0)
+              throw new Error(`Pembagian dengan nol pada elemen [${i}][${j}]`);
             this._value[i][j] /= a._value[i][j];
           }
         }
@@ -139,7 +144,7 @@ export default class Matrix {
    * Meratakan matrix menjadi [1, n]
    */
   flatten() {
-    const flat: matrix2d = [];
+    const flat: matrix2d = [[]];
     let index = 0;
     for (let i = 0; i < this._shape[0]; i++) {
       for (let j = 0; j < this._shape[1]; j++) {
@@ -165,23 +170,21 @@ export default class Matrix {
         );
       }
 
+      // Flatten ke 1D terlebih dahulu
+      const flat: number[] = [];
+      for (let i = 0; i < this._shape[0]; i++) {
+        for (let j = 0; j < this._shape[1]; j++) {
+          flat.push(this._value[i][j]);
+        }
+      }
+
+      // Bangun ulang dengan shape baru
       const newArray: matrix2d = [];
       let index = 0;
-      if (this._shape[0] === 1) {
-        for (let i = 0; i < shape[0]; i++) {
-          for (let j = 0; j < shape[1]; j++) {
-            newArray[i][j] = this._value[0][index];
-            index++;
-          }
-        }
-      } else {
-        this.flatten();
-        const newArray: matrix2d = [];
-        for (let i = 0; i < shape[0]; i++) {
-          for (let j = 0; j < shape[1]; j++) {
-            newArray[i][j] = this._value[0][index];
-            index++;
-          }
+      for (let i = 0; i < shape[0]; i++) {
+        newArray[i] = [];
+        for (let j = 0; j < shape[1]; j++) {
+          newArray[i][j] = flat[index++];
         }
       }
       this._value = newArray;

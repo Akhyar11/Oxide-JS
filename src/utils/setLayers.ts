@@ -33,6 +33,20 @@ export default function setLayers(data: any) {
       });
       convolution.load(layer.kernel, layer.bias);
       layers.push(convolution);
+    } else if (layer.name === "embedding layer") {
+      // Lazy import untuk menghindari circular dep 
+      const { Embedding } = require("../layers");
+      const embedding = new Embedding({
+        vocabSize: layer.vocabSize,
+        embeddingDim: layer.embeddingDim,
+        alpha: layer.alpha,
+        optimizer: layer.optimizer,
+        status: layer.status
+      });
+      embedding.load(layer.weight);
+      layers.push(embedding);
+    } else {
+      console.warn(`[setLayers] Layer tidak dikenal dan dilewati: '${layer.name}'`);
     }
   }
 

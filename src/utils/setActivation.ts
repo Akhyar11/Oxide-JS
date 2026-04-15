@@ -1,4 +1,4 @@
-import linear, { lRelu, relu, sigmoid, tanh } from "../activation";
+import linear, { lRelu, relu, sigmoid, softmax, tanh } from "../activation";
 import { ActivationType } from "../@types/type";
 
 export default function setActivation(activation: ActivationType) {
@@ -13,5 +13,10 @@ export default function setActivation(activation: ActivationType) {
       return lRelu;
     case "linear":
       return linear;
+    case "softmax":
+      return (a: any) => softmax(a, false);
+    default:
+      throw new Error(`Activation '${activation}' tidak dikenal. Pilih: sigmoid, tanh, relu, lRelu, linear, softmax`);
   }
 }
+

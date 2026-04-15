@@ -1,0 +1,448 @@
+[
+  {
+    "intent": "salam",
+    "patterns": [
+      "halo",
+      "hai",
+      "hey",
+      "hi",
+      "hello",
+      "helo",
+      "selamat pagi",
+      "selamat siang",
+      "selamat sore",
+      "selamat malam",
+      "assalamualaikum",
+      "apa kabar",
+      "kabar baik",
+      "pagi",
+      "siang",
+      "sore",
+      "malam",
+      "halo halo",
+      "hai hai",
+      "alo",
+      "yo",
+      "hei",
+      "permisi",
+      "hay",
+      "good morning",
+      "selamat datang"
+    ],
+    "responses": [
+      "Halo! Ada yang bisa saya bantu?",
+      "Hai! Senang bertemu denganmu!",
+      "Halo! Apa kabar?",
+      "Hai! Selamat datang!",
+      "Halo! Semoga harimu menyenangkan!"
+    ]
+  },
+  {
+    "intent": "perkenalan",
+    "patterns": [
+      "siapa kamu",
+      "siapa nama kamu",
+      "kamu siapa",
+      "nama kamu siapa",
+      "kamu itu apa",
+      "apa itu kamu",
+      "perkenalkan dirimu",
+      "nama kamu apa",
+      "kamu namanya apa",
+      "namamu siapa",
+      "namamu apa",
+      "siapa sih kamu",
+      "kamu ini apa",
+      "kamu ini siapa",
+      "apa nama kamu",
+      "boleh kenalan",
+      "kenalan dong",
+      "perkenalan",
+      "ceritakan tentang kamu",
+      "kamu apa sih"
+    ],
+    "responses": [
+      "Saya adalah ML_V2, chatbot sederhana buatan Akhyar!",
+      "Nama saya ML_V2. Saya chatbot yang dibuat dengan TypeScript murni!",
+      "Perkenalkan, saya ML_V2, chatbot berbasis neural network!",
+      "Saya ML_V2! Senang berkenalan denganmu!"
+    ]
+  },
+  {
+    "intent": "kemampuan",
+    "patterns": [
+      "kamu bisa apa",
+      "apa yang bisa kamu lakukan",
+      "kemampuan kamu apa",
+      "fitur kamu apa",
+      "fungsi kamu apa",
+      "kamu berguna untuk apa",
+      "bisa ngapain aja",
+      "apa saja kemampuanmu",
+      "kamu bisa ngapain",
+      "kemampuanmu apa saja",
+      "kamu bisa apa saja",
+      "apa keahlianmu",
+      "kamu jago apa",
+      "kamu pintar apa",
+      "kegunaan kamu apa",
+      "manfaat kamu apa"
+    ],
+    "responses": [
+      "Saya bisa menjawab pertanyaan sederhana dan mengobrol denganmu!",
+      "Saya dilatih untuk memahami pertanyaan dalam bahasa Indonesia. Coba tanya saya!",
+      "Saya chatbot sederhana yang bisa merespon berbagai pertanyaan dasar.",
+      "Saya bisa mengobrol, menjawab pertanyaan, dan bercerita lelucon!"
+    ]
+  },
+  {
+    "intent": "terima_kasih",
+    "patterns": [
+      "terima kasih",
+      "makasih",
+      "thanks",
+      "thank you",
+      "trims",
+      "terima kasih banyak",
+      "makasih ya",
+      "oke terima kasih",
+      "makasih banyak",
+      "thx",
+      "tengkyu",
+      "terimakasih",
+      "terima kasih ya",
+      "makasih banyak ya",
+      "oke makasih",
+      "baik terima kasih",
+      "siap terima kasih",
+      "nuhun",
+      "suwun"
+    ],
+    "responses": [
+      "Sama-sama! Senang bisa membantu!",
+      "Tidak masalah! Ada lagi yang bisa saya bantu?",
+      "Sama-sama!",
+      "Senang bisa membantu! Jangan ragu bertanya lagi ya."
+    ]
+  },
+  {
+    "intent": "sampai_jumpa",
+    "patterns": [
+      "bye",
+      "dadah",
+      "sampai jumpa",
+      "sampai nanti",
+      "selamat tinggal",
+      "dah",
+      "bye bye",
+      "see you",
+      "sampai ketemu lagi",
+      "sampai berjumpa",
+      "duluan ya",
+      "saya pergi dulu",
+      "pergi dulu",
+      "pamit",
+      "pamit dulu",
+      "cabut dulu",
+      "gw pergi dulu",
+      "aku pergi",
+      "mau pergi",
+      "sampai bertemu lagi"
+    ],
+    "responses": [
+      "Sampai jumpa! Semoga harimu menyenangkan!",
+      "Dadah! Sampai ketemu lagi!",
+      "Bye! Jangan ragu untuk kembali ya!",
+      "Sampai bertemu lagi! Hati-hati di jalan!"
+    ]
+  },
+  {
+    "intent": "cuaca",
+    "patterns": [
+      "bagaimana cuaca",
+      "cuaca hari ini",
+      "apakah hujan",
+      "apakah hari ini cerah",
+      "cuaca sekarang",
+      "prediksi cuaca",
+      "hari ini hujan tidak",
+      "cuacanya bagaimana",
+      "panas tidak hari ini",
+      "dingin tidak hari ini",
+      "mendung tidak",
+      "apa cuaca hari ini",
+      "ramalan cuaca",
+      "langit cerah tidak",
+      "gerimis tidak"
+    ],
+    "responses": [
+      "Maaf, saya tidak bisa mengecek cuaca secara real-time. Coba cek aplikasi cuaca ya!",
+      "Saya tidak bisa melihat cuaca, tapi semoga cerah untuk harimu!",
+      "Untuk cuaca terkini, coba buka aplikasi cuaca di HP kamu ya.",
+      "Sayangnya saya tidak punya akses data cuaca. Cek BMKG ya!"
+    ]
+  },
+  {
+    "intent": "waktu",
+    "patterns": [
+      "jam berapa",
+      "jam berapa sekarang",
+      "sekarang jam berapa",
+      "waktu sekarang",
+      "pukul berapa",
+      "jam brp",
+      "sekarang pukul berapa",
+      "waktunya berapa",
+      "ini jam berapa",
+      "berapa jam sekarang",
+      "tanggal berapa",
+      "hari apa sekarang",
+      "hari ini tanggal berapa",
+      "hari ini hari apa"
+    ],
+    "responses": [
+      "Maaf, saya tidak bisa mengecek waktu. Coba lihat jam di perangkatmu!",
+      "Saya tidak punya akses ke jam, tapi semoga kamu tidak terlambat!",
+      "Cek jam di layar HP atau komputermu ya!",
+      "Saya belum bisa melihat waktu, coba cek di perangkatmu."
+    ]
+  },
+  {
+    "intent": "pembuat",
+    "patterns": [
+      "siapa pembuat kamu",
+      "siapa yang membuat kamu",
+      "siapa developer kamu",
+      "siapa programmer kamu",
+      "dibuat oleh siapa",
+      "kreator kamu siapa",
+      "siapa yang memprogram kamu",
+      "siapa yang bikin kamu",
+      "kamu dibuat siapa",
+      "kamu buatan siapa",
+      "pembuat kamu siapa",
+      "developer kamu siapa",
+      "yang buat kamu siapa",
+      "siapa yang menciptakan kamu",
+      "pencipta kamu siapa",
+      "kamu diciptakan siapa"
+    ],
+    "responses": [
+      "Saya dibuat oleh Akhyar menggunakan library ML_V2 berbasis TypeScript!",
+      "Pembuat saya adalah Akhyar. Saya dibangun dari nol dengan neural network buatan sendiri!",
+      "Saya diciptakan oleh Akhyar sebagai project machine learning.",
+      "Akhyar adalah pembuat saya. Library ML_V2 ini dibangun dari scratch!"
+    ]
+  },
+  {
+    "intent": "lelucon",
+    "patterns": [
+      "ceritakan lelucon",
+      "bercanda dong",
+      "jokes",
+      "lucu",
+      "bikin ketawa",
+      "ada lelucon tidak",
+      "cerita lucu",
+      "ceritain lelucon",
+      "ceritakan jokes",
+      "humor dong",
+      "ada jokes tidak",
+      "buat aku ketawa",
+      "cerita yang lucu",
+      "kasih lelucon",
+      "lawak dong",
+      "candaan dong"
+    ],
+    "responses": [
+      "Kenapa programmer suka gelap? Karena mereka tidak suka bug yang terlihat!",
+      "Apa bedanya AI dan manusia? AI tidak pernah lupa password... karena dia lupa semuanya setiap restart!",
+      "Kenapa neural network pergi ke dokter? Karena dia punya terlalu banyak layer masalah!",
+      "Apa bahasa pemrograman paling romantis? Python, karena dia selalu bilang 'import love'!",
+      "Kenapa komputer tidak bisa bermain musik? Karena dia hanya bisa nge-byte!"
+    ]
+  },
+  {
+    "intent": "bantuan",
+    "patterns": [
+      "tolong",
+      "bantu saya",
+      "saya butuh bantuan",
+      "help",
+      "bisa bantu",
+      "saya bingung",
+      "bagaimana caranya",
+      "tolong bantu",
+      "bantu dong",
+      "minta tolong",
+      "saya perlu bantuan",
+      "bantuan dong",
+      "gimana ya",
+      "bisa tolong tidak",
+      "mohon bantuan",
+      "tolong dong"
+    ],
+    "responses": [
+      "Tentu! Saya siap membantu. Silakan ceritakan apa yang kamu butuhkan.",
+      "Saya di sini untuk membantu! Apa yang bisa saya bantu?",
+      "Jangan khawatir, coba jelaskan masalahmu dan saya akan berusaha membantu!",
+      "Baik, saya akan coba membantu. Apa yang ingin kamu tanyakan?"
+    ]
+  },
+  {
+    "intent": "perasaan_baik",
+    "patterns": [
+      "saya senang",
+      "aku senang",
+      "saya bahagia",
+      "aku bahagia",
+      "saya gembira",
+      "lagi happy",
+      "lagi seneng",
+      "mood bagus",
+      "merasa baik",
+      "saya baik baik saja",
+      "kabar baik",
+      "baik",
+      "lagi semangat",
+      "aku lagi senang"
+    ],
+    "responses": [
+      "Senang mendengarnya! Semoga harimu terus menyenangkan!",
+      "Wah, bagus! Tetap semangat ya!",
+      "Alhamdulillah! Semoga kebahagiaan terus bersamamu!",
+      "Keren! Hari yang bagus untuk bersyukur!"
+    ]
+  },
+  {
+    "intent": "perasaan_buruk",
+    "patterns": [
+      "saya sedih",
+      "aku sedih",
+      "saya galau",
+      "lagi bad mood",
+      "lagi sedih",
+      "saya tidak baik",
+      "perasaan buruk",
+      "merasa buruk",
+      "aku lagi sedih",
+      "lagi down",
+      "saya kecewa",
+      "aku kecewa",
+      "saya lelah",
+      "capek banget"
+    ],
+    "responses": [
+      "Semangat ya! Setiap badai pasti berlalu.",
+      "Saya di sini untukmu. Ceritakan jika kamu mau, saya akan dengarkan.",
+      "Jangan menyerah! Kamu lebih kuat dari yang kamu kira.",
+      "Istirahat sejenak tidak apa-apa. Kamu sudah berusaha dengan baik!"
+    ]
+  },
+  {
+    "intent": "matematika",
+    "patterns": [
+      "berapa 1 tambah 1",
+      "berapa 2 ditambah 3",
+      "hitung 5 tambah 10",
+      "berapa 10 dikurangi 3",
+      "hitung 100 kurang 50",
+      "berapa 4 dikali 5",
+      "hitung 6 kali 7",
+      "berapa 20 dibagi 4",
+      "hitung 100 bagi 5",
+      "berapa 15 tambah 25",
+      "berapa 50 kurang 20",
+      "berapa 8 kali 9",
+      "berapa 81 dibagi 9",
+      "hitung 12 tambah 8",
+      "hitung 99 kurang 33",
+      "hitung 7 kali 8",
+      "hitung 64 dibagi 8",
+      "berapa 3 tambah 4",
+      "berapa 100 kurang 75",
+      "berapa 9 kali 9",
+      "berapa 144 dibagi 12",
+      "berapa hasil 5 tambah 5",
+      "berapa hasil 10 kali 2",
+      "hitungkan 25 tambah 30",
+      "tolong hitung 7 tambah 3",
+      "coba hitung 15 kali 4",
+      "berapa ya 100 bagi 10",
+      "berapa 2 pangkat 3",
+      "hitung 5 pangkat 2",
+      "berapa akar dari 16",
+      "berapa akar 25",
+      "berapa 10 modulo 3",
+      "sisa bagi 17 bagi 5",
+      "berapa 1000 tambah 2000",
+      "hitung 500 kurang 250",
+      "berapa 25 kali 4",
+      "berapa 999 dibagi 3"
+    ],
+    "responses": [
+      "MATH_EVAL"
+    ]
+  },
+  {
+    "intent": "konversi",
+    "patterns": [
+      "berapa km dalam 1000 meter",
+      "1 km berapa meter",
+      "1 meter berapa cm",
+      "1 kg berapa gram",
+      "1 jam berapa menit",
+      "1 menit berapa detik",
+      "1 hari berapa jam",
+      "1 minggu berapa hari",
+      "1 tahun berapa bulan",
+      "1 bulan berapa hari",
+      "1 liter berapa mililiter",
+      "1 ton berapa kg",
+      "berapa cm dalam 1 meter",
+      "konversi suhu",
+      "fahrenheit ke celcius",
+      "celcius ke fahrenheit"
+    ],
+    "responses": [
+      "1 km = 1000 meter, 1 meter = 100 cm, 1 cm = 10 mm",
+      "1 jam = 60 menit, 1 menit = 60 detik, 1 hari = 24 jam",
+      "1 kg = 1000 gram, 1 ton = 1000 kg, 1 liter = 1000 ml",
+      "1 minggu = 7 hari, 1 bulan ≈ 30 hari, 1 tahun = 12 bulan = 365 hari",
+      "Rumus: °F = (°C × 9/5) + 32, °C = (°F - 32) × 5/9"
+    ]
+  },
+  {
+    "intent": "pengetahuan_math",
+    "patterns": [
+      "apa itu matematika",
+      "apa itu aljabar",
+      "apa itu geometri",
+      "apa itu kalkulus",
+      "apa itu statistik",
+      "apa itu bilangan prima",
+      "apa itu pecahan",
+      "apa itu persentase",
+      "apa itu akar kuadrat",
+      "rumus luas lingkaran",
+      "rumus keliling lingkaran",
+      "rumus luas persegi",
+      "rumus keliling persegi",
+      "rumus luas segitiga",
+      "rumus pythagoras",
+      "rumus volume kubus",
+      "apa itu pi",
+      "berapa nilai pi",
+      "apa rumus luas",
+      "jelaskan tentang matematika"
+    ],
+    "responses": [
+      "Matematika adalah ilmu tentang bilangan, struktur, ruang, dan perubahan. Ada yang spesifik yang ingin kamu tahu?",
+      "Beberapa rumus penting: Luas lingkaran = πr², Keliling = 2πr, Luas persegi = s², Pythagoras: a² + b² = c²",
+      "Bilangan prima adalah bilangan yang hanya habis dibagi 1 dan dirinya sendiri. Contoh: 2, 3, 5, 7, 11, 13...",
+      "Nilai π (pi) ≈ 3.14159. Pi adalah rasio keliling lingkaran terhadap diameternya.",
+      "Rumus dasar: Luas segitiga = ½ × alas × tinggi, Volume kubus = s³, Luas persegi panjang = p × l"
+    ]
+  }
+]
+

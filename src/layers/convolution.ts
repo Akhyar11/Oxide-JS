@@ -78,7 +78,7 @@ export default class Convolution {
       1e-5
     );
     this.params =
-      kernelSize[0] * kernelSize[1] * inputShape[0] * inputShape[1] +
+      kernelSize[0] * kernelSize[1] +
       this.bias._shape[0] * this.bias._shape[1];
   }
 
@@ -100,7 +100,9 @@ export default class Convolution {
 
   load(kernel: matrix2d, bias: matrix2d): void {
     this.kernel._value = kernel;
+    this.kernel._shape = [kernel.length, kernel[0]?.length ?? 0];
     this.bias._value = bias;
+    this.bias._shape = [bias.length, bias[0]?.length ?? 0];
   }
 
   compile({
@@ -173,5 +175,12 @@ export default class Convolution {
     this.kernel = mj.sub(this.kernel, optimizerKernel);
     this.bias = mj.sub(this.bias, optimizerBias);
     return errOutput;
+  }
+
+  /** Reset akumulasi loss — panggil di awal setiap epoch */
+  resetLoss(): void {
+    this.sumLoss = 0;
+    this.index = 0;
+    this.loss = 0;
   }
 }

@@ -76,7 +76,7 @@ export default class Dense {
     this.optimizerBias = setOptimizer(optimizer, this.bias._shape, 1e-5);
     this.lossFunc = setLoss(loss);
     this.alpha = alpha;
-    this.params = outputUnits * units + units;
+    this.params = outputUnits * units + outputUnits;
   }
 
   save() {
@@ -96,7 +96,9 @@ export default class Dense {
 
   load(weight: matrix2d, bias: matrix2d): void {
     this.weight._value = weight;
+    this.weight._shape = [weight.length, weight[0]?.length ?? 0];
     this.bias._value = bias;
+    this.bias._shape = [bias.length, bias[0]?.length ?? 0];
   }
 
   compile({
@@ -149,5 +151,12 @@ export default class Dense {
     this.weight = mj.sub(this.weight, optimizerWeight);
     this.bias = mj.sub(this.bias, optimizerBias);
     return errOutput;
+  }
+
+  /** Reset akumulasi loss — panggil di awal setiap epoch */
+  resetLoss(): void {
+    this.sumLoss = 0;
+    this.index = 0;
+    this.loss = 0;
   }
 }

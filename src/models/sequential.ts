@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { Layers, Matrix } from "../@types/type";
 import { setLayers } from "../utils";
 import { CompileDenseLayers, Dense, Convolution } from "../layers";
+import mj from "../math";
 
 export type SequentialLayers = Layers[];
 
@@ -58,31 +59,33 @@ export default class Sequential {
         layer.compile({ alpha, optimizer, error });
       } else if (layer instanceof Convolution) {
         layer.compile({ alpha, optimizer, error });
+      } else if (layer.name === "embedding layer") {
+        (layer as any).compile({ alpha, optimizer });
       }
+      // Activation layer dan layer tanpa weights tidak perlu dicompile
     }
   }
 
-  forward(x: Matrix) {
+  forward(x: Matrix): Matrix {
     let input = x;
     for (let layer of this.layers) {
       input = layer.forward(input);
     }
+    return input;
   }
 
   backward(y: Matrix) {
-    let err = y;
+    let err = mj.matrix([[]]);
     for (let i = this.layers.length - 1; i >= 0; i--) {
       err = this.layers[i].backward(y, err);
       if (this.layers[i].status === "output") this.loss = this.layers[i].loss;
     }
   }
 
-  predict(x: Matrix) {
-    let input = x;
-    for (let layer of this.layers) {
-      input = layer.forward(input);
-    }
-    return input;
+  predict(x: Matrix): Matrix {
+    // predict() melakukan inference tanpa memodifikasi state training
+    // — identik dengan forward() di arsitektur ini
+    return this.forward(x);
   }
 
   fit(
@@ -92,6 +95,12 @@ export default class Sequential {
     cb: (err: number) => any = (_) => { },
   ) {
     for (let i = 0; i < epochs; i++) {
+      // Reset akumulasi loss di setiap epoch
+      for (let layer of this.layers) {
+        if (typeof (layer as any).resetLoss === "function") {
+          (layer as any).resetLoss();
+        }
+      }
       for (let j in X) {
         this.forward(X[j]);
         this.backward(y[j]);

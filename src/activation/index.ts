@@ -15,18 +15,20 @@ export function tanh(a: Matrix): [Matrix, Matrix] {
 
 export function relu(a: Matrix): [Matrix, Matrix] {
   const result = mj.map(a, (val) => (val < 0 ? 0 : val));
-  const dResult = mj.map(result, (val) => (val === 0 ? 0 : 1));
+  // gradient dihitung dari input 'a' asli: 0 jika a<=0, 1 jika a>0
+  const dResult = mj.map(a, (val) => (val > 0 ? 1 : 0));
   return [result, dResult];
 }
 
 export function lRelu(a: Matrix): [Matrix, Matrix] {
   const result = mj.map(a, (val) => (val < 0 ? val * 1e-5 : val));
-  const dResult = mj.map(result, (val) => (val < 0 ? val * 1e-5 : 1));
+  const dResult = mj.map(a, (val) => (val < 0 ? 1e-5 : 1));
   return [result, dResult];
 }
 
 export default function linear(a: Matrix): [Matrix, Matrix] {
-  const result = a;
+  // Buat salinan baru agar tidak terjadi aliasing yang merusak backward pass
+  const result = mj.map(a, (val) => val);
   const dResult = mj.ones(a._shape);
   return [result, dResult];
 }
@@ -66,13 +68,11 @@ export function softmaxGradien(a: Matrix) {
   const gradSoftmax = mj.zeros(a._shape);
   for (let i = 0; i < a._shape[0]; i++) {
     for (let j = 0; j < a._shape[1]; j++) {
-      gradSoftmax._value[i][j] +=
-        a._value[i][j] * (delta(i, j) - a._value[i][j]);
+      // Turunan diagonal Jacobian softmax: s_i * (1 - s_i)
+      // Untuk backprop praktis, elemen off-diagonal jarang dibutuhkan secara eksplisit
+      // karena digabung dengan chain rule dari loss
+      gradSoftmax._value[i][j] = a._value[i][j] * (1 - a._value[i][j]);
     }
-  }
-
-  function delta(i: number, j: number): number {
-    return i === j ? 1 : 0;
   }
 
   return gradSoftmax;
