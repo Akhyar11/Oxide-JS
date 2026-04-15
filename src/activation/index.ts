@@ -40,40 +40,66 @@ export default function linear(a: Matrix): [Matrix, Matrix] {
  * @returns [Matrix, Matrix]
  */
 export function softmax(a: Matrix, row = false): [Matrix, Matrix] {
-  if (row) {
-    const result = a._value.map((row) => {
-      const maxVal = Math.max(...row);
-      const expValues = row.map((value) => Math.exp(value - maxVal));
-      const sumExpValues = expValues.reduce((a, b) => a + b, 0);
-      return expValues.map((value) => value / sumExpValues);
-    });
+  const [rows, cols] = a._shape;
+  const input = a._data;
 
-    const softmaxMatrix = mj.matrix(result);
+  if (row) {
+    const result = new Float64Array(input.length);
+    for (let i = 0; i < rows; i++) {
+      const offset = i * cols;
+      let maxVal = -Infinity;
+      for (let j = 0; j < cols; j++) {
+        const value = input[offset + j];
+        if (value > maxVal) maxVal = value;
+      }
+
+      let sumExp = 0;
+      for (let j = 0; j < cols; j++) {
+        const expValue = Math.exp(input[offset + j] - maxVal);
+        result[offset + j] = expValue;
+        sumExp += expValue;
+      }
+
+      for (let j = 0; j < cols; j++) {
+        result[offset + j] /= sumExp;
+      }
+    }
+
+    const softmaxMatrix = Matrix.fromFlat(result, [rows, cols]);
     return [softmaxMatrix, softmaxGradien(softmaxMatrix)];
   } else {
-    const reshapeMatrix = mj.reshape(a, [a._shape[1], a._shape[0]]);
-    const result = reshapeMatrix._value.map((row) => {
-      const maxVal = Math.max(...row);
-      const expValues = row.map((value) => Math.exp(value - maxVal));
-      const sumExpValues = expValues.reduce((a, b) => a + b, 0);
-      return expValues.map((value) => value / sumExpValues);
-    });
+    const result = new Float64Array(input.length);
+    for (let j = 0; j < cols; j++) {
+      let maxVal = -Infinity;
+      for (let i = 0; i < rows; i++) {
+        const value = input[i * cols + j];
+        if (value > maxVal) maxVal = value;
+      }
 
-    const softmaxMatrix = mj.reshape(mj.matrix(result), a._shape);
+      let sumExp = 0;
+      for (let i = 0; i < rows; i++) {
+        const idx = i * cols + j;
+        const expValue = Math.exp(input[idx] - maxVal);
+        result[idx] = expValue;
+        sumExp += expValue;
+      }
+
+      for (let i = 0; i < rows; i++) {
+        result[i * cols + j] /= sumExp;
+      }
+    }
+
+    const softmaxMatrix = Matrix.fromFlat(result, [rows, cols]);
     return [softmaxMatrix, softmaxGradien(softmaxMatrix)];
   }
 }
 
 export function softmaxGradien(a: Matrix) {
-  const gradSoftmax = mj.zeros(a._shape);
-  for (let i = 0; i < a._shape[0]; i++) {
-    for (let j = 0; j < a._shape[1]; j++) {
-      // Turunan diagonal Jacobian softmax: s_i * (1 - s_i)
-      // Untuk backprop praktis, elemen off-diagonal jarang dibutuhkan secara eksplisit
-      // karena digabung dengan chain rule dari loss
-      gradSoftmax._value[i][j] = a._value[i][j] * (1 - a._value[i][j]);
-    }
+  const gradData = new Float64Array(a._data.length);
+  for (let i = 0; i < a._data.length; i++) {
+    const value = a._data[i];
+    gradData[i] = value * (1 - value);
   }
 
-  return gradSoftmax;
+  return Matrix.fromFlat(gradData, [a._shape[0], a._shape[1]]);
 }

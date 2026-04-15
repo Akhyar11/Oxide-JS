@@ -79,15 +79,22 @@ export default class PositionalEncoding {
     this.outputShape = [this.dModel, seqLen];
 
     // Ambil slice PE table sesuai panjang sequence
-    const result: number[][] = [];
+    const cols = x._shape[1];
+    const result = new Float64Array(this.dModel * seqLen);
+    const xData = x._data;
+    const peData = this.peTable._data;
+    const peCols = this.peTable._shape[1];
+
     for (let i = 0; i < this.dModel; i++) {
-      result[i] = [];
+      const xOffset = i * cols;
+      const peOffset = i * peCols;
+      const outOffset = i * seqLen;
       for (let j = 0; j < seqLen; j++) {
-        result[i][j] = x._value[i][j] + this.peTable._value[i][j];
+        result[outOffset + j] = xData[xOffset + j] + peData[peOffset + j];
       }
     }
 
-    return new Matrix({ array: result });
+    return Matrix.fromFlat(result, [this.dModel, seqLen]);
   }
 
   /**

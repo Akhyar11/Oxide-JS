@@ -8,6 +8,7 @@ import { CompileDenseLayers } from "../layers/dense";
 
 interface TransformersConfig {
   units: number;          // ukuran input/embedding
+  seqLen?: number;        // panjang sequence input
   denseUnits: number;     // ukuran output layer dense setelah attention
   alpha?: number;
   numHeads?: number;      // jumlah attention head (saat ini single head)
@@ -23,15 +24,17 @@ interface TransformersConfig {
 export default class Transformers extends Sequential {
   private attentionLayer: SelfAttantion;
   private denseLayer: Dense;
-  private attentionUnits: number;
+  private attentionShape: [number, number];
 
   constructor({
     units,
+    seqLen = 1,
     denseUnits,
     alpha = 0.01,
   }: TransformersConfig) {
     const attentionLayer = new SelfAttantion({
       units,
+      seqLen,
       alpha,
       status: "input",
     });
@@ -39,7 +42,7 @@ export default class Transformers extends Sequential {
     const attentionOutput = Math.floor(units / 2);
 
     const denseLayer = new Dense({
-      units: attentionOutput * attentionOutput,
+      units: attentionOutput * seqLen,
       outputUnits: denseUnits,
       activation: "linear",
       alpha,
@@ -49,14 +52,15 @@ export default class Transformers extends Sequential {
     super({ layers: [attentionLayer, denseLayer] });
     this.attentionLayer = attentionLayer;
     this.denseLayer = denseLayer;
-    this.attentionUnits = attentionOutput;
+    this.attentionShape = [attentionOutput, seqLen];
   }
 
   forward(x: MatrixType): MatrixType {
     // 1. Self-Attention
     const attentionOut = this.attentionLayer.forward(x);
+    this.attentionShape = [attentionOut._shape[0], attentionOut._shape[1]];
 
-    // 2. Flatten output attention → [outputUnits², 1]
+    // 2. Flatten output attention → [outputUnits * seqLen, 1]
     const n = attentionOut._shape[0] * attentionOut._shape[1];
     const flat = mj.reshape(attentionOut, [n, 1]);
 
@@ -71,8 +75,7 @@ export default class Transformers extends Sequential {
     this.loss = this.denseLayer.loss;
 
     // Un-flatten kembali ke shape attention output
-    const attentionShape: [number, number] = [this.attentionUnits, this.attentionUnits];
-    const errReshaped = mj.reshape(errDense, attentionShape);
+    const errReshaped = mj.reshape(errDense, this.attentionShape);
 
     // Backward ke SelfAttantion
     this.attentionLayer.backward(y, errReshaped);

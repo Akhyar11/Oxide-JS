@@ -27,29 +27,37 @@ export default function SoftmaxCrossEntropy(
   // 1. Terapkan softmax ke logits
   const [probs] = softmax(logits, false);
 
-  // 2. Hitung loss: -sum(y * log(ŷ)) / N
+  // 2. Hitung loss.
+  // Mendukung dua format target:
+  // - one-hot [numClasses, 1]
+  // - sparse class index [[classId]]
   const epsilon = 1e-15;
+  const pData = probs._data;
+  const gradData = new Float64Array(pData);
+  const isSparseTarget = yTrue._shape[0] === 1 && yTrue._shape[1] === 1;
+
+  if (isSparseTarget) {
+    const classIndex = Math.floor(yTrue._data[0]);
+    if (classIndex < 0 || classIndex >= logits._shape[0]) {
+      throw new Error(`Class index '${classIndex}' di luar range logits (0 - ${logits._shape[0] - 1})`);
+    }
+
+    const n = logits._shape[0];
+    const p = Math.max(epsilon, pData[classIndex]);
+    gradData[classIndex] -= 1;
+    for (let i = 0; i < gradData.length; i++) gradData[i] /= n;
+    return [-(Math.log(p)) / n, Matrix.fromFlat(gradData, [logits._shape[0], logits._shape[1]])];
+  }
+
   const n = yTrue._shape[0];
   let loss = 0;
-
-  for (let i = 0; i < yTrue._shape[0]; i++) {
-    for (let j = 0; j < yTrue._shape[1]; j++) {
-      const y = yTrue._value[i][j];
-      const p = Math.max(epsilon, probs._value[i][j]);
-      loss += -(y * Math.log(p));
-    }
+  const yData = yTrue._data;
+  for (let i = 0; i < yData.length; i++) {
+    const y = yData[i];
+    const p = Math.max(epsilon, pData[i]);
+    loss += -(y * Math.log(p));
+    gradData[i] = (pData[i] - y) / n;
   }
   loss /= n;
-
-  // 3. Gradient gabungan: (ŷ - y) / N
-  //    Ini adalah keajaiban softmax+CE — gradient-nya sangat sederhana!
-  const gradArray: number[][] = [];
-  for (let i = 0; i < yTrue._shape[0]; i++) {
-    gradArray[i] = [];
-    for (let j = 0; j < yTrue._shape[1]; j++) {
-      gradArray[i][j] = (probs._value[i][j] - yTrue._value[i][j]) / n;
-    }
-  }
-
-  return [loss, mj.matrix(gradArray)];
+  return [loss, Matrix.fromFlat(gradData, [logits._shape[0], logits._shape[1]])];
 }

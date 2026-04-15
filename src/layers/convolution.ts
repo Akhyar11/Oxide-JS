@@ -120,12 +120,18 @@ export default class Convolution {
 
   private calculateErrInput(err: Matrix, input: Matrix) {
     const matrix = mj.zeros(this.inputShape);
+    const matrixData = matrix._data;
+    const errData = err._data;
+    const inputData = input._data;
+    const errCols = err._shape[1];
+    const inputCols = input._shape[1];
+    const outCols = matrix._shape[1];
     for (let k = 0; k < err._shape[0]; k++) {
       for (let l = 0; l < err._shape[1]; l++) {
         for (let m = 0; m < input._shape[0]; m++) {
           for (let n = 0; n < input._shape[1]; n++) {
-            matrix._value[m + k][n + l] +=
-              err._value[k][l] * input._value[m][n];
+            matrixData[(m + k) * outCols + (n + l)] +=
+              errData[k * errCols + l] * inputData[m * inputCols + n];
           }
         }
       }

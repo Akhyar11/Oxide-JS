@@ -116,6 +116,7 @@ model.add(new PositionalEncoding({
 
 model.add(new SelfAttantion({
   units: EMBEDDING_DIM,
+  seqLen: MAX_SEQ_LEN,
   alpha: LEARNING_RATE,
 }));
 

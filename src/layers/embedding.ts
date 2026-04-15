@@ -95,31 +95,36 @@ export default class Embedding {
     // output kita atur menjadi [embeddingDim, seqLen]
     this.outputShape = [this.embeddingDim, seqLen];
 
-    const outputArray: number[][] = [];
-    for (let i = 0; i < this.embeddingDim; i++) {
-        outputArray[i] = [];
-        for (let j = 0; j < seqLen; j++) {
-            const tokenIndex = Math.floor(this.inputIndices[j]);
-            if (tokenIndex < 0 || tokenIndex >= this.vocabSize) {
-                throw new Error(`Token index '${tokenIndex}' di luar kapasitas vocabulary (0 - ${this.vocabSize-1})`);
-            }
-            outputArray[i][j] = this.weight._value[i][tokenIndex];
+    const outputData = new Float64Array(this.embeddingDim * seqLen);
+    const weightData = this.weight._data;
+    const weightCols = this.weight._shape[1];
+
+    for (let j = 0; j < seqLen; j++) {
+        const tokenIndex = Math.floor(this.inputIndices[j]);
+        if (tokenIndex < 0 || tokenIndex >= this.vocabSize) {
+            throw new Error(`Token index '${tokenIndex}' di luar kapasitas vocabulary (0 - ${this.vocabSize-1})`);
+        }
+        for (let i = 0; i < this.embeddingDim; i++) {
+            outputData[i * seqLen + j] = weightData[i * weightCols + tokenIndex];
         }
     }
     
-    return new Matrix({ array: outputArray });
+    return Matrix.fromFlat(outputData, [this.embeddingDim, seqLen]);
   }
   
   backward(y: Matrix, err: Matrix): Matrix {
     // `err` adalah error/gradien dari layer setelahnya bertipe [embeddingDim, seqLen]
     const gradWeight = mj.zeros(this.weight._shape);
     const seqLen = this.inputIndices.length;
+    const gradData = gradWeight._data;
+    const errData = err._data;
+    const vocabSize = this.weight._shape[1];
     
     // Kumpulkan dan akumulasi nilai gradien setiap token ke index yang relevan pada `weight`
     for (let i = 0; i < this.embeddingDim; i++) {
         for (let j = 0; j < seqLen; j++) {
             const tokenIndex = Math.floor(this.inputIndices[j]);
-            gradWeight._value[i][tokenIndex] += err._value[i][j];
+            gradData[i * vocabSize + tokenIndex] += errData[i * seqLen + j];
         }
     }
     

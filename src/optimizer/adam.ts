@@ -34,26 +34,27 @@ export default class Adam {
 
   calculate(a: Matrix, alpha: number): Matrix {
     this.t++;
+    const gradData = a._data;
+    const mData = this.m._data;
+    const vData = this.v._data;
+    const updateData = new Float64Array(gradData.length);
+    const oneMinusBeta1 = 1 - this.beta1;
+    const oneMinusBeta2 = 1 - this.beta2;
+    const biasCorrection1 = 1 / (1 - Math.pow(this.beta1, this.t));
+    const biasCorrection2 = 1 / (1 - Math.pow(this.beta2, this.t));
 
-    // m_t = β1 * m_{t-1} + (1-β1) * g
-    const beta1G = mj.mul(this.beta1, this.m);
-    const oneMinusBeta1G = mj.mul(1 - this.beta1, a);
-    this.m = mj.add(beta1G, oneMinusBeta1G);
+    for (let i = 0; i < gradData.length; i++) {
+      const g = gradData[i];
+      const m = this.beta1 * mData[i] + oneMinusBeta1 * g;
+      const v = this.beta2 * vData[i] + oneMinusBeta2 * g * g;
+      mData[i] = m;
+      vData[i] = v;
 
-    // v_t = β2 * v_{t-1} + (1-β2) * g²
-    const gSquared = mj.map(a, (val) => val ** 2);
-    const beta2V = mj.mul(this.beta2, this.v);
-    const oneMinusBeta2V = mj.mul(1 - this.beta2, gSquared);
-    this.v = mj.add(beta2V, oneMinusBeta2V);
+      const mHat = m * biasCorrection1;
+      const vHat = v * biasCorrection2;
+      updateData[i] = alpha * mHat / (Math.sqrt(vHat) + this.epsilon);
+    }
 
-    // Bias correction
-    const mHat = mj.mul(1 / (1 - Math.pow(this.beta1, this.t)), this.m);
-    const vHat = mj.mul(1 / (1 - Math.pow(this.beta2, this.t)), this.v);
-
-    // update = α * m̂ / (sqrt(v̂) + ε)
-    const sqrtVHat = mj.map(vHat, (val) => Math.sqrt(val) + this.epsilon);
-    const update = mj.mul(alpha, mj.div(mHat, sqrtVHat));
-
-    return update;
+    return Matrix.fromFlat(updateData, [a._shape[0], a._shape[1]]);
   }
 }

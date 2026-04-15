@@ -6,6 +6,7 @@ import { setLoss } from "../utils";
 
 interface SelfAttantionLayer {
   units: number;
+  seqLen?: number;
   alpha?: number;
   loss?: Cost;
   status?: StatusLayer;
@@ -34,14 +35,15 @@ export default class SelfAttantion {
   private V: Matrix = mj.matrix([]);
   constructor({
     units,
+    seqLen = 1,
     alpha = 0.1,
     loss = "mse",
     status = "input",
   }: SelfAttantionLayer) {
     this.units = units;
     this.outputUnits = Math.floor(units / 2);
-    this.inputShape = [units, 1];
-    this.outputShape = [this.outputUnits, this.outputUnits];
+    this.inputShape = [units, seqLen];
+    this.outputShape = [this.outputUnits, seqLen];
     // params: 3 bobot matrix (Q, K, V) masing-masing [outputUnits x units]
     this.params = 3 * this.outputUnits * this.units;
     this.q = mj.random([this.outputUnits, this.units]);
@@ -65,15 +67,22 @@ export default class SelfAttantion {
   }
 
   forward(x: Matrix): Matrix {
+    this.inputShape = [x._shape[0], x._shape[1]];
     const wq = mj.dotProduct(this.q, x);
     const wk = mj.dotProduct(this.k, x);
     const wv = mj.dotProduct(this.v, x);
 
     const qk = mj.dotProduct(mj.transpose(wk), wq);
+    const scaledQkData = new Float64Array(qk._data.length);
+    const scale = 1 / Math.sqrt(this.outputUnits);
+    for (let i = 0; i < qk._data.length; i++) {
+      scaledQkData[i] = qk._data[i] * scale;
+    }
     [this.attantion, this.dAttantion] = softmax(
-      mj.div(qk, Math.sqrt(this.outputUnits))
+      Matrix.fromFlat(scaledQkData, [qk._shape[0], qk._shape[1]])
     );
     const output = mj.dotProduct(wv, this.attantion);
+    this.outputShape = [output._shape[0], output._shape[1]];
 
     this.input = x;
     this.Q = wq;
