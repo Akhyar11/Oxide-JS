@@ -1,6 +1,7 @@
 import mj from "../math";
 import Matrix from "../matrix";
 import { StatusLayer } from "../@types/type";
+import { isNativeAvailable, layerNormNative } from "../math/rust_backend";
 
 /**
  * Layer Normalization
@@ -63,6 +64,14 @@ export default class LayerNormalization {
     this.input = x;
     this.inputShape = [rows, cols];
     this.outputShape = [rows, cols];
+
+    if (isNativeAvailable()) {
+      const [res, norm, m, s] = layerNormNative(x._data, this.gamma._data, this.beta._data, rows, cols, this.epsilon);
+      this.normalized = Matrix.fromFlat(norm, [rows, cols]);
+      this.mean = Matrix.fromFlat(m, [1, cols]);
+      this.std = Matrix.fromFlat(s, [1, cols]);
+      return Matrix.fromFlat(res, [rows, cols]);
+    }
 
     const result = new Float64Array(rows * cols);
     const normalizedData = new Float64Array(rows * cols);

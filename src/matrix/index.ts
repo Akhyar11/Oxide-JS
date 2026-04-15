@@ -1,4 +1,5 @@
 import { MatrixCollection, MatrixShape, matrix2d } from "../@types/type";
+import { isNativeAvailable, addInPlaceNative, subInPlaceNative, mulInPlaceNative } from "../math/rust_backend";
 
 /**
  * Matrix class yang dioptimasi dengan Float64Array
@@ -192,7 +193,11 @@ export default class Matrix {
     if (typeof other === "number") {
       for (let i = 0; i < this._data.length; i++) this._data[i] += other;
     } else {
-      for (let i = 0; i < this._data.length; i++) this._data[i] += other._data[i];
+      if (isNativeAvailable()) {
+        addInPlaceNative(this._data, other._data);
+      } else {
+        for (let i = 0; i < this._data.length; i++) this._data[i] += other._data[i];
+      }
     }
   }
 
@@ -203,7 +208,11 @@ export default class Matrix {
     if (typeof other === "number") {
       for (let i = 0; i < this._data.length; i++) this._data[i] -= other;
     } else {
-      for (let i = 0; i < this._data.length; i++) this._data[i] -= other._data[i];
+      if (isNativeAvailable()) {
+        subInPlaceNative(this._data, other._data);
+      } else {
+        for (let i = 0; i < this._data.length; i++) this._data[i] -= other._data[i];
+      }
     }
   }
 
@@ -214,7 +223,11 @@ export default class Matrix {
     if (typeof other === "number") {
       for (let i = 0; i < this._data.length; i++) this._data[i] *= other;
     } else {
-      for (let i = 0; i < this._data.length; i++) this._data[i] *= other._data[i];
+      if (isNativeAvailable()) {
+        mulInPlaceNative(this._data, other._data);
+      } else {
+        for (let i = 0; i < this._data.length; i++) this._data[i] *= other._data[i];
+      }
     }
   }
 }

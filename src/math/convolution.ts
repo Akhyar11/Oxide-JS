@@ -1,5 +1,6 @@
 import Matrix from "../matrix";
 import zeros from "./zeros";
+import { isNativeAvailable, convolutionNative } from "./rust_backend";
 
 /**
  * Menghitung convolution dari matrix a dengan kernel — DIOPTIMASI
@@ -12,6 +13,11 @@ export default function convolution(a: Matrix, kernel: Matrix): Matrix {
   const kRows = kernel._shape[0], kCols = kernel._shape[1];
   const outRows = aRows - kRows + 1;
   const outCols = aCols - kCols + 1;
+
+  if (isNativeAvailable()) {
+    const res = convolutionNative(a._data, aRows, aCols, kernel._data, kRows, kCols);
+    return Matrix.fromFlat(res, [outRows, outCols]);
+  }
 
   const matrix = zeros([outRows, outCols]);
   const aData = a._data;

@@ -1,19 +1,32 @@
 import mj from "../math";
 import Matrix from "../matrix";
+import { isNativeAvailable, softmaxNative, softmaxBackwardNative, sigmoidNative, reluNative, tanhNative } from "../math/rust_backend";
 
 export function sigmoid(a: Matrix): [Matrix, Matrix] {
+  if (isNativeAvailable()) {
+    const [res, grad] = sigmoidNative(a._data);
+    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+  }
   const result = mj.map(a, (val) => 1 / (1 + Math.exp(-val)));
   const dResult = mj.map(result, (val) => val * (1 - val));
   return [result, dResult];
 }
 
 export function tanh(a: Matrix): [Matrix, Matrix] {
+  if (isNativeAvailable()) {
+    const [res, grad] = tanhNative(a._data);
+    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+  }
   const result = mj.map(a, (val) => Math.tanh(val));
   const dResult = mj.map(result, (val) => 1 - val ** 2);
   return [result, dResult];
 }
 
 export function relu(a: Matrix): [Matrix, Matrix] {
+  if (isNativeAvailable()) {
+    const [res, grad] = reluNative(a._data);
+    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+  }
   const result = mj.map(a, (val) => (val < 0 ? 0 : val));
   // gradient dihitung dari input 'a' asli: 0 jika a<=0, 1 jika a>0
   const dResult = mj.map(a, (val) => (val > 0 ? 1 : 0));
@@ -42,6 +55,12 @@ export default function linear(a: Matrix): [Matrix, Matrix] {
 export function softmax(a: Matrix, row = false): [Matrix, Matrix] {
   const [rows, cols] = a._shape;
   const input = a._data;
+
+  if (isNativeAvailable()) {
+    const res = softmaxNative(a._data, rows, cols, row);
+    const softmaxMatrix = Matrix.fromFlat(res, [rows, cols]);
+    return [softmaxMatrix, softmaxGradient(softmaxMatrix)];
+  }
 
   if (row) {
     const result = new Float64Array(input.length);
@@ -119,6 +138,11 @@ export function softmaxBackward(s: Matrix, g: Matrix, row = false): Matrix {
   const resultData = new Float64Array(s._data.length);
   const sData = s._data;
   const gData = g._data;
+
+  if (isNativeAvailable()) {
+    const res = softmaxBackwardNative(s._data, g._data, rows, cols, row);
+    return Matrix.fromFlat(res, [rows, cols]);
+  }
 
   if (row) {
     for (let i = 0; i < rows; i++) {

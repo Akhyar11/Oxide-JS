@@ -1,20 +1,27 @@
 {
-  "name": "ML V2",
+  "name": "ml-v2",
   "version": "1.0.0",
+  "napi": {
+    "name": "ml-native"
+  },
   "main": "index.js",
   "scripts": {
     "test": "npx ts-node test/test.ts",
     "test:perf": "npx ts-node test/perf_math.ts",
-    "start": "clear && tsc && time node build/main.js"
+    "start": "clear && tsc && time node build/main.js",
+    "build:rust": "napi build --platform --release --cargo-cwd src-rust && mv *.node ml-native.node",
+    "build:rust:debug": "napi build --platform --cargo-cwd src-rust && mv *.node ml-native.node"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@napi-rs/cli": "^2.18.0",
     "@types/node": "^20.11.20"
   },
   "dependencies": {
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "@napi-rs/wasm-runtime": "^0.2.4"
   }
 }

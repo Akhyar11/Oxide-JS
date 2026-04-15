@@ -2,6 +2,7 @@ import mj from "../math";
 import Matrix from "../matrix";
 import { Optimzier, OptimzierType, StatusLayer, matrix2d } from "../@types/type";
 import setOptimizer from "../utils/setOptimizer";
+import { isNativeAvailable, embeddingForwardNative, embeddingBackwardNative } from "../math/rust_backend";
 
 export interface EmbeddingLayerParams {
   vocabSize: number;
@@ -102,6 +103,11 @@ export default class Embedding {
     // output kita atur menjadi [embeddingDim, seqLen]
     this.outputShape = [this.embeddingDim, seqLen];
 
+    if (isNativeAvailable()) {
+        const out = embeddingForwardNative(this.inputIndices, this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId);
+        return Matrix.fromFlat(out, [this.embeddingDim, seqLen]);
+    }
+
     const outputData = new Float64Array(this.embeddingDim * seqLen);
     const weightData = this.weight._data;
     const weightCols = this.weight._shape[1];
@@ -126,18 +132,22 @@ export default class Embedding {
     // `err` adalah error/gradien dari layer setelahnya bertipe [embeddingDim, seqLen]
     const gradWeight = mj.zeros(this.weight._shape);
     const seqLen = this.inputIndices.length;
-    const gradData = gradWeight._data;
-    const errData = err._data;
-    const vocabSize = this.weight._shape[1];
-    
-    // Kumpulkan dan akumulasi nilai gradien setiap token ke index yang relevan pada `weight`
-    for (let i = 0; i < this.embeddingDim; i++) {
-        for (let j = 0; j < seqLen; j++) {
-            const tokenIndex = Math.floor(this.inputIndices[j]);
-            if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
-                continue;
+    if (isNativeAvailable()) {
+        embeddingBackwardNative(this.inputIndices, err._data, gradWeight._data, this.vocabSize, this.embeddingDim, this.padTokenId);
+    } else {
+        const gradData = gradWeight._data;
+        const errData = err._data;
+        const vocabSize = this.weight._shape[1];
+        
+        // Kumpulkan dan akumulasi nilai gradien setiap token ke index yang relevan pada `weight`
+        for (let i = 0; i < this.embeddingDim; i++) {
+            for (let j = 0; j < seqLen; j++) {
+                const tokenIndex = Math.floor(this.inputIndices[j]);
+                if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
+                    continue;
+                }
+                gradData[i * vocabSize + tokenIndex] += errData[i * seqLen + j];
             }
-            gradData[i * vocabSize + tokenIndex] += errData[i * seqLen + j];
         }
     }
     

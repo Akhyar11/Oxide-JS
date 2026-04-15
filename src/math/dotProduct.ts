@@ -1,4 +1,5 @@
 import Matrix from "../matrix";
+import { isNativeAvailable, dotProductNative } from "./rust_backend";
 
 /**
  * Perkalian product matrix a dan b — DIOPTIMASI
@@ -28,6 +29,12 @@ export default function dotProduct(
 
   if (aCols !== bRows) {
     throw new Error(`Dimensi matrix tidak cocok untuk dot product: [${aRows}x${aCols}] * [${bRows}x${bCols}]`);
+  }
+
+  // USE NATIVE IF AVAILABLE
+  if (isNativeAvailable() && !out) {
+    const resData = dotProductNative(a._data, a._shape, b._data, b._shape, transA, transB);
+    return Matrix.fromFlat(resData, [aRows, bCols]);
   }
 
   if (out) {

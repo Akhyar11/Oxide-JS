@@ -1,0 +1,10 @@
+/home/akhyar/Dokumen/Code/NODE JS/ML_V2/src-rust/target/release/deps/napi_derive-582215f17bdf1579.d: /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/lib.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/compat_macro.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/expand.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/parser/mod.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/parser/attrs.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/expand/napi.rs
+
+/home/akhyar/Dokumen/Code/NODE JS/ML_V2/src-rust/target/release/deps/libnapi_derive-582215f17bdf1579.so: /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/lib.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/compat_macro.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/expand.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/parser/mod.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/parser/attrs.rs /home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/expand/napi.rs
+
+/home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/lib.rs:
+/home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/compat_macro.rs:
+/home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/expand.rs:
+/home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/parser/mod.rs:
+/home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/parser/attrs.rs:
+/home/akhyar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-derive-2.16.13/src/expand/napi.rs:

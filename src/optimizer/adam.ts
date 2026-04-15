@@ -1,6 +1,7 @@
 import { MatrixShape } from "../@types/type";
 import mj from "../math";
 import Matrix from "../matrix";
+import { isNativeAvailable, adamUpdateNative } from "../math/rust_backend";
 
 /**
  * Adam Optimizer (Adaptive Moment Estimation)
@@ -40,6 +41,21 @@ export default class Adam {
     const mData = this.m._data;
     const vData = this.v._data;
     const bufferData = this.updateBuffer._data;
+    if (isNativeAvailable()) {
+      adamUpdateNative(
+        gradData,
+        mData,
+        vData,
+        bufferData,
+        this.t,
+        alpha,
+        this.beta1,
+        this.beta2,
+        this.epsilon
+      );
+      return this.updateBuffer;
+    }
+
     const oneMinusBeta1 = 1 - this.beta1;
     const oneMinusBeta2 = 1 - this.beta2;
     const biasCorrection1 = 1 / (1 - Math.pow(this.beta1, this.t));

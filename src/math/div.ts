@@ -1,5 +1,6 @@
 import { MatrixCollection } from "../@types/type";
 import Matrix from "../matrix";
+import { isNativeAvailable, divNative } from "./rust_backend";
 
 /**
  * Membagi matrix dengan a — DIOPTIMASI
@@ -23,6 +24,13 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
   if (a._shape[0] !== b._shape[0] || a._shape[1] !== b._shape[1]) {
     throw new Error(`bentuk dari a harus sama dengan matrix ${a._shape} != ${b._shape}`);
   }
+
+  // USE NATIVE IF AVAILABLE
+  if (isNativeAvailable()) {
+    const resultData = divNative(a._data, b._data);
+    return Matrix.fromFlat(resultData, [a._shape[0], a._shape[1]]);
+  }
+
   const result = new Float64Array(a._data.length);
   for (let i = 0; i < a._data.length; i++) {
     if (b._data[i] === 0) throw new Error(`Pembagian dengan nol pada indeks [${i}]`);

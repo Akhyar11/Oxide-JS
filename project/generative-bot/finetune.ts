@@ -15,8 +15,8 @@ const EPOCHS = 100;
 const CONTEXT_LEN = 16;
 const EMBEDDING_DIM = 16;
 
-const modelPath = path.join(__dirname, "dataset", "generative_model.json");
-const vocabPath = path.join(__dirname, "dataset", "generative_vocab.json");
+const modelPath = path.join(__dirname, "dataset", "finetuned_model.json");
+const vocabPath = path.join(__dirname, "dataset", "finetuned_vocab.json");
 const finetuneDataPath = path.join(__dirname, "dataset", "conversations.json");
 
 // 1. Create default finetune data if not exists
@@ -107,14 +107,14 @@ for (let ep = 0; ep < EPOCHS; ep++) {
     if (ep % 10 === 0 || ep === EPOCHS - 1) {
         console.log(`Epoch ${ep + 1}/${EPOCHS} - Fine-tune Loss: ${model.loss.toFixed(6)}`);
         const targetModelPath = path.join(__dirname, "dataset", "finetuned_model.json");
-        const targetVocabPath = path.join(__dirname, "dataset", "finetuned_vocab.json");
         model.save(targetModelPath);
-        tokenizer.save(targetVocabPath);
     }
     if (model.loss < 0.0001) break;
 }
 
 // 6. Save Fine-tuned Model & Updated Vocab
+const targetVocabPath = path.join(__dirname, "dataset", "finetuned_vocab.json");
+tokenizer.save(targetVocabPath);
 console.log("Fine-tuning complete!");
 // console.log("Model saved to: " + targetModelPath);
 // console.log("Vocab saved to: " + targetVocabPath);

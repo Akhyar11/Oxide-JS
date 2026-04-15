@@ -12,6 +12,7 @@ import setActivation from "../utils/setActivation";
 import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
 import { CompileDenseLayers } from "./dense";
+import { isNativeAvailable, convBackwardInputNative } from "../math/rust_backend";
 
 interface ConvolutionLayers {
   kernelSize: [number, number];
@@ -119,6 +120,20 @@ export default class Convolution {
   }
 
   private calculateErrInput(err: Matrix, input: Matrix) {
+    if (isNativeAvailable()) {
+      const res = convBackwardInputNative(
+        err._data,
+        err._shape[0],
+        err._shape[1],
+        input._data,
+        input._shape[0],
+        input._shape[1],
+        this.inputShape[0],
+        this.inputShape[1]
+      );
+      return Matrix.fromFlat(res, this.inputShape);
+    }
+
     const matrix = mj.zeros(this.inputShape);
     const matrixData = matrix._data;
     const errData = err._data;

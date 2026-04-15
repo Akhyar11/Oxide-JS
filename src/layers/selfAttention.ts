@@ -4,6 +4,7 @@ import mj from "../math";
 import Matrix from "../matrix";
 import { setLoss } from "../utils";
 import setOptimizer from "../utils/setOptimizer";
+import { isNativeAvailable, applyAttentionMaskNative } from "../math/rust_backend";
 
 interface SelfAttentionLayer {
   units: number;
@@ -106,15 +107,20 @@ export default class SelfAttention {
     const wv = mj.dotProduct(this.v, x);
 
     const qk = mj.dotProduct(wk, wq, undefined, true, false);
-    const scaledQkData = new Float64Array(qk._data.length);
     const scale = 1 / Math.sqrt(this.outputUnits);
-    for (let i = 0; i < qk._data.length; i++) {
-      scaledQkData[i] = qk._data[i] * scale;
+    if (isNativeAvailable()) {
+      applyAttentionMaskNative(qk._data, this.padMask, qk._shape[0], qk._shape[1], scale);
+      [this.attention, this.dAttention] = softmax(qk);
+    } else {
+      const scaledQkData = new Float64Array(qk._data.length);
+      for (let i = 0; i < qk._data.length; i++) {
+        scaledQkData[i] = qk._data[i] * scale;
+      }
+      SelfAttention.applyMasks(scaledQkData, qk._shape[0], qk._shape[1], this.padMask);
+      [this.attention, this.dAttention] = softmax(
+        Matrix.fromFlat(scaledQkData, [qk._shape[0], qk._shape[1]])
+      );
     }
-    SelfAttention.applyMasks(scaledQkData, qk._shape[0], qk._shape[1], this.padMask);
-    [this.attention, this.dAttention] = softmax(
-      Matrix.fromFlat(scaledQkData, [qk._shape[0], qk._shape[1]])
-    );
     const output = SelfAttention.zeroMaskedColumns(
       mj.dotProduct(wv, this.attention),
       this.padMask
