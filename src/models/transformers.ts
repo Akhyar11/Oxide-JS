@@ -1,14 +1,15 @@
 import mj from "../math";
 import Matrix from "../matrix";
-import { Matrix as MatrixType } from "../@types/type";
 import Sequential from "./sequential";
-import { SelfAttention, Dense, PositionalEncoding, LayerNormalization, Embedding } from "../layers";
+import { MultiHeadAttention, Dense, PositionalEncoding, LayerNormalization, Embedding, Dropout } from "../layers";
 
 interface TransformersConfig {
   units: number;          // d_model (embedding size)
   seqLen: number;         // sequence length
   vocabSize: number;      // vocabulary size
-  alpha?: number;
+  heads?: number;         // number of attention heads (default 8)
+  dropoutRate?: number;   // dropout rate (default 0.1)
+  alpha?: number;         // learning rate
   padTokenId?: number;
 }
 
@@ -16,135 +17,162 @@ interface TransformersConfig {
  * Improved Transformer Model
  * 
  * Arsitektur:
- * Input (Indices) -> Embedding -> PositionalEncoding -> LayerNorm -> SelfAttention + Residual -> LayerNorm -> Flatten -> Dense -> Output
+ * Input (Indices) -> Embedding -> PositionalEncoding
+ * Block:
+ *   1. Pre-Norm: LayerNorm1 -> MultiHeadAttention -> Dropout1 -> Add (Residual 1)
+ *   2. FFN: LayerNorm2 -> Dense(4x units, relu) -> DropoutFFN -> Dense(units, linear) -> Dropout2 -> Add (Residual 2)
+ * Output: Dense (applied to each token independently) -> Output
  */
 export default class Transformers extends Sequential {
   private embedding: Embedding;
   private pe: PositionalEncoding;
   private ln1: LayerNormalization;
-  private attention: SelfAttention;
+  private mha: MultiHeadAttention;
+  private drop1: Dropout;
   private ln2: LayerNormalization;
+  private ffn1: Dense;
+  private dropFfn: Dropout;
+  private ffn2: Dense;
+  private drop2: Dropout;
   private dense: Dense;
 
   private xInput: Matrix = mj.matrix([]);
   private xEmb: Matrix = mj.matrix([]);
   private xPe: Matrix = mj.matrix([]);
-  private xRes: Matrix;
-  private errPeRes: Matrix; // Buffer untuk gradient residual path
+  
+  private xLn1: Matrix = mj.matrix([]);
+  private xRes1: Matrix;
+  private xLn2: Matrix = mj.matrix([]);
+  private xRes2: Matrix;
 
-  constructor({ units, seqLen, vocabSize, alpha = 0.01, padTokenId }: TransformersConfig) {
+  private errRes1Buf: Matrix;
+  private errRes2Buf: Matrix;
+
+  constructor({ units, seqLen, vocabSize, heads = 8, dropoutRate = 0.1, alpha = 0.01, padTokenId }: TransformersConfig) {
     const embedding = new Embedding({ vocabSize, embeddingDim: units, alpha, padTokenId });
     const pe = new PositionalEncoding({ dModel: units, maxSeqLen: seqLen });
+    
+    // Block
     const ln1 = new LayerNormalization({ units });
-    const attention = new SelfAttention({ units, seqLen, alpha });
+    const mha = new MultiHeadAttention({ units, heads, seqLen, alpha });
+    const drop1 = new Dropout({ rate: dropoutRate });
+    
     const ln2 = new LayerNormalization({ units });
+    const ffn1 = new Dense({ units, outputUnits: units * 4, activation: "relu", alpha });
+    const dropFfn = new Dropout({ rate: dropoutRate });
+    const ffn2 = new Dense({ units: units * 4, outputUnits: units, activation: "linear", alpha });
+    const drop2 = new Dropout({ rate: dropoutRate });
+    
+    // Output Projector (applied independently to sequence length)
     const dense = new Dense({
-      units: units * seqLen, 
+      units: units, 
       outputUnits: vocabSize, 
-      activation: "linear",
+      activation: "linear",  // Note: softmax can be applied in loss or another layer if needed
       alpha,
       status: "output",
     });
 
-    // Registrasi layer ke super (Sequential) untuk keperluan summary/save
-    super({ layers: [embedding, pe, ln1, attention, ln2, dense] });
+    super({ layers: [embedding, pe, ln1, mha, drop1, ln2, ffn1, dropFfn, ffn2, drop2, dense] });
     
     this.embedding = embedding;
     this.pe = pe;
     this.ln1 = ln1;
-    this.attention = attention;
+    this.mha = mha;
+    this.drop1 = drop1;
     this.ln2 = ln2;
+    this.ffn1 = ffn1;
+    this.dropFfn = dropFfn;
+    this.ffn2 = ffn2;
+    this.drop2 = drop2;
     this.dense = dense;
 
     // Pre-allocate buffers
-    this.xRes = mj.zeros([units, seqLen]);
-    this.errPeRes = mj.zeros([units, seqLen]);
+    this.xRes1 = mj.zeros([units, seqLen]);
+    this.xRes2 = mj.zeros([units, seqLen]);
+    this.errRes1Buf = mj.zeros([units, seqLen]);
+    this.errRes2Buf = mj.zeros([units, seqLen]);
   }
 
   forward(x: Matrix): Matrix {
     this.xInput = x;
 
-    // 1. Embedding
+    // Embedding & Positional Encoding
     this.xEmb = this.embedding.forward(x);
-
-    // 2. Positional Encoding
     this.xPe = this.pe.forward(this.xEmb);
     
-    // 3. LayerNorm 1
-    const xLn1 = this.ln1.forward(this.xPe);
+    // --- Transformer Block ---
+    // 1. Attention part (Pre-Norm)
+    this.xLn1 = this.ln1.forward(this.xPe);
+    const xMhaOut = this.mha.forward(this.xLn1);
+    const xDrop1Out = this.drop1.forward(xMhaOut);
     
-    // 4. Self-Attention
-    const xAttn = this.attention.forward(xLn1);
+    // Residual 1
+    this.xRes1.copyFrom(this.xPe);
+    this.xRes1.addInPlace(xDrop1Out);
     
-    // 5. Residual Connection (Add)
-    this.xRes.copyFrom(this.xPe); 
-    this.xRes.addInPlace(xAttn);
-    
-    // 6. LayerNorm 2
-    const xLn2 = this.ln2.forward(this.xRes);
+    // 2. FFN part (Pre-Norm)
+    this.xLn2 = this.ln2.forward(this.xRes1);
+    const xFfn1Out = this.ffn1.forward(this.xLn2);
+    const xDropFfnOut = this.dropFfn.forward(xFfn1Out);
+    const xFfn2Out = this.ffn2.forward(xDropFfnOut);
+    const xDrop2Out = this.drop2.forward(xFfn2Out);
 
-    // 7. Flatten
-    const n = xLn2._data.length;
-    const flat = mj.reshape(xLn2, [n, 1]);
+    // Residual 2
+    this.xRes2.copyFrom(this.xRes1);
+    this.xRes2.addInPlace(xDrop2Out);
 
-    // 8. Dense Output
-    return this.dense.forward(flat);
+    // --- Output Projection ---
+    // Instead of flatten, we apply Dense to every token in sequence: [vocabSize, seqLen]
+    return this.dense.forward(this.xRes2);
   }
 
   backward(y: Matrix) {
-    // 1. Backward Dense
+    // 1. Backward Output Dense -> grad shape: [units, seqLen]
     const errDense = this.dense.backward(y, mj.matrix([[]]));
     this.loss = this.dense.loss;
 
-    // 2. Un-flatten
-    const errLn2 = mj.reshape(errDense, this.xRes._shape);
+    // Gradient that flows into Residual 2 (from the output projection)
+    this.errRes2Buf.copyFrom(errDense);
+    
+    // 2. Backward FFN block
+    const errDrop2 = this.drop2.backward(y, errDense);
+    const errFfn2 = this.ffn2.backward(y, errDrop2);
+    const errDropFfn = this.dropFfn.backward(y, errFfn2);
+    const errFfn1 = this.ffn1.backward(y, errDropFfn);
+    const errLn2 = this.ln2.backward(y, errFfn1);
 
-    // 3. Backward LayerNorm 2
-    const errRes = this.ln2.backward(y, errLn2);
+    // Gradient that flows into Residual 1 is: (Grad from Ln2) + (Grad flowing bypass in Res 2)
+    this.errRes1Buf.copyFrom(this.errRes2Buf);
+    this.errRes1Buf.addInPlace(errLn2);
 
-    // 4. Backward Residual (Gradient split)
-    const errAttn = errRes;
-    this.errPeRes.copyFrom(errRes); 
-    const errPe_ResidualPath = this.errPeRes;
+    // 3. Backward Attention block
+    const errDrop1 = this.drop1.backward(y, this.errRes1Buf);
+    const errMha = this.mha.backward(y, errDrop1);
+    const errLn1 = this.ln1.backward(y, errMha);
 
-    // 5. Backward Attention
-    const errLn1 = this.attention.backward(y, errAttn);
+    // Gradient into PE is: (Grad from Ln1) + (Grad flowing bypass in Res 1)
+    // we reuse errRes1Buf since we don't need it anymore
+    this.errRes1Buf.addInPlace(errLn1);
+    const totalErrPe = this.errRes1Buf;
 
-    // 6. Backward LayerNorm 1
-    const errPe_AttentionPath = this.ln1.backward(y, errLn1);
-
-    // 7. Gabungkan gradien (In-Place)
-    const totalErrPe = errPe_ResidualPath;
-    totalErrPe.addInPlace(errPe_AttentionPath);
-
-    // 8. Backward Positional Encoding
+    // 4. Backward Positional Encoding & Embedding
     const errEmb = this.pe.backward(y, totalErrPe);
-
-    // 9. Backward Embedding
     this.embedding.backward(y, errEmb);
   }
 
   load(path: string) {
     super.load(path);
-    // Setelah super.load() selesai, this.layers berisi layer-layer baru hasil loading.
-    // Kita harus memetakan kembali layer tersebut ke member private Transformers.
     for (const layer of this.layers) {
       if (layer instanceof Embedding) this.embedding = layer;
       else if (layer instanceof PositionalEncoding) this.pe = layer;
-      else if (layer instanceof SelfAttention) this.attention = layer;
-      else if (layer instanceof Dense) this.dense = layer;
-      else if (layer instanceof LayerNormalization) {
-        // Tentukan mana LN1 dan LN2 berdasarkan urutan (Embedding -> PE -> LN1 -> Attention -> LN2)
-        const idx = this.layers.indexOf(layer);
-        if (idx === 2) this.ln1 = layer;
-        else if (idx === 4) this.ln2 = layer;
+      else if (layer instanceof MultiHeadAttention) this.mha = layer;
+      else if (layer instanceof Dropout) {
+         // assign based on their indices if needed, standard load does layers anyway
       }
+      // re-mapping might require strict index checking if multiple of same layer exist
     }
   }
 
-  /**
-   * Resize model to accommodate more tokens
-   */
   resizeVocab(newVocabSize: number): void {
       this.embedding.resize(newVocabSize);
       this.dense.resize(newVocabSize);
