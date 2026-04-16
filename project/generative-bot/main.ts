@@ -1,0 +1,331 @@
+import * as fs from "fs";
+import * as path from "path";
+import * as readline from "readline";
+import { Transformers } from "../../src/models";
+import { BPETokenizer } from "../../src/tokenizer";
+import { softmax } from "../../src/activation";
+import mj from "../../src/math";
+import Matrix from "../../src/matrix";
+
+// ================================================================
+// GENERATIVE CHATBOT — Latih pada cerita rakyat (Next-Word Prediction)
+// ================================================================
+
+const DEFAULT_CONTEXT_LEN = 32;
+const DEFAULT_EMBEDDING_DIM = 32;
+const DEFAULT_HEADS = 4;
+const LEARNING_RATE = 0.0001; 
+const EPOCHS = 100;           
+const TEMPERATURE = 0.7;      
+const TOKENIZER_VOCAB_SIZE = 1000;
+const CHECKPOINT_EVERY = 10;
+const RESET_TRAINING = process.env.RESET_TRAINING === "1";
+const TRAINING_MODE = process.env.TRAINING_MODE?.toLowerCase();
+
+const botDatasetDir = path.join(__dirname, "dataset");
+const generativeModelPath = path.join(botDatasetDir, "generative_model.json");
+const generativeVocabPath = path.join(botDatasetDir, "generative_vocab.json");
+
+interface TrainPair {
+    xData: Float64Array;
+    target: number;
+}
+
+interface ModelConfig {
+    units: number;
+    seqLen: number;
+    heads: number;
+    padTokenId: number;
+    vocabSize: number;
+}
+
+type TrainingMode = "resume" | "reset";
+
+function askQuestion(question: string): Promise<string> {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise(resolve => {
+        rl.question(question, answer => {
+            rl.close();
+            resolve(answer.trim());
+        });
+    });
+}
+
+async function selectTrainingMode(hasCheckpoint: boolean): Promise<TrainingMode> {
+    if (RESET_TRAINING || TRAINING_MODE === "reset") {
+        console.log("\n=== 2. Training Mode ===\n");
+        console.log("Mode dipilih dari environment: reset training dari nol.");
+        return "reset";
+    }
+
+    if (TRAINING_MODE === "resume") {
+        console.log("\n=== 2. Training Mode ===\n");
+        if (hasCheckpoint) {
+            console.log("Mode dipilih dari environment: fine-tuning / lanjut model lama.");
+            return "resume";
+        }
+        console.log("Checkpoint belum ada, fallback ke reset training dari nol.");
+        return "reset";
+    }
+
+    if (!process.stdin.isTTY) {
+        return hasCheckpoint ? "resume" : "reset";
+    }
+
+    console.log("\n=== 2. Pilih Mode Training ===\n");
+    console.log("1. Fine-tuning / lanjut model lama");
+    console.log("2. Reset training dari nol");
+    if (!hasCheckpoint) {
+        console.log("Catatan: checkpoint belum ada, jadi opsi 1 akan otomatis fallback ke reset.");
+    }
+
+    while (true) {
+        const answer = await askQuestion(`Pilihan (1/2, default ${hasCheckpoint ? "1" : "2"}): `);
+        if (answer === "") {
+            return hasCheckpoint ? "resume" : "reset";
+        }
+        if (answer === "1") {
+            if (hasCheckpoint) return "resume";
+            console.log("Checkpoint belum ada, lanjut dengan reset training dari nol.");
+            return "reset";
+        }
+        if (answer === "2") {
+            return "reset";
+        }
+        console.log("Pilihan tidak valid. Masukkan 1 atau 2.");
+    }
+}
+
+function readModelConfig(modelPath: string): ModelConfig {
+    const layers = JSON.parse(fs.readFileSync(modelPath, "utf-8"));
+    const embedding = layers.find((layer: any) => layer.name === "embedding layer");
+    const pe = layers.find((layer: any) => layer.name === "positional encoding");
+    const mha = layers.find((layer: any) => layer.name === "multi head attention layer");
+
+    if (!embedding) {
+        throw new Error(`Cannot infer model config from ${modelPath}: embedding layer not found`);
+    }
+
+    return {
+        units: embedding.embeddingDim,
+        seqLen: pe?.maxSeqLen ?? mha?.seqLen ?? DEFAULT_CONTEXT_LEN,
+        heads: mha?.heads ?? DEFAULT_HEADS,
+        padTokenId: embedding.padTokenId ?? 0,
+        vocabSize: embedding.vocabSize ?? 0,
+    };
+}
+
+function formatDuration(ms: number): string {
+    const totalSeconds = Math.max(0, Math.round(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) return `${hours}j ${minutes}m ${seconds}d`;
+    if (minutes > 0) return `${minutes}m ${seconds}d`;
+    return `${seconds}d`;
+}
+
+function shuffleInPlace<T>(items: T[]): void {
+    for (let i = items.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+    }
+}
+
+// 5. Training
+async function main() {
+    // 1. Load Dataset
+    console.log("=== 1. Loading Text Dataset (cerita_rakyat.txt) ===\n");
+    const dataPath = path.join(__dirname, "..", "..", "dataset", "cerita_rakyat.txt");
+    const corpus = fs.readFileSync(dataPath, "utf-8").toLowerCase();
+    const lines = corpus.split("\n").filter(l => l.trim().length > 0);
+    console.log(`Loaded ${lines.length} lines.`);
+
+    // 2. Pilih mode training
+    fs.mkdirSync(botDatasetDir, { recursive: true });
+    const hasCheckpoint = fs.existsSync(generativeModelPath) && fs.existsSync(generativeVocabPath);
+    const trainingMode = await selectTrainingMode(hasCheckpoint);
+    const shouldLoadExistingModel = trainingMode === "resume";
+
+    // 3. Load / Train Tokenizer
+    let tokenizer: BPETokenizer;
+    let runtimeConfig: ModelConfig;
+    let savedModelVocabSize = 0;
+
+    if (shouldLoadExistingModel) {
+        console.log("\n=== 3. Loading Existing Tokenizer & Model Config ===\n");
+        tokenizer = BPETokenizer.load(generativeVocabPath);
+        savedModelVocabSize = tokenizer.getVocabSize();
+        tokenizer.update(lines, TOKENIZER_VOCAB_SIZE);
+        tokenizer.save(generativeVocabPath);
+        runtimeConfig = readModelConfig(generativeModelPath);
+        runtimeConfig.padTokenId = tokenizer.getPadId();
+        console.log(`Resuming training from saved model: ${generativeModelPath}`);
+    } else {
+        console.log("\n=== 3. Training Tokenizer ===\n");
+        tokenizer = new BPETokenizer({ vocabSize: TOKENIZER_VOCAB_SIZE, minFrequency: 1 });
+        tokenizer.train(lines);
+        tokenizer.save(generativeVocabPath);
+        runtimeConfig = {
+            units: DEFAULT_EMBEDDING_DIM,
+            seqLen: DEFAULT_CONTEXT_LEN,
+            heads: DEFAULT_HEADS,
+            padTokenId: tokenizer.getPadId(),
+            vocabSize: tokenizer.getVocabSize(),
+        };
+        savedModelVocabSize = runtimeConfig.vocabSize;
+        console.log(`Tokenizer saved to: ${generativeVocabPath}`);
+    }
+
+    const VOCAB_SIZE = tokenizer.getVocabSize();
+    const PAD_ID = tokenizer.getPadId();
+    runtimeConfig.vocabSize = VOCAB_SIZE;
+    runtimeConfig.padTokenId = PAD_ID;
+    console.log(
+        `Model config: context=${runtimeConfig.seqLen}, dim=${runtimeConfig.units}, ` +
+        `heads=${runtimeConfig.heads}, vocab=${runtimeConfig.vocabSize}`
+    );
+
+    // 4. Prepare Data
+    const trainPairs: TrainPair[] = [];
+    for (const text of lines) {
+        const tokens = tokenizer.encode(text);
+        for (let i = 0; i < tokens.length - 1; i++) {
+            const start = Math.max(0, i - runtimeConfig.seqLen + 1);
+            const ctxLen = i - start + 1;
+            const xData = new Float64Array(runtimeConfig.seqLen);
+            xData.fill(PAD_ID);
+            const offset = runtimeConfig.seqLen - ctxLen;
+            for (let j = 0; j < ctxLen; j++) {
+                xData[offset + j] = tokens[start + j];
+            }
+
+            trainPairs.push({
+                xData,
+                target: tokens[i + 1],
+            });
+        }
+    }
+    console.log(`Training pairs: ${trainPairs.length}`);
+
+    // 5. Build Model
+    const model = new Transformers({
+        units: runtimeConfig.units,
+        seqLen: runtimeConfig.seqLen,
+        vocabSize: shouldLoadExistingModel ? Math.max(savedModelVocabSize, 1) : VOCAB_SIZE,
+        heads: runtimeConfig.heads,
+        alpha: LEARNING_RATE,
+        padTokenId: PAD_ID
+    });
+    if (shouldLoadExistingModel) {
+        model.load(generativeModelPath);
+        if (VOCAB_SIZE > savedModelVocabSize) {
+            model.resizeVocab(VOCAB_SIZE);
+            console.log(`Expanded model vocabulary: ${savedModelVocabSize} -> ${VOCAB_SIZE}`);
+        }
+    }
+    model.summary()
+    model.compile({ alpha: LEARNING_RATE, optimizer: "adam", error: "softmaxCrossEntropy" });
+
+    function saveArtifacts(epoch?: number) {
+        model.save(generativeModelPath);
+
+        if (epoch !== undefined) {
+            console.log(`Checkpoint saved at epoch ${epoch}:`);
+        } else {
+            console.log("Final model saved:");
+        }
+        console.log(`  Model: ${generativeModelPath}`);
+    }
+
+    console.log(`\n=== 4. ${shouldLoadExistingModel ? "Resuming" : "Starting"} Training (${EPOCHS} Epochs) ===\n`);
+    const trainingStart = performance.now();
+    const epochTimes: number[] = [];
+    const trainXData = new Float64Array(runtimeConfig.seqLen);
+    const trainX = Matrix.fromFlat(trainXData, [runtimeConfig.seqLen, 1]);
+    const trainYData = new Float64Array(1);
+    const trainY = Matrix.fromFlat(trainYData, [1, 1]);
+    for (let ep = 0; ep < EPOCHS; ep++) {
+        for (const l of model.layers) if (typeof (l as any).resetLoss === "function") (l as any).resetLoss();
+
+        const epochStart = performance.now();
+        shuffleInPlace(trainPairs);
+        for (const p of trainPairs) {
+            trainXData.set(p.xData);
+            trainYData[0] = p.target;
+            model.forward(trainX);
+            model.backward(trainY);
+        }
+
+        const epochElapsed = performance.now() - epochStart;
+        epochTimes.push(epochElapsed);
+        const avgEpochMs = epochTimes.reduce((sum, time) => sum + time, 0) / epochTimes.length;
+        const recentEpochs = epochTimes.slice(-5);
+        const recentAvgMs = recentEpochs.reduce((sum, time) => sum + time, 0) / recentEpochs.length;
+        const elapsedMs = performance.now() - trainingStart;
+        const remainingEpochs = EPOCHS - (ep + 1);
+        const etaMs = recentAvgMs * remainingEpochs;
+
+        console.log(
+            `Epoch ${ep + 1}/${EPOCHS} - Loss: ${model.loss.toFixed(6)} | ` +
+            `Epoch: ${formatDuration(epochElapsed)} | ` +
+            `Avg: ${formatDuration(avgEpochMs)} | ` +
+            `Elapsed: ${formatDuration(elapsedMs)} | ` +
+            `ETA: ${formatDuration(etaMs)}`
+        );
+
+        if ((ep + 1) % CHECKPOINT_EVERY === 0) {
+            saveArtifacts(ep + 1);
+        }
+    }
+    saveArtifacts();
+
+    // 6. Generate Function
+    function generate(seed: string, maxTokens: number = 30): string {
+        let tokens = tokenizer.encode(seed.toLowerCase());
+        const gen: number[] = [];
+        for (let i = 0; i < maxTokens; i++) {
+            let win = tokens.slice(-runtimeConfig.seqLen);
+            while (win.length < runtimeConfig.seqLen) win.unshift(PAD_ID);
+            const logits = model.forward(mj.matrix(win.map(token => [token])));
+            
+            const lastLogits = new Float64Array(VOCAB_SIZE);
+            for (let v = 0; v < VOCAB_SIZE; v++) {
+                lastLogits[v] = logits._data[v] / TEMPERATURE;
+            }
+            
+            const [probs] = softmax(Matrix.fromFlat(lastLogits, [VOCAB_SIZE, 1]));
+            const r = Math.random();
+            let cum = 0, nextToken = 0;
+            for(let v=0; v<VOCAB_SIZE; v++) {
+                cum += probs._data[v];
+                if (r <= cum) { nextToken = v; break; }
+            }
+            if (nextToken === PAD_ID) break;
+            gen.push(nextToken);
+            tokens.push(nextToken);
+            if (tokenizer.decode([nextToken]).includes(".")) break;
+        }
+        return tokenizer.decode(gen);
+    }
+
+    // 7. Interactive
+    console.log("\n=== 5. Chat Selesai di-Latih! ===");
+    console.log("Ketik 'exit' untuk keluar.\n");
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const ask = () => {
+        rl.question("You: ", (input) => {
+            if (input.toLowerCase() === "exit") { rl.close(); return; }
+            console.log(`Bot: ...${generate(input)}\n`);
+            ask();
+        });
+    };
+    ask();
+}
+
+main().catch(error => {
+    console.error("Training failed:", error);
+    process.exit(1);
+});
