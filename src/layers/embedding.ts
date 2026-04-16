@@ -29,16 +29,16 @@ export default class Embedding {
   params: number;
   inputShape: [number, number] = [0, 0];
   outputShape: [number, number] = [0, 0];
-  
+
   // State for backprop
   loss: number = 0;
   private inputIndices: number[] = [];
-  
+
   // Buffers
   private outputBuffer: Matrix | null = null;
   private gradWeightBuffer: Matrix | null = null;
   private errOutputBuffer: Matrix | null = null;
-  
+
   constructor({
     vocabSize,
     embeddingDim,
@@ -53,11 +53,11 @@ export default class Embedding {
     this.alpha = alpha;
     this.optimizerName = optimizer;
     this.padTokenId = padTokenId;
-    
+
     // Weight shape: [embeddingDim, vocabSize]
     // Setiap kolom (vertikal) merepresentasikan satu kata/vektor
-    this.weight = mj.xavier([embeddingDim, vocabSize]); 
-    
+    this.weight = mj.xavier([embeddingDim, vocabSize]);
+
     this.optimizerWeight = setOptimizer(optimizer, this.weight._shape, 1e-5);
     // Jumlah parameter total tabel embedding
     this.params = vocabSize * embeddingDim;
@@ -96,87 +96,87 @@ export default class Embedding {
       this.optimizerName = optimizer;
     }
   }
-  
+
   forward(x: Matrix): Matrix {
     // Memproses input berisi list index token, e.g. [1, 5, 2]
     // x bisa berupa matriks 1D [seqLen, 1] atau [1, seqLen]
     const flatX = mj.flatten(x);
     this.inputIndices = Array.from(flatX._data);
-    
+
     const seqLen = this.inputIndices.length;
     this.inputShape = [seqLen, 1];
-    
+
     // Karena ML_V2 kita memproses array vertikal (kolom per kolom),
     // output kita atur menjadi [embeddingDim, seqLen]
     this.outputShape = [this.embeddingDim, seqLen];
 
     if (!this.outputBuffer || this.outputBuffer._shape[0] !== this.embeddingDim || this.outputBuffer._shape[1] !== seqLen) {
-        this.outputBuffer = mj.zeros([this.embeddingDim, seqLen]);
+      this.outputBuffer = mj.zeros([this.embeddingDim, seqLen]);
     }
     const outputData = this.outputBuffer._data;
 
     if (isNativeAvailable()) {
-        embeddingForwardNative(this.inputIndices, this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);
-        return this.outputBuffer;
+      embeddingForwardNative(this.inputIndices, this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);
+      return this.outputBuffer;
     }
 
     const weightData = this.weight._data;
     const weightCols = this.weight._shape[1];
 
     for (let j = 0; j < seqLen; j++) {
-        const tokenIndex = Math.floor(this.inputIndices[j]);
-        if (tokenIndex < 0 || tokenIndex >= this.vocabSize) {
-            throw new Error(`Token index '${tokenIndex}' di luar kapasitas vocabulary (0 - ${this.vocabSize-1})`);
-        }
-        if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
-            continue;
-        }
-        for (let i = 0; i < this.embeddingDim; i++) {
-            outputData[i * seqLen + j] = weightData[i * weightCols + tokenIndex];
-        }
+      const tokenIndex = Math.floor(this.inputIndices[j]);
+      if (tokenIndex < 0 || tokenIndex >= this.vocabSize) {
+        throw new Error(`Token index '${tokenIndex}' di luar kapasitas vocabulary (0 - ${this.vocabSize - 1})`);
+      }
+      if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
+        continue;
+      }
+      for (let i = 0; i < this.embeddingDim; i++) {
+        outputData[i * seqLen + j] = weightData[i * weightCols + tokenIndex];
+      }
     }
-    
+
     return this.outputBuffer;
   }
-  
+
   backward(y: Matrix, err: Matrix): Matrix {
     // `err` adalah error/gradien dari layer setelahnya bertipe [embeddingDim, seqLen]
     if (!this.gradWeightBuffer || this.gradWeightBuffer._shape[1] !== this.vocabSize || this.gradWeightBuffer._shape[0] !== this.embeddingDim) {
-        this.gradWeightBuffer = mj.zeros([this.embeddingDim, this.vocabSize]);
+      this.gradWeightBuffer = mj.zeros([this.embeddingDim, this.vocabSize]);
     } else {
-        this.gradWeightBuffer._data.fill(0);
+      this.gradWeightBuffer._data.fill(0);
     }
     const gradWeight = this.gradWeightBuffer;
     const seqLen = this.inputIndices.length;
     if (isNativeAvailable()) {
-        embeddingBackwardNative(this.inputIndices, err._data, gradWeight._data, this.vocabSize, this.embeddingDim, this.padTokenId);
+      embeddingBackwardNative(this.inputIndices, err._data, gradWeight._data, this.vocabSize, this.embeddingDim, this.padTokenId);
     } else {
-        const gradData = gradWeight._data;
-        const errData = err._data;
-        const vocabSize = this.weight._shape[1];
-        
-        // Kumpulkan dan akumulasi nilai gradien setiap token ke index yang relevan pada `weight`
-        for (let i = 0; i < this.embeddingDim; i++) {
-            for (let j = 0; j < seqLen; j++) {
-                const tokenIndex = Math.floor(this.inputIndices[j]);
-                if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
-                    continue;
-                }
-                gradData[i * vocabSize + tokenIndex] += errData[i * seqLen + j];
-            }
+      const gradData = gradWeight._data;
+      const errData = err._data;
+      const vocabSize = this.weight._shape[1];
+
+      // Kumpulkan dan akumulasi nilai gradien setiap token ke index yang relevan pada `weight`
+      for (let i = 0; i < this.embeddingDim; i++) {
+        for (let j = 0; j < seqLen; j++) {
+          const tokenIndex = Math.floor(this.inputIndices[j]);
+          if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
+            continue;
+          }
+          gradData[i * vocabSize + tokenIndex] += errData[i * seqLen + j];
         }
+      }
     }
-    
+
     // Update bobot kamus embedding menggunakan optimizer In-Place
     const optimizerUpdate = this.optimizerWeight.calculate(gradWeight, this.alpha);
     this.weight.subInPlace(optimizerUpdate);
-    
+
     // Gradien dari inputnya index (x) tidak dapat diturunkan ulang ke depannya, 
     // Jadi dikembalikan dummy array zeros agar tidak crash. (Menggunakan buffer)
     if (!this.errOutputBuffer || this.errOutputBuffer._shape[0] !== seqLen) {
-        this.errOutputBuffer = mj.zeros([seqLen, 1]);
+      this.errOutputBuffer = mj.zeros([seqLen, 1]);
     } else {
-        this.errOutputBuffer._data.fill(0);
+      this.errOutputBuffer._data.fill(0);
     }
     return this.errOutputBuffer;
   }
@@ -197,9 +197,9 @@ export default class Embedding {
 
     // 2. Copy old weights
     for (let i = 0; i < this.embeddingDim; i++) {
-        for (let j = 0; j < this.vocabSize; j++) {
-            newWeightData[i * newVocabSize + j] = oldWeightData[i * this.vocabSize + j];
-        }
+      for (let j = 0; j < this.vocabSize; j++) {
+        newWeightData[i * newVocabSize + j] = oldWeightData[i * this.vocabSize + j];
+      }
     }
 
     // 3. Update state
