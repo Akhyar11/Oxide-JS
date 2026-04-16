@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { dotProduct, dotProductInto, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative } = nativeBinding
+const { dotProduct, dotProductInto, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative } = nativeBinding
 
 module.exports.dotProduct = dotProduct
 module.exports.dotProductInto = dotProductInto
@@ -334,3 +334,6 @@ module.exports.addInPlace = addInPlace
 module.exports.subInPlace = subInPlace
 module.exports.mulInPlace = mulInPlace
 module.exports.mseNative = mseNative
+module.exports.addBiasNative = addBiasNative
+module.exports.sumAxisNative = sumAxisNative
+module.exports.clipGradientsNative = clipGradientsNative

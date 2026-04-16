@@ -98,6 +98,28 @@ export default class Matrix {
     console.table(arr);
   }
 
+  /**
+   * Ekstrak kolom sebagai Float64Array baru
+   */
+  getCol(colIndex: number): Float64Array {
+    const [rows, cols] = this._shape;
+    const col = new Float64Array(rows);
+    for (let i = 0; i < rows; i++) {
+        col[i] = this._data[i * cols + colIndex];
+    }
+    return col;
+  }
+
+  /**
+   * Set data kolom dari Float64Array
+   */
+  setCol(colIndex: number, data: Float64Array): void {
+    const [rows, cols] = this._shape;
+    for (let i = 0; i < rows; i++) {
+        this._data[i * cols + colIndex] = data[i];
+    }
+  }
+
   map(func: (value: number) => number) {
     for (let i = 0; i < this._data.length; i++) {
       this._data[i] = func(this._data[i]);

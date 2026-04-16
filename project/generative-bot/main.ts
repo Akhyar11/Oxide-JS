@@ -19,6 +19,7 @@ const EPOCHS = 100;
 const TEMPERATURE = 0.7;
 const TOKENIZER_VOCAB_SIZE = 20000;
 const CHECKPOINT_EVERY = 10;
+const BATCH_SIZE = 64;
 const RESET_TRAINING = process.env.RESET_TRAINING === "1";
 const TRAINING_MODE = process.env.TRAINING_MODE?.toLowerCase();
 
@@ -273,10 +274,10 @@ async function main() {
 
     const trainingStart = performance.now();
     const epochTimes: number[] = [];
-    const trainXData = new Float64Array(runtimeConfig.seqLen);
-    const trainX = Matrix.fromFlat(trainXData, [runtimeConfig.seqLen, 1]);
-    const trainYData = new Float64Array(1);
-    const trainY = Matrix.fromFlat(trainYData, [1, 1]);
+    
+    // Matriks buffer untuk batch
+    const batchX = mj.zeros([runtimeConfig.seqLen, BATCH_SIZE]);
+    const batchY = mj.zeros([1, BATCH_SIZE]);
 
     let bestLoss = Infinity; // Melacak loss terbaik
 
@@ -285,11 +286,28 @@ async function main() {
 
         const epochStart = performance.now();
         shuffleInPlace(trainPairs);
-        for (const p of trainPairs) {
-            trainXData.set(p.xData);
-            trainYData[0] = p.target;
-            model.forward(trainX);
-            model.backward(trainY);
+        
+        for (let i = 0; i < trainPairs.length; i += BATCH_SIZE) {
+            const actualBatchSize = Math.min(BATCH_SIZE, trainPairs.length - i);
+            
+            // Resize buffer jika batch terakhir lebih kecil
+            const currentBatchX = actualBatchSize === BATCH_SIZE ? batchX : mj.zeros([runtimeConfig.seqLen, actualBatchSize]);
+            const currentBatchY = actualBatchSize === BATCH_SIZE ? batchY : mj.zeros([1, actualBatchSize]);
+            
+            const xData = currentBatchX._data;
+            const yData = currentBatchY._data;
+
+            for (let b = 0; b < actualBatchSize; b++) {
+                const pair = trainPairs[i + b];
+                // Copy xData per kolom
+                for (let row = 0; row < runtimeConfig.seqLen; row++) {
+                    xData[row * actualBatchSize + b] = pair.xData[row];
+                }
+                yData[b] = pair.target;
+            }
+
+            model.forward(currentBatchX);
+            model.backward(currentBatchY);
         }
 
         const epochElapsed = performance.now() - epochStart;

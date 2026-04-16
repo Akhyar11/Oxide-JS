@@ -24,44 +24,46 @@ export default function SoftmaxCrossEntropy(
   yTrue: Matrix,
   logits: Matrix
 ): [number, Matrix] {
-  // 1. Terapkan softmax ke logits
+  // logits shape: [numClasses, batchSize]
+  // yTrue shape: [1, batchSize] (sparse) or [numClasses, batchSize] (one-hot)
+  
+  const [numClasses, batchSize] = logits._shape;
   const probs = softmaxOnly(logits, false);
-
-  // 2. Hitung loss.
-  // Mendukung dua format target:
-  // - one-hot [numClasses, 1]
-  // - sparse class index [[classId]]
   const epsilon = 1e-15;
   const pData = probs._data;
   const gradData = new Float64Array(pData);
-  const isSparseTarget = yTrue._shape[0] === 1 && yTrue._shape[1] === 1;
+  const isSparseTarget = yTrue._shape[0] === 1;
+
+  let totalLoss = 0;
 
   if (isSparseTarget) {
-    const classIndex = Math.floor(yTrue._data[0]);
-    if (classIndex < 0 || classIndex >= logits._shape[0]) {
-      throw new Error(`Class index '${classIndex}' di luar range logits (0 - ${logits._shape[0] - 1})`);
-    }
+    // Sparse case: yTrue is [1, batchSize]
+    for (let b = 0; b < batchSize; b++) {
+      const classIndex = Math.floor(yTrue._data[b]);
+      if (classIndex < 0 || classIndex >= numClasses) {
+        throw new Error(`Class index '${classIndex}' at batch ${b} di luar range logits (0 - ${numClasses - 1})`);
+      }
 
-    const p = Math.max(epsilon, pData[classIndex]);
-    gradData[classIndex] -= 1;
-    return [-(Math.log(p)), Matrix.fromFlat(gradData, [logits._shape[0], logits._shape[1]])];
+      const p = Math.max(epsilon, pData[classIndex * batchSize + b]);
+      totalLoss -= Math.log(p);
+      
+      // Gradient: probs - y (y is 1 for the target class)
+      gradData[classIndex * batchSize + b] -= 1;
+    }
+  } else {
+    // One-hot case: yTrue is [numClasses, batchSize]
+    const yData = yTrue._data;
+    for (let i = 0; i < yData.length; i++) {
+      const y = yData[i];
+      if (y === 0) continue;
+      
+      const p = Math.max(epsilon, pData[i]);
+      totalLoss -= y * Math.log(p);
+      gradData[i] -= y;
+    }
   }
 
-  const n = yTrue._shape[0];
-  let loss = 0;
-  const yData = yTrue._data;
-  for (let i = 0; i < yData.length; i++) {
-    const y = yData[i];
-    if (y === 0) {
-        gradData[i] = pData[i];
-        continue;
-    }
-    const p = Math.max(epsilon, pData[i]);
-    const l = -(y * Math.log(p));
-    if (!Number.isNaN(l)) {
-        loss += l;
-    }
-    gradData[i] = pData[i] - y;
-  }
-  return [loss, Matrix.fromFlat(gradData, [logits._shape[0], logits._shape[1]])];
+  // Rata-ratakan loss berdasarkan batch size
+  const finalGrad = Matrix.fromFlat(gradData, [numClasses, batchSize]);
+  return [totalLoss / batchSize, finalGrad];
 }

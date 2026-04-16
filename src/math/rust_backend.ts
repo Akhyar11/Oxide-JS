@@ -206,3 +206,17 @@ export const convBackwardInputNative = (
   native.convBackwardInputNativeInto(errData, errRows, errCols, inputData, inputRows, inputCols, outRows, outCols, out);
   return out;
 };
+export const addBiasNative = (data: Float64Array, bias: Float64Array, rows: number, cols: number): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.addBiasNative(data, bias, rows, cols);
+};
+
+export const sumAxisNative = (data: Float64Array, rows: number, cols: number, axis: number, out: Float64Array): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.sumAxisNative(data, rows, cols, axis, out);
+};
+
+export const clipGradientsNative = (data: Float64Array, limit: number): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.clipGradientsNative(data, limit);
+};

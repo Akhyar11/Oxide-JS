@@ -24,6 +24,9 @@ import convolution from "./convolution";
 import norm from "./norm";
 import xavier from "./xavier";
 import he from "./he";
+import addBias from "./addBias";
+import sumAxis from "./sumAxis";
+import clipGradients from "./clipGradients";
 
 const mj = {
   absm,
@@ -52,6 +55,9 @@ const mj = {
   norm,
   xavier,
   he,
+  addBias,
+  sumAxis,
+  clipGradients,
 };
 
 export default mj;

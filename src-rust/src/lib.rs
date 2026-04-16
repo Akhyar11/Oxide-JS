@@ -416,3 +416,52 @@ pub fn mse_native(y_true: Float64Array, y_pred: Float64Array) -> Vec<f64> {
     }
     vec![sum_sq / n]
 }
+#[napi]
+pub fn add_bias_native(mut data: Float64Array, bias: Float64Array, rows: u32, cols: u32) {
+    let r = rows as usize;
+    let c = cols as usize;
+    for j in 0..c {
+        let offset = j; // assuming column major or specific broadcasting? 
+        // In dense.ts: zData[i * cols + j] += bData[i]
+        // This is [rows x cols] where bias is [rows x 1].
+        for i in 0..r {
+            data[i * c + j] += bias[i];
+        }
+    }
+}
+
+#[napi]
+pub fn sum_axis_native(data: Float64Array, rows: u32, cols: u32, axis: u32, mut out: Float64Array) {
+    let r = rows as usize;
+    let c = cols as usize;
+    if axis == 1 {
+        // Sum across columns (result is [rows x 1])
+        for i in 0..r {
+            let mut sum = 0.0;
+            for j in 0..c {
+                sum += data[i * c + j];
+            }
+            out[i] = sum;
+        }
+    } else {
+        // Sum across rows (result is [1 x cols])
+        for j in 0..c {
+            let mut sum = 0.0;
+            for i in 0..r {
+                sum += data[i * c + j];
+            }
+            out[j] = sum;
+        }
+    }
+}
+
+#[napi]
+pub fn clip_gradients_native(mut data: Float64Array, limit: f64) {
+    for i in 0..data.len() {
+        if data[i] > limit {
+            data[i] = limit;
+        } else if data[i] < -limit {
+            data[i] = -limit;
+        }
+    }
+}

@@ -25,3 +25,6 @@ export declare function addInPlace(a: Float64Array, b: Float64Array): void
 export declare function subInPlace(a: Float64Array, b: Float64Array): void
 export declare function mulInPlace(a: Float64Array, b: Float64Array): void
 export declare function mseNative(yTrue: Float64Array, yPred: Float64Array): Array<number>
+export declare function addBiasNative(data: Float64Array, bias: Float64Array, rows: number, cols: number): void
+export declare function sumAxisNative(data: Float64Array, rows: number, cols: number, axis: number, out: Float64Array): void
+export declare function clipGradientsNative(data: Float64Array, limit: number): void

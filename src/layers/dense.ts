@@ -57,6 +57,9 @@ export default class Dense {
   // Pre-allocated buffers for speed (REUSE)
   private z: Matrix;
   private errWeightBuffer: Matrix;
+  private errBiasBuffer: Matrix;
+  private errActivationBuffer: Matrix;
+  private prevLayerErrBuffer: Matrix;
 
   constructor({
     units,
@@ -78,6 +81,9 @@ export default class Dense {
     
     this.z = mj.zeros([outputUnits, 1]); // Buffer for dotProduct + bias
     this.errWeightBuffer = mj.zeros([outputUnits, units]); // Buffer for errWeight
+    this.errBiasBuffer = mj.zeros([outputUnits, 1]);
+    this.errActivationBuffer = mj.zeros([outputUnits, 1]);
+    this.prevLayerErrBuffer = mj.zeros([units, 1]);
     this.activation = setActivation(activation);
     this.activationName = activation;
     this.optimizerName = optimizer;
@@ -114,6 +120,9 @@ export default class Dense {
     this.params = this.outputUnits * this.units + this.outputUnits;
     this.z = mj.zeros([this.outputUnits, 1]);
     this.errWeightBuffer = mj.zeros([this.outputUnits, this.units]);
+    this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
+    this.errActivationBuffer = mj.zeros([this.outputUnits, 1]);
+    this.prevLayerErrBuffer = mj.zeros([this.units, 1]);
   }
 
   compile({
@@ -142,15 +151,8 @@ export default class Dense {
     // [outputUnits, units] * [units, seqLen] -> [outputUnits, seqLen]
     mj.dotProduct(this.weight, this.input, this.z);
     
-    // 2. Tambahkan bias secara broadcast (per kolom)
-    const [rows, cols] = this.z._shape;
-    const zData = this.z._data;
-    const bData = this.bias._data;
-    for (let j = 0; j < cols; j++) {
-        for (let i = 0; i < rows; i++) {
-            zData[i * cols + j] += bData[i];
-        }
-    }
+    // 2. Tambahkan bias secara broadcast (per kolom) - OPTIMIZED WITH NATIVE
+    mj.addBias(this.z, this.bias);
 
     // 3. Activation
     const [result, dResult] = this.activation(this.z);
@@ -183,26 +185,25 @@ export default class Dense {
     if (this.activationName === "softmax") {
       errActivation = softmaxBackward(this.result, e, false);
     } else {
-      errActivation = mj.mul(e, this.dInput);
+      if (this.errActivationBuffer._shape[0] !== e._shape[0] || this.errActivationBuffer._shape[1] !== seqLen) {
+        this.errActivationBuffer = mj.zeros([e._shape[0], seqLen]);
+      }
+      errActivation = mj.mul(e, this.dInput, this.errActivationBuffer);
     }
 
     // 1. Hitung gradien weight
     // [outputUnits, seqLen] * [seqLen, units] -> [outputUnits, units]
     const gradWeight = mj.dotProduct(errActivation, this.input, this.errWeightBuffer, false, true);
     
-    // 2. Hitung gradien bias (Sum sepanjang sequence/kolom)
-    const gbData = new Float64Array(this.outputUnits);
-    const eaData = errActivation._data;
-    for (let j = 0; j < seqLen; j++) {
-        for (let i = 0; i < this.outputUnits; i++) {
-            gbData[i] += eaData[i * seqLen + j];
-        }
+    // 2. Hitung gradien bias (Sum sepanjang sequence/kolom) - OPTIMIZED WITH NATIVE
+    if (this.errBiasBuffer._shape[0] !== this.outputUnits) {
+        this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
     }
-    const gradBias = Matrix.fromFlat(gbData, [this.outputUnits, 1]);
+    const gradBias = mj.sumAxis(errActivation, 1, this.errBiasBuffer);
 
-    // [New] Gradient Clipping: Batasi nilai gradien agar tidak meledak
-    this.clipGradients(gradWeight, 1.0);
-    this.clipGradients(gradBias, 1.0);
+    // [New] Gradient Clipping: Batasi nilai gradien agar tidak meledak - OPTIMIZED WITH NATIVE
+    mj.clipGradients(gradWeight, 1.0);
+    mj.clipGradients(gradBias, 1.0);
 
     // 3. Dapatkan update dari optimizer
     const updateWeight = this.optimizerWeight.calculate(gradWeight, this.alpha);
@@ -212,17 +213,17 @@ export default class Dense {
     this.weight.subInPlace(updateWeight);
     this.bias.subInPlace(updateBias);
 
-    // 5. Hitung gradien ke layer sebelumnya
+    // 5. Hitung gradien ke layer sebelumnya - OPTIMIZED WITH BUFFER
     // [units, outputUnits] * [outputUnits, seqLen] -> [units, seqLen]
-    return mj.dotProduct(this.weight, errActivation, undefined, true, false);
+    if (this.prevLayerErrBuffer._shape[0] !== this.units || this.prevLayerErrBuffer._shape[1] !== seqLen) {
+        this.prevLayerErrBuffer = mj.zeros([this.units, seqLen]);
+    }
+    return mj.dotProduct(this.weight, errActivation, this.prevLayerErrBuffer, true, false);
   }
 
+  /** @deprecated Use mj.clipGradients instead */
   private clipGradients(m: Matrix, limit: number) {
-    const data = m._data;
-    for (let i = 0; i < data.length; i++) {
-        if (data[i] > limit) data[i] = limit;
-        else if (data[i] < -limit) data[i] = -limit;
-    }
+    mj.clipGradients(m, limit);
   }
 
   /**
