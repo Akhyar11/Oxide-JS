@@ -13,11 +13,14 @@ import Matrix from "../../src/matrix";
 const NEW_LEARNING_RATE = 0.001; // Lebih kecil dari training awal
 const EPOCHS = 500;
 
-const modelPath = path.join(__dirname, "dataset", "finetuned_model.json");
-const vocabPath = path.join(__dirname, "dataset", "finetuned_vocab.json");
+const baseModelPath = path.join(__dirname, "dataset", "generative_model.json");
+const finetuneModelPath = path.join(__dirname, "dataset", "finetuned_model.json");
+const baseVocabPath = path.join(__dirname, "dataset", "generative_vocab.json");
+const finetuneVocabPath = path.join(__dirname, "dataset", "finetuned_vocab.json");
 const finetuneDataPath = path.join(__dirname, "dataset", "conversations.json");
 
 function readModelConfig(modelPath: string) {
+    if (!fs.existsSync(modelPath)) return null;
     const layers = JSON.parse(fs.readFileSync(modelPath, "utf-8"));
     const embedding = layers.find((layer: any) => layer.name === "embedding layer");
     const pe = layers.find((layer: any) => layer.name === "positional encoding");
@@ -48,49 +51,62 @@ if (!fs.existsSync(finetuneDataPath)) {
 // 2. Load and Update Tokenizer
 console.log("=== 1. Loading & Updating Tokenizer ===");
 const conversations: { input: string; output: string }[] = JSON.parse(fs.readFileSync(finetuneDataPath, "utf-8"));
-const tokenizer = BPETokenizer.load(vocabPath);
 
-// Scan for new words/tokens
+// Cari vocab yang ada (prioritaskan finetuned, fallback ke base)
+const currentVocabPath = fs.existsSync(finetuneVocabPath) ? finetuneVocabPath : baseVocabPath;
+if (!fs.existsSync(currentVocabPath)) {
+    console.error("error: Base vocabulary not found. Run main.ts first!");
+    process.exit(1);
+}
+
+const tokenizer = BPETokenizer.load(currentVocabPath);
+
+// Scan for new words/tokens dari data percakapan
 const finetuneTexts = conversations.flatMap(c => [c.input.toLowerCase(), c.output.toLowerCase()]);
 const oldVocabSize = tokenizer.getVocabSize();
 tokenizer.update(finetuneTexts);
 const newVocabSize = tokenizer.getVocabSize();
 
 const PAD_ID = tokenizer.getPadId();
-const SEP_ID = tokenizer.getTokenId("<SEP>")!;
+const SEP_ID = tokenizer.getTokenId("<SEP>") || tokenizer.getTokenId("<UNK>")!; // Fallback safe
 const BOS_ID = tokenizer.getTokenId("<BOS>")!;
 const EOS_ID = tokenizer.getTokenId("<EOS>")!;
 
 // 3. Initialize & Load Model
 console.log("\n=== 2. Loading Pre-trained Model ===");
-if (!fs.existsSync(modelPath)) {
-    console.error("error: pre-trained model not found at " + modelPath);
+const currentModelPath = fs.existsSync(finetuneModelPath) ? finetuneModelPath : baseModelPath;
+
+if (!fs.existsSync(currentModelPath)) {
+    console.error("error: Pre-trained model not found at " + currentModelPath + ". Train it with main.ts first!");
     process.exit(1);
 }
 
-const modelConfig = readModelConfig(modelPath);
+const modelConfig = readModelConfig(currentModelPath)!;
 const model = new Transformers({
     units: modelConfig.units,
     seqLen: modelConfig.seqLen,
-    vocabSize: oldVocabSize, // Start with old size
+    vocabSize: oldVocabSize, // Mulai dari ukuran vocab lama
     heads: modelConfig.heads,
     padTokenId: modelConfig.padTokenId ?? PAD_ID
 });
 
-model.summary()
+model.load(currentModelPath);
+console.log(`Loaded weights from: ${path.basename(currentModelPath)}`);
 
-model.load(modelPath);
-console.log("Loaded weights from generative_model.json");
-
-// Resize model if vocabulary grew
+// Resize model if vocabulary grew (untuk kata-kata baru di percakapan)
 if (newVocabSize > oldVocabSize) {
     console.log(`Expanding model vocabulary: ${oldVocabSize} -> ${newVocabSize}`);
     model.resizeVocab(newVocabSize);
 }
 
-// Re-compile dengan learning rate baru (lebih rendah)
+// Re-compile dengan learning rate baru (lebih rendah agar tidak lupa pengetahuan lama)
 model.compile({ alpha: NEW_LEARNING_RATE, optimizer: "adam", error: "softmaxCrossEntropy" });
 console.log("Model initialized with vocab size: " + newVocabSize);
+
+// Pastikan mode training aktif
+for (const l of model.layers) {
+    if (l.name === "dropout layer") l.status = "train";
+}
 
 // 4. Prepare Fine-tuning Data
 console.log("\n=== 3. Preparing Fine-tune Data ===");

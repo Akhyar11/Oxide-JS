@@ -164,7 +164,14 @@ export default class Dense {
     let e: Matrix = mj.matrix([]);
     let lossValue = 0;
     if (this.status === "output") {
-      [lossValue, e] = this.lossFunc(y, this.result);
+      // Safety check: Jika target adalah sparse index (1x1) tapi output bukan 1x1, 
+      // maka MSE pasti akan error. Paksa gunakan SoftmaxCrossEntropy.
+      if (y._shape[0] === 1 && y._shape[1] === 1 && this.result._shape[0] > 1) {
+          const SoftmaxCrossEntropy = require("../cost/softmaxCrossEntropy").default;
+          [lossValue, e] = SoftmaxCrossEntropy(y, this.result);
+      } else {
+          [lossValue, e] = this.lossFunc(y, this.result);
+      }
       this.index++;
       this.sumLoss += lossValue;
       this.loss = this.sumLoss / this.index;
@@ -194,8 +201,8 @@ export default class Dense {
     const gradBias = Matrix.fromFlat(gbData, [this.outputUnits, 1]);
 
     // [New] Gradient Clipping: Batasi nilai gradien agar tidak meledak
-    this.clipGradients(gradWeight, 5.0);
-    this.clipGradients(gradBias, 5.0);
+    this.clipGradients(gradWeight, 1.0);
+    this.clipGradients(gradBias, 1.0);
 
     // 3. Dapatkan update dari optimizer
     const updateWeight = this.optimizerWeight.calculate(gradWeight, this.alpha);

@@ -14,10 +14,10 @@ import Matrix from "../../src/matrix";
 const DEFAULT_CONTEXT_LEN = 32;
 const DEFAULT_EMBEDDING_DIM = 32;
 const DEFAULT_HEADS = 4;
-const LEARNING_RATE = 0.0001; 
-const EPOCHS = 100;           
-const TEMPERATURE = 0.7;      
-const TOKENIZER_VOCAB_SIZE = 1000;
+const LEARNING_RATE = 0.00001;
+const EPOCHS = 100;
+const TEMPERATURE = 0.7;
+const TOKENIZER_VOCAB_SIZE = 300;
 const CHECKPOINT_EVERY = 10;
 const RESET_TRAINING = process.env.RESET_TRAINING === "1";
 const TRAINING_MODE = process.env.TRAINING_MODE?.toLowerCase();
@@ -164,7 +164,11 @@ async function main() {
         console.log(`Resuming training from saved model: ${generativeModelPath}`);
     } else {
         console.log("\n=== 3. Training Tokenizer ===\n");
-        tokenizer = new BPETokenizer({ vocabSize: TOKENIZER_VOCAB_SIZE, minFrequency: 1 });
+        tokenizer = new BPETokenizer({
+            vocabSize: TOKENIZER_VOCAB_SIZE,
+            minFrequency: 1,
+            specialTokens: ["<SEP>"]
+        });
         tokenizer.train(lines);
         tokenizer.save(generativeVocabPath);
         runtimeConfig = {
@@ -240,6 +244,13 @@ async function main() {
     }
 
     console.log(`\n=== 4. ${shouldLoadExistingModel ? "Resuming" : "Starting"} Training (${EPOCHS} Epochs) ===\n`);
+
+    // Pastikan semua layer (terutama Dropout) masuk ke mode training
+    for (const l of model.layers) {
+        if (l.name === "dropout layer") l.status = "train";
+        if ((l as any).compile) (l as any).compile({ alpha: LEARNING_RATE });
+    }
+
     const trainingStart = performance.now();
     const epochTimes: number[] = [];
     const trainXData = new Float64Array(runtimeConfig.seqLen);
@@ -289,16 +300,16 @@ async function main() {
             let win = tokens.slice(-runtimeConfig.seqLen);
             while (win.length < runtimeConfig.seqLen) win.unshift(PAD_ID);
             const logits = model.forward(mj.matrix(win.map(token => [token])));
-            
+
             const lastLogits = new Float64Array(VOCAB_SIZE);
             for (let v = 0; v < VOCAB_SIZE; v++) {
                 lastLogits[v] = logits._data[v] / TEMPERATURE;
             }
-            
+
             const [probs] = softmax(Matrix.fromFlat(lastLogits, [VOCAB_SIZE, 1]));
             const r = Math.random();
             let cum = 0, nextToken = 0;
-            for(let v=0; v<VOCAB_SIZE; v++) {
+            for (let v = 0; v < VOCAB_SIZE; v++) {
                 cum += probs._data[v];
                 if (r <= cum) { nextToken = v; break; }
             }

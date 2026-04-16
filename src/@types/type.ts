@@ -1,10 +1,13 @@
 import Activation from "../layers/activation";
 import Convolution from "../layers/convolution";
 import Dense from "../layers/dense";
-import SelfAttention from "../layers/selfAttantion";
+import SelfAttention from "../layers/selfAttention";
 import Embedding from "../layers/embedding";
 import Flatten from "../layers/flatten";
 import PositionalEncoding from "../layers/positionalEncoding";
+import LayerNormalization from "../layers/layerNormalization";
+import MultiHeadAttention from "../layers/multiHeadAttention";
+import Dropout from "../layers/dropout";
 import Matrix from "../matrix";
 import AdaGrad from "../optimizer/adaGrad";
 import Adam from "../optimizer/adam";
@@ -24,11 +27,23 @@ export type StatusLayer =
   | "output"
   | "norm"
   | "outputReduction"
-  | "convOutput";
+  | "convOutput"
+  | "train"
+  | "test";
 export type Optimzier = "sgd" | "adaGrad" | "momentum" | "nag" | "adam";
 export type OptimzierType = SGD | AdaGrad | NAG | Momentum | Adam;
 export type Cost = "mse" | "crossEntropy" | "binaryCrossEntropy" | "softmaxCrossEntropy";
-export type Layers = Dense | Activation | Convolution | SelfAttention | Embedding | Flatten | PositionalEncoding;
+export type Layers = 
+    | Dense 
+    | Activation 
+    | Convolution 
+    | SelfAttention 
+    | Embedding 
+    | Flatten 
+    | PositionalEncoding
+    | LayerNormalization
+    | MultiHeadAttention
+    | Dropout;
 
 export type WorkerData = {
   value: number;

@@ -34,8 +34,9 @@ export default class Dropout {
     this.inputShape = [x._shape[0], x._shape[1]];
     this.outputShape = [x._shape[0], x._shape[1]];
     
-    // Only scale elements if rate is > 0
-    if (this.rate === 0) {
+    // Hanya lakukan dropout JIKA statusnya adalah 'train'
+    // Jika 'test' atau status lain, kembalikan input tanpa modifikasi
+    if (this.status !== "train" || this.rate === 0) {
       return x;
     }
 

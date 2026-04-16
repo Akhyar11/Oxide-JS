@@ -73,7 +73,7 @@ export default class Sequential {
     let err = mj.matrix([[]]);
     for (let i = this.layers.length - 1; i >= 0; i--) {
       err = this.layers[i].backward(y, err);
-      if (this.layers[i].status === "output") this.loss = this.layers[i].loss;
+      if (this.layers[i].status === "output") this.loss = (this.layers[i] as any).loss;
     }
   }
 

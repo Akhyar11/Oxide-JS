@@ -1,4 +1,4 @@
-import { Optimzier, OptimzierType, StatusLayer } from "../@types/type";
+import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
 import { softmaxBackwardInto, softmaxInto } from "../activation";
 import mj from "../math";
 import { applyAttentionMaskNative, isNativeAvailable } from "../math/rust_backend";
@@ -125,7 +125,7 @@ export default class MultiHeadAttention {
     this.ensureSequenceBuffers(seqLen);
   }
 
-  compile({ alpha, optimizer }: { alpha?: number; optimizer?: Optimzier }) {
+  compile({ alpha, optimizer, error }: { alpha?: number; optimizer?: Optimzier; error?: Cost }) {
     if (alpha !== undefined) this.alpha = alpha;
     if (optimizer !== undefined) {
       this.optimizerName = optimizer;
@@ -133,7 +133,7 @@ export default class MultiHeadAttention {
       this.optimizerK = setOptimizer(optimizer, this.k._shape, this.alpha);
       this.optimizerV = setOptimizer(optimizer, this.v._shape, this.alpha);
     }
-    this.wo.compile({ alpha, optimizer });
+    this.wo.compile({ alpha, optimizer, error });
   }
 
   forward(x: Matrix): Matrix {
@@ -195,9 +195,9 @@ export default class MultiHeadAttention {
     const gradK = mj.dotProduct(this.dKAll, this.input, this.gradKBuffer, false, true);
     const gradV = mj.dotProduct(this.dVAll, this.input, this.gradVBuffer, false, true);
 
-    this.clipGradients(gradQ, 5.0);
-    this.clipGradients(gradK, 5.0);
-    this.clipGradients(gradV, 5.0);
+    this.clipGradients(gradQ, 1.0);
+    this.clipGradients(gradK, 1.0);
+    this.clipGradients(gradV, 1.0);
 
     this.oldQBuffer.copyFrom(this.q);
     this.oldKBuffer.copyFrom(this.k);

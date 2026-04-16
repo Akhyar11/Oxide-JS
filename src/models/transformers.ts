@@ -74,6 +74,7 @@ export default class Transformers extends Sequential {
       activation: "linear",
       alpha,
       status: "output",
+      loss: "softmaxCrossEntropy" // Paksa gunakan Cross Entropy dari awal
     });
 
     super({ layers: [embedding, pe, ln1, mha, drop1, ln2, ffn1, dropFfn, ffn2, drop2, dense] });

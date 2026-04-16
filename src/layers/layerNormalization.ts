@@ -1,7 +1,8 @@
+import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
 import mj from "../math";
 import Matrix from "../matrix";
-import { StatusLayer } from "../@types/type";
 import { isNativeAvailable, layerNormNative } from "../math/rust_backend";
+import setOptimizer from "../utils/setOptimizer";
 
 /**
  * Layer Normalization
@@ -27,19 +28,31 @@ export default class LayerNormalization {
   private normalized: Matrix = mj.matrix([]);
   private std: Matrix = mj.matrix([]);
   private mean: Matrix = mj.matrix([]);
+  private alpha: number = 0.01;
+  private optimizerName: Optimzier = "sgd";
+  private optimizerGamma: OptimzierType;
+  private optimizerBeta: OptimzierType;
 
   constructor({
     units,
     status = "norm",
+    alpha = 0.01,
+    optimizer = "sgd"
   }: {
     units: number;
     status?: StatusLayer;
+    alpha?: number;
+    optimizer?: Optimzier;
   }) {
     this.units = units;
     this.status = status;
+    this.alpha = alpha;
+    this.optimizerName = optimizer;
     this.gamma = mj.ones([units, 1]);
     this.beta = mj.zeros([units, 1]);
     this.params = units * 2;
+    this.optimizerGamma = setOptimizer(this.optimizerName, this.gamma._shape, this.alpha);
+    this.optimizerBeta = setOptimizer(this.optimizerName, this.beta._shape, this.alpha);
   }
 
   save() {
@@ -148,9 +161,19 @@ export default class LayerNormalization {
       dBeta[i] = sumB;
     }
 
-    // [Opsi]: Dalam implementasi sederhana ini kita tidak mengupdate gamma/beta di sini 
-    // karena LayerNorm biasanya fixed di arsitektur minimalist. 
-    // Tapi jika ingin di-update, tambahkan optimizer di sini.
+    // [Update]: Update gamma dan beta menggunakan optimizer
+    const gGrad = Matrix.fromFlat(dGamma, [this.units, 1]);
+    const bGrad = Matrix.fromFlat(dBeta, [this.units, 1]);
+    
+    // Gradient clipping untuk LN parameters
+    this.clipGradients(gGrad, 1.0);
+    this.clipGradients(bGrad, 1.0);
+
+    const gUpdate = this.optimizerGamma.calculate(gGrad, this.alpha);
+    const bUpdate = this.optimizerBeta.calculate(bGrad, this.alpha);
+    
+    this.gamma.subInPlace(gUpdate);
+    this.beta.subInPlace(bUpdate);
 
     // 2. Hitung gradien ke input (dx)
     for (let j = 0; j < cols; j++) {
@@ -171,6 +194,23 @@ export default class LayerNormalization {
     }
 
     return Matrix.fromFlat(dx, [rows, cols]);
+  }
+
+  private clipGradients(m: Matrix, limit: number) {
+    const data = m._data;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] > limit) data[i] = limit;
+      else if (data[i] < -limit) data[i] = -limit;
+    }
+  }
+
+  compile({ alpha, optimizer, error }: { alpha?: number; optimizer?: Optimzier; error?: Cost }) {
+    if (alpha !== undefined) this.alpha = alpha;
+    if (optimizer !== undefined) {
+      this.optimizerName = optimizer;
+      this.optimizerGamma = setOptimizer(optimizer, this.gamma._shape, this.alpha);
+      this.optimizerBeta = setOptimizer(optimizer, this.beta._shape, this.alpha);
+    }
   }
 
   resetLoss(): void {

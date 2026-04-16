@@ -142,6 +142,12 @@ async function start() {
         padTokenId: modelConfig.padTokenId ?? ids.PAD_ID
     });
     model.load(selectedPath);
+    
+    // Matikan dropout untuk respon yang lebih stabil dan kuat
+    for (const l of model.layers) {
+        if (l.name === "dropout layer") l.status = "test";
+    }
+
     console.log("✅ Model loaded successfully!\n");
     console.log("Ketik 'exit' untuk keluar. Selamat mengobrol!\n");
 
