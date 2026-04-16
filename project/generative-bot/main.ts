@@ -11,9 +11,9 @@ import Matrix from "../../src/matrix";
 // GENERATIVE CHATBOT — Latih pada cerita rakyat (Next-Word Prediction)
 // ================================================================
 
-const DEFAULT_CONTEXT_LEN = 1024;
-const DEFAULT_EMBEDDING_DIM = 128;
-const DEFAULT_HEADS = 16;
+const DEFAULT_CONTEXT_LEN = 128; 
+const DEFAULT_EMBEDDING_DIM = 64;
+const DEFAULT_HEADS = 8;
 const LEARNING_RATE = 0.00001;
 const EPOCHS = 100;
 const TEMPERATURE = 0.7;
