@@ -1,5 +1,5 @@
 import { Sequential } from "../src/models";
-import { Embedding, Dense, SelfAttantion, Flatten } from "../src/layers";
+import { Embedding, Dense, SelfAttention, Flatten } from "../src/layers";
 import mj from "../src/math";
 import { Matrix } from "../src/@types/type";
 
@@ -55,7 +55,7 @@ model.add(new Embedding({
 }));
 
 // Step 2: Self-Attention menangkap konteks antar-token → output [4, 3]
-model.add(new SelfAttantion({
+model.add(new SelfAttention({
     units: embeddingDim,
     seqLen,
     alpha: lrAlpha

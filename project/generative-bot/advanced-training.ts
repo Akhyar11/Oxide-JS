@@ -1,43 +1,42 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
+import { Worker } from "worker_threads";
 import { Transformers } from "../../src/models";
 import { BPETokenizer } from "../../src/tokenizer";
-import mj from "../../src/math";
 import Matrix from "../../src/matrix";
 import { TransformerPipeline } from "../../src/pipeline/transformer-pipeline";
 
-/**
- * ADVANCED TRAINING dengan Pipeline Parallelism
- * 
- * Menunjukkan:
- * 1. Bagaimana mengintegrasikan pipeline ke training loop
- * 2. Multi-batch processing dengan overlapping forward/backward
- * 3. Benchmark comparison naive vs pipeline
- */
-
 interface TrainingConfig {
   numEpochs: number;
-  batchSize: number;
   microBatchSize: number;
   learningRate: number;
   numPipelineStages: number;
   usePipeline: boolean;
+  contextLen: number;
+  shuffle: boolean;
+}
+
+interface TrainingSample {
+  input: Matrix;
+  target: Matrix; // class index [1, 1]
 }
 
 interface TrainingMetrics {
   epoch: number;
   loss: number;
   throughput: number;
-  timeElapsed: number;
+  timeElapsedSec: number;
 }
 
 const DEFAULT_CONFIG: TrainingConfig = {
-  numEpochs: 10,
-  batchSize: 128,
+  numEpochs: 5,
   microBatchSize: 32,
-  learningRate: 0.001,
+  learningRate: 0.0001,
   numPipelineStages: 4,
-  usePipeline: true
+  usePipeline: true,
+  contextLen: 32,
+  shuffle: true,
 };
 
 class AdvancedTrainer {
@@ -53,227 +52,353 @@ class AdvancedTrainer {
     this.config = { ...DEFAULT_CONFIG, ...config };
 
     if (this.config.usePipeline) {
-      this.pipeline = new TransformerPipeline(
-        model,
-        this.config.numPipelineStages,
-        Math.ceil(this.config.batchSize / this.config.microBatchSize)
+      this.pipeline = new TransformerPipeline(model, this.config.numPipelineStages, this.config.microBatchSize);
+    }
+  }
+
+  async train(samples: TrainingSample[]): Promise<void> {
+    if (samples.length === 0) {
+      throw new Error("Tidak ada sample training.");
+    }
+
+    const trainStart = Date.now();
+    for (let epoch = 0; epoch < this.config.numEpochs; epoch++) {
+      const epochStart = Date.now();
+      if (this.config.shuffle) {
+        this.shuffleInPlace(samples);
+      }
+      const loss = this.config.usePipeline && this.pipeline
+        ? await this.trainWithPipeline(samples)
+        : await this.trainNaive(samples);
+
+      const epochElapsedSec = (Date.now() - epochStart) / 1000;
+      const throughput = samples.length / Math.max(epochElapsedSec, 1e-9);
+      const timeElapsedSec = (Date.now() - trainStart) / 1000;
+
+      this.metrics.push({
+        epoch: epoch + 1,
+        loss,
+        throughput,
+        timeElapsedSec,
+      });
+
+      console.log(
+        `Epoch ${epoch + 1}/${this.config.numEpochs} - ` +
+        `Loss: ${loss.toFixed(6)} - ` +
+        `Throughput: ${throughput.toFixed(0)} sampel/s - ` +
+        `Elapsed: ${timeElapsedSec.toFixed(2)}s`
       );
     }
   }
 
-  /**
-   * Main training loop dengan optional pipeline parallelism
-   */
-  async trainEpoch(batchData: Array<{ input: Matrix; target: Matrix }>): Promise<number> {
-    const startTime = Date.now();
-    let totalLoss = 0;
-    let numBatches = 0;
+  private async trainNaive(samples: TrainingSample[]): Promise<number> {
+    let lossSum = 0;
 
-    if (this.config.usePipeline && this.pipeline) {
-      totalLoss = await this.trainWithPipeline(batchData);
-    } else {
-      totalLoss = await this.trainNaive(batchData);
+    for (const sample of samples) {
+      this.model.forward(sample.input);
+      this.model.backward(sample.target);
+      lossSum += this.model.loss;
     }
 
-    numBatches = batchData.length;
-    const avgLoss = totalLoss / numBatches;
-    const timeElapsed = Date.now() - startTime;
-    const throughput = (numBatches * this.config.batchSize) / (timeElapsed / 1000); // samples/sec
-
-    return avgLoss;
+    return lossSum / samples.length;
   }
 
-  /**
-   * ❌ Naive Training: Forward & Backward one batch at a time
-   */
-  private async trainNaive(batchData: Array<{ input: Matrix; target: Matrix }>): Promise<number> {
-    let totalLoss = 0;
+  private async trainWithPipeline(samples: TrainingSample[]): Promise<number> {
+    let lossSum = 0;
 
-    for (const batch of batchData) {
-      // Forward pass
-      const output = this.model.forward(batch.input);
-
-      // Compute loss
-      const [loss, dLoss] = this.computeLoss(output, batch.target);
-      totalLoss += loss;
-
-      // Backward pass (sequential)
-      this.model.backward(dLoss);
-
-      // Update weights
-      this.model.updateWeights(this.config.learningRate);
+    for (let i = 0; i < samples.length; i += this.config.microBatchSize) {
+      const microBatch = samples.slice(i, i + this.config.microBatchSize);
+      // Forward + backward per sample, dijadwalkan via API pipeline (tanpa double-forward).
+      for (const sample of microBatch) {
+        await this.pipeline!.forwardPipeline(sample.input);
+        this.model.backward(sample.target);
+        lossSum += this.model.loss;
+      }
     }
 
-    return totalLoss;
+    return lossSum / samples.length;
   }
 
-  /**
-   * ✅ Pipeline Training: Overlapped forward & backward across micro-batches
-   * 
-   * Timeline:
-   * Batch 0: [Forward Stage1] [Forward Stage2] [Forward Stage3] [Backward Stage3] [Backward Stage2] [Backward Stage1]
-   * Batch 1:               [Forward Stage1] [Forward Stage2] [Forward Stage3] [Backward Stage3] [Backward Stage2]
-   * Batch 2:                           [Forward Stage1] [Forward Stage2] [Forward Stage3] [Backward Stage3]
-   * 
-   * ✅ Hasil: Stages terus sibuk, tidak ada idle time!
-   */
-  private async trainWithPipeline(batchData: Array<{ input: Matrix; target: Matrix }>): Promise<number> {
-    let totalLoss = 0;
-
-    for (const batch of batchData) {
-      // Forward pass dengan pipeline
-      const output = await this.pipeline!.forwardPipeline(batch.input);
-
-      // Compute loss (same as naive)
-      const [loss, dLoss] = this.computeLoss(output, batch.target);
-      totalLoss += loss;
-
-      // Backward pass bisa juga di-pipeline (future optimization)
-      // Untuk sekarang, gunakan sequential backward
-      this.model.backward(dLoss);
-      this.model.updateWeights(this.config.learningRate);
-    }
-
-    return totalLoss;
-  }
-
-  /**
-   * Compute loss & gradients
-   */
-  private computeLoss(output: Matrix, target: Matrix): [number, Matrix] {
-    // MSE Loss
-    const diff = mj.sub(output, target);
-    const squaredDiff = mj.map(diff, (v) => v * v);
-    const loss = mj.mean(squaredDiff);
-
-    // Gradient: 2 * (yPred - yTrue) / N
-    const grad = mj.mul(2 / (output._shape[0] * output._shape[1]), diff);
-
-    return [loss, grad];
-  }
-
-  /**
-   * Load training data
-   */
-  async loadTrainingData(dataPath: string): Promise<Array<{ input: Matrix; target: Matrix }>> {
+  async loadTrainingData(dataPath: string): Promise<TrainingSample[]> {
     if (!fs.existsSync(dataPath)) {
-      console.error(`Data file not found: ${dataPath}`);
+      console.warn(`Data file tidak ditemukan: ${dataPath}`);
       return [];
     }
 
     const rawData = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
-    const batches: Array<{ input: Matrix; target: Matrix }> = [];
-
-    for (const sample of rawData) {
-      const tokens = this.tokenizer.encode(sample.text);
-      const input = Matrix.random([tokens.length, 256]); // Simplified
-      const target = Matrix.random([tokens.length, 256]);
-
-      batches.push({ input, target });
+    if (!Array.isArray(rawData)) {
+      throw new Error("Format training_data.json harus berupa array objek { text: string }.");
     }
 
-    return batches;
+    const samples: TrainingSample[] = [];
+    const padId = this.tokenizer.getPadId();
+
+    for (const item of rawData) {
+      if (!item || typeof item.text !== "string") continue;
+      const tokens = this.tokenizer.encode(item.text.toLowerCase());
+      for (let idx = 0; idx < tokens.length - 1; idx++) {
+        const start = Math.max(0, idx - this.config.contextLen + 1);
+        const ctxLen = idx - start + 1;
+
+        const x = new Float64Array(this.config.contextLen);
+        x.fill(padId);
+        const offset = this.config.contextLen - ctxLen;
+        for (let j = 0; j < ctxLen; j++) {
+          x[offset + j] = tokens[start + j];
+        }
+
+        const input = Matrix.fromFlat(x, [this.config.contextLen, 1]);
+        const target = Matrix.fromFlat(new Float64Array([tokens[idx + 1]]), [1, 1]);
+        samples.push({ input, target });
+      }
+    }
+
+    return samples;
   }
 
-  /**
-   * Save metrics to file
-   */
-  saveMetrics(outputPath: string) {
+  saveMetrics(outputPath: string): void {
     fs.writeFileSync(outputPath, JSON.stringify(this.metrics, null, 2));
-    console.log(`📊 Metrics saved to ${outputPath}`);
+    console.log(`📊 Metrics disimpan ke ${outputPath}`);
   }
 
-  /**
-   * Cleanup
-   */
-  async cleanup() {
+  getMetrics(): TrainingMetrics[] {
+    return [...this.metrics];
+  }
+
+  async cleanup(): Promise<void> {
     if (this.pipeline) {
       await this.pipeline.shutdown();
     }
   }
+
+  private shuffleInPlace<T>(arr: T[]): void {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
 }
 
-/**
- * Main training script
- */
 async function main() {
-  console.log("🚀 Advanced Transformer Training with Pipeline Parallelism\n");
+  console.log("🚀 Advanced Transformer Training with Pipeline\n");
 
-  // Load model & tokenizer
-  const modelPath = path.join(__dirname, "dataset", "generative_model.json");
-  const vocabPath = path.join(__dirname, "dataset", "generative_vocab.json");
+  const modelCandidates = [
+    path.join(__dirname, "dataset", "generative_model.json"),
+    path.join(__dirname, "dataset", "finetuned_model.json"),
+  ];
+  const vocabCandidates = [
+    path.join(__dirname, "dataset", "generative_vocab.json"),
+    path.join(__dirname, "dataset", "finetuned_vocab.json"),
+  ];
+  const modelPath = modelCandidates.find((p) => fs.existsSync(p));
+  const vocabPath = vocabCandidates.find((p) => fs.existsSync(p));
 
-  if (!fs.existsSync(modelPath) || !fs.existsSync(vocabPath)) {
-    console.error("❌ Model or vocabulary not found. Run main.ts first!");
+  if (!modelPath || !vocabPath) {
+    console.error("❌ Model / vocab belum tersedia. Jalankan project/generative-bot/main.ts dulu.");
     process.exit(1);
   }
 
+  const tokenizer = BPETokenizer.load(vocabPath);
+  const vocabSize = tokenizer.getVocabSize();
+  const contextLen = DEFAULT_CONFIG.contextLen;
+
   const model = new Transformers({
-    vocabSize: 5000,
-    embeddingDim: 256,
-    numHeads: 8,
-    numLayers: 2,
-    maxSeqLen: 32
+    units: 32,
+    seqLen: contextLen,
+    vocabSize,
+    heads: 4,
+    alpha: DEFAULT_CONFIG.learningRate,
+    padTokenId: tokenizer.getPadId(),
   });
 
-  const tokenizer = BPETokenizer.load(vocabPath);
+  try {
+    model.load(modelPath);
+  } catch {
+    console.warn(`⚠️ Gagal load model dari ${modelPath}. Lanjut dari bobot baru.`);
+  }
+  model.compile({ alpha: DEFAULT_CONFIG.learningRate, optimizer: "adam", error: "softmaxCrossEntropy" });
 
-  // Initialize trainer dengan pipeline
-  const config: TrainingConfig = {
-    numEpochs: 5,
-    batchSize: 64,
-    microBatchSize: 16,
-    learningRate: 0.001,
-    numPipelineStages: 4,
-    usePipeline: true
-  };
-
-  const trainer = new AdvancedTrainer(model, tokenizer, config);
+  const trainer = new AdvancedTrainer(model, tokenizer, DEFAULT_CONFIG);
 
   try {
-    // Load training data
-    const dataPath = path.join(__dirname, "dataset", "training_data.json");
-    const trainingData = await trainer.loadTrainingData(dataPath);
+    const dataPath = process.env.TRAINING_DATA_PATH
+      ? path.resolve(process.env.TRAINING_DATA_PATH)
+      : path.join(__dirname, "dataset", "training_data.json");
+    let trainingSamples = await trainer.loadTrainingData(dataPath);
 
-    if (trainingData.length === 0) {
-      console.log("ℹ️  No training data found, using synthetic data");
-      // Generate synthetic data for demo
-      for (let i = 0; i < 10; i++) {
-        trainingData.push({
-          input: Matrix.random([32, 256]),
-          target: Matrix.random([32, 256])
-        });
+    if (trainingSamples.length === 0) {
+      console.log("ℹ️ training_data.json tidak ada / kosong, fallback ke dataset/cerita_rakyat.txt");
+      const ceritaPath = path.join(__dirname, "..", "..", "dataset", "cerita_rakyat.txt");
+      const lines = fs.readFileSync(ceritaPath, "utf-8").toLowerCase().split("\n").filter((l) => l.trim().length > 0);
+      const tempDataPath = path.join(__dirname, "dataset", `_tmp_training_data_${process.pid}_${Date.now()}.json`);
+      fs.writeFileSync(tempDataPath, JSON.stringify(lines.map((text) => ({ text }))));
+      trainingSamples = await trainer.loadTrainingData(tempDataPath);
+      if (fs.existsSync(tempDataPath)) {
+        fs.unlinkSync(tempDataPath);
       }
     }
 
-    // Training loop
-    console.log("📈 Starting training...\n");
-    
-    const startTime = Date.now();
-    for (let epoch = 0; epoch < config.numEpochs; epoch++) {
-      const loss = await trainer.trainEpoch(trainingData);
-      const timeElapsed = (Date.now() - startTime) / 1000;
+    console.log(`Total samples: ${trainingSamples.length}`);
 
-      console.log(`Epoch ${epoch + 1}/${config.numEpochs} - Loss: ${loss.toFixed(6)} - Time: ${timeElapsed.toFixed(2)}s`);
+    if (process.env.BENCHMARK_PIPELINE === "1") {
+      await runPipelineBenchmark(trainingSamples, tokenizer, modelPath);
+      return;
     }
 
-    const totalTime = (Date.now() - startTime) / 1000;
-    const samplesProcessed = trainingData.length * config.numEpochs * config.batchSize;
-    const throughput = samplesProcessed / totalTime;
+    await trainer.train(trainingSamples);
 
-    console.log(`\n✅ Training Complete!`);
-    console.log(`Total time: ${totalTime.toFixed(2)}s`);
-    console.log(`Throughput: ${throughput.toFixed(0)} samples/sec`);
+    trainer.saveMetrics(path.join(__dirname, "dataset", "advanced_metrics.json"));
+    model.save(modelPath);
 
-    if (config.usePipeline) {
-      console.log(`💡 Pipeline parallelism: 4 stages with ${config.microBatchSize}-sample micro-batches`);
-    }
-
+    console.log("\n✅ Training pipeline selesai.");
   } finally {
     await trainer.cleanup();
   }
 }
 
-main().catch(console.error);
+async function runPipelineBenchmark(
+  trainingSamples: TrainingSample[],
+  tokenizer: BPETokenizer,
+  modelPath: string,
+): Promise<void> {
+  const limitFromEnv = Number(process.env.BENCHMARK_SAMPLES ?? "256");
+  const benchmarkLimit = Number.isFinite(limitFromEnv) && limitFromEnv > 0 ? Math.floor(limitFromEnv) : 256;
+  const baseSamples = trainingSamples.slice(0, Math.min(trainingSamples.length, benchmarkLimit));
+  if (baseSamples.length === 0) {
+    throw new Error("Tidak ada sample untuk benchmark.");
+  }
+  const benchmarkSamples: TrainingSample[] = [];
+  for (let i = 0; i < benchmarkLimit; i++) {
+    benchmarkSamples.push(baseSamples[i % baseSamples.length]);
+  }
+  const benchConfigBase: Partial<TrainingConfig> = {
+    numEpochs: 1,
+    microBatchSize: 32,
+    learningRate: DEFAULT_CONFIG.learningRate,
+    contextLen: DEFAULT_CONFIG.contextLen,
+    shuffle: false,
+  };
 
-export { AdvancedTrainer, TrainingConfig, TrainingMetrics };
+  const createModel = () => {
+    const model = new Transformers({
+      units: 32,
+      seqLen: DEFAULT_CONFIG.contextLen,
+      vocabSize: tokenizer.getVocabSize(),
+      heads: 4,
+      alpha: DEFAULT_CONFIG.learningRate,
+      padTokenId: tokenizer.getPadId(),
+    });
+    try {
+      model.load(modelPath);
+    } catch {
+      // fallback: gunakan bobot inisialisasi baru
+    }
+    model.compile({ alpha: DEFAULT_CONFIG.learningRate, optimizer: "adam", error: "softmaxCrossEntropy" });
+    return model;
+  };
+
+  const sampleVectors = benchmarkSamples.map((sample) => Array.from(sample.input._data));
+
+  const naiveModel = createModel();
+  const naiveMatrices = sampleVectors.map((v) => Matrix.fromFlat(Float64Array.from(v), [DEFAULT_CONFIG.contextLen, 1]));
+
+  const pipelineModel = createModel();
+  const pipeline = new TransformerPipeline(
+    pipelineModel,
+    DEFAULT_CONFIG.numPipelineStages,
+    benchConfigBase.microBatchSize ?? 32,
+  );
+
+  const naiveStart = Date.now();
+  for (const sample of naiveMatrices) {
+    naiveModel.forward(sample);
+  }
+  const naiveMs = Date.now() - naiveStart;
+
+  const pipelineStart = Date.now();
+  await pipeline.forwardMicroBatches(naiveMatrices);
+  const pipelineMs = Date.now() - pipelineStart;
+
+  const threadCount = Math.max(1, Math.min(Number(process.env.BENCHMARK_WORKERS ?? "4"), os.cpus().length));
+  const multiThreadMs = await runWorkerForwardBenchmark({
+    samples: sampleVectors,
+    modelPath,
+    vocabSize: tokenizer.getVocabSize(),
+    padTokenId: tokenizer.getPadId(),
+    contextLen: DEFAULT_CONFIG.contextLen,
+    workerCount: threadCount,
+    modelConfig: {
+      units: 32,
+      heads: 4,
+      alpha: DEFAULT_CONFIG.learningRate,
+    },
+  });
+
+  const speedup = naiveMs / Math.max(pipelineMs, 1);
+  const mtSpeedup = naiveMs / Math.max(multiThreadMs, 1);
+  console.log("\n=== PIPELINE BENCHMARK ===");
+  console.log(`Mode    : Forward-only`);
+  console.log(`Samples : ${benchmarkSamples.length}`);
+  console.log(`Naive   : ${naiveMs} ms`);
+  console.log(`Pipeline: ${pipelineMs} ms`);
+  console.log(`Workers : ${multiThreadMs} ms (${threadCount} thread)`);
+  console.log(`Speedup : ${speedup.toFixed(3)}x`);
+  console.log(`MT Gain : ${mtSpeedup.toFixed(3)}x`);
+  await pipeline.shutdown();
+}
+
+interface WorkerBenchmarkConfig {
+  samples: number[][];
+  modelPath: string;
+  vocabSize: number;
+  padTokenId: number;
+  contextLen: number;
+  workerCount: number;
+  modelConfig: {
+    units: number;
+    heads: number;
+    alpha: number;
+  };
+}
+
+async function runWorkerForwardBenchmark(config: WorkerBenchmarkConfig): Promise<number> {
+  const { samples, workerCount } = config;
+  if (samples.length === 0 || workerCount <= 1) {
+    return 0;
+  }
+
+  const chunkSize = Math.ceil(samples.length / workerCount);
+  const chunks: number[][][] = [];
+  for (let i = 0; i < samples.length; i += chunkSize) {
+    chunks.push(samples.slice(i, i + chunkSize));
+  }
+
+  const workerPath = path.join(__dirname, "pipeline-benchmark-worker.ts");
+  const workerTimes = await Promise.all(
+    chunks.map(
+      (chunk) =>
+        new Promise<number>((resolve, reject) => {
+          const worker = new Worker(workerPath, {
+            workerData: { ...config, samples: chunk },
+            execArgv: ["-r", "ts-node/register"],
+            env: { ...process.env, ML_DISABLE_NATIVE: "1" },
+          });
+          worker.once("message", (msg: { elapsedMs?: number }) => resolve(msg?.elapsedMs ?? 0));
+          worker.once("error", reject);
+          worker.once("exit", (code) => {
+            if (code !== 0) {
+              reject(new Error(`Worker exit ${code}`));
+            }
+          });
+        }),
+    ),
+  );
+  return Math.max(...workerTimes, 0);
+}
+
+main().catch((err) => {
+  console.error("Training advanced gagal:", err);
+  process.exit(1);
+});
+
+export { AdvancedTrainer, TrainingConfig, TrainingMetrics, TrainingSample };

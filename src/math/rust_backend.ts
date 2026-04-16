@@ -1,12 +1,15 @@
 import { MatrixShape } from "../@types/type";
 
 let native: any = null;
+const disableNativeByEnv = process.env.ML_DISABLE_NATIVE === "1";
 
-try {
-  // Hanya gunakan satu nama konsisten yang di-generate oleh script build
-  native = require("../../ml-native.node");
-} catch (e) {
-  // console.warn("Rust Backend: Native module failed to load.");
+if (!disableNativeByEnv) {
+  try {
+    // Hanya gunakan satu nama konsisten yang di-generate oleh script build
+    native = require("../../ml-native.node");
+  } catch (e) {
+    // console.warn("Rust Backend: Native module failed to load.");
+  }
 }
 
 let forceDisable = false;

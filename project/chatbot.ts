@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 import { Sequential } from "../src/models";
-import { Embedding, Dense, SelfAttantion, Flatten, PositionalEncoding } from "../src/layers";
+import { Embedding, Dense, SelfAttention, Flatten, PositionalEncoding } from "../src/layers";
 import { BPETokenizer } from "../src/tokenizer";
 import { softmax } from "../src/activation";
 import mj from "../src/math";
@@ -114,7 +114,7 @@ model.add(new PositionalEncoding({
   maxSeqLen: MAX_SEQ_LEN,
 }));
 
-model.add(new SelfAttantion({
+model.add(new SelfAttention({
   units: EMBEDDING_DIM,
   seqLen: MAX_SEQ_LEN,
   alpha: LEARNING_RATE,
