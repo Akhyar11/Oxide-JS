@@ -144,36 +144,50 @@ async function main() {
 
     // 2. Pilih mode training
     fs.mkdirSync(botDatasetDir, { recursive: true });
-    const hasCheckpoint = fs.existsSync(generativeModelPath) && fs.existsSync(generativeVocabPath);
-    const trainingMode = await selectTrainingMode(hasCheckpoint);
-    const shouldLoadExistingModel = trainingMode === "resume";
+    const hasVocab = fs.existsSync(generativeVocabPath);
+    const hasModel = fs.existsSync(generativeModelPath);
+    const hasCheckpoint = hasVocab && hasModel;
+    
+    // Jika ada vocab tapi tidak ada model, kita tetap bisa "resume" vocab-nya
+    const trainingMode = await selectTrainingMode(hasCheckpoint || hasVocab);
+    const shouldResume = trainingMode === "resume";
 
     // 3. Load / Train Tokenizer
     let tokenizer: BPETokenizer;
     let runtimeConfig: ModelConfig;
     let savedModelVocabSize = 0;
 
-    if (shouldLoadExistingModel) {
-        console.log("\n=== 3. Loading Existing Tokenizer & Model Config ===\n");
+    if (shouldResume && hasVocab) {
+        console.log("\n=== 3. Loading Existing Tokenizer ===\n");
         tokenizer = BPETokenizer.load(generativeVocabPath);
-        savedModelVocabSize = tokenizer.getVocabSize();
-
-        // Update tokenizer jika ada data baru atau target vocab baru
-        console.log(`[BPE] Vocab saat ini: ${savedModelVocabSize}. Mencoba update...`);
-        tokenizer.update(lines, TOKENIZER_VOCAB_SIZE);
-        tokenizer.save(generativeVocabPath);
-        runtimeConfig = readModelConfig(generativeModelPath);
-        runtimeConfig.padTokenId = tokenizer.getPadId();
-        console.log(`Resuming training from saved model: ${generativeModelPath}`);
+    } else if (hasVocab) {
+        // Jika pilih Reset tapi vocab sudah ada, tetap pakai vocab yang lama agar tidak kerja dua kali
+        console.log("\n=== 3. Reusing Existing Tokenizer (Resetting Model Only) ===\n");
+        tokenizer = BPETokenizer.load(generativeVocabPath);
     } else {
-        console.log("\n=== 3. Training Tokenizer ===\n");
+        console.log("\n=== 3. Training New Tokenizer ===\n");
         tokenizer = new BPETokenizer({
             vocabSize: TOKENIZER_VOCAB_SIZE,
             minFrequency: 1,
-            specialTokens: ["<SEP>"]
+            specialTokens: ["<SEP>", ...Array.from({ length: 5000 }, (_, i) => `<RESERVED_${i}>`)]
         });
         tokenizer.train(lines);
         tokenizer.save(generativeVocabPath);
+        console.log(`Tokenizer saved to: ${generativeVocabPath}`);
+    }
+
+    // Common setup for both modes
+    savedModelVocabSize = tokenizer.getVocabSize();
+    console.log(`[BPE] Vocab saat ini: ${savedModelVocabSize}. Mencoba update...`);
+    tokenizer.update(lines, TOKENIZER_VOCAB_SIZE);
+    tokenizer.save(generativeVocabPath);
+
+    if (shouldResume && hasModel) {
+        console.log(`[Model] Memuat konfigurasi dari model lama...`);
+        runtimeConfig = readModelConfig(generativeModelPath);
+        runtimeConfig.padTokenId = tokenizer.getPadId();
+    } else {
+        console.log(`[Model] Menyiapkan konfigurasi model baru dari nol.`);
         runtimeConfig = {
             units: DEFAULT_EMBEDDING_DIM,
             seqLen: DEFAULT_CONTEXT_LEN,
@@ -181,8 +195,6 @@ async function main() {
             padTokenId: tokenizer.getPadId(),
             vocabSize: tokenizer.getVocabSize(),
         };
-        savedModelVocabSize = runtimeConfig.vocabSize;
-        console.log(`Tokenizer saved to: ${generativeVocabPath}`);
     }
 
     const VOCAB_SIZE = tokenizer.getVocabSize();
@@ -217,21 +229,24 @@ async function main() {
     console.log(`Training pairs: ${trainPairs.length}`);
 
     // 5. Build Model
+    const currentVocabSize = tokenizer.getVocabSize();
     const model = new Transformers({
         units: runtimeConfig.units,
         seqLen: runtimeConfig.seqLen,
-        vocabSize: shouldLoadExistingModel ? Math.max(savedModelVocabSize, 1) : VOCAB_SIZE,
+        vocabSize: currentVocabSize,
         heads: runtimeConfig.heads,
         alpha: LEARNING_RATE,
         padTokenId: PAD_ID
     });
-    if (shouldLoadExistingModel) {
-        model.load(generativeModelPath);
 
-        // KRITIKAL: Jika vocab bertambah (ada token baru), resize model
-        if (VOCAB_SIZE > model.vocabSize) {
-            console.log(`\n=== 3.5 Expanding Model Vocabulary: ${model.vocabSize} -> ${VOCAB_SIZE} ===`);
-            model.resizeVocab(VOCAB_SIZE);
+    if (shouldResume && hasModel) {
+        console.log(`\n=== 3.5 Loading Model Weights ===`);
+        model.load(generativeModelPath);
+        
+        // Resize jika vocab bertambah
+        if (currentVocabSize > model.vocabSize) {
+            console.log(`Expanding model vocabulary: ${model.vocabSize} -> ${currentVocabSize}`);
+            model.resizeVocab(currentVocabSize);
         }
     }
     model.summary()
@@ -248,7 +263,7 @@ async function main() {
         console.log(`  Model: ${generativeModelPath}`);
     }
 
-    console.log(`\n=== 4. ${shouldLoadExistingModel ? "Resuming" : "Starting"} Training (${EPOCHS} Epochs) ===\n`);
+    console.log(`\n=== 4. ${shouldResume ? "Resuming" : "Starting"} Training (${EPOCHS} Epochs) ===\n`);
 
     // Pastikan semua layer (terutama Dropout) masuk ke mode training
     for (const l of model.layers) {
