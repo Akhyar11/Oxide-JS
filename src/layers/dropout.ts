@@ -7,6 +7,10 @@ export default class Dropout {
   rate: number;
   mask: Matrix = mj.matrix([]);
   status: StatusLayer;
+  
+  inputShape: [number, number] = [0, 0];
+  outputShape: [number, number] = [0, 0];
+  params: number = 0;
 
   constructor({ rate = 0.5, status = "input" }: { rate?: number; status?: StatusLayer }) {
     this.rate = rate;
@@ -27,6 +31,9 @@ export default class Dropout {
   }
 
   forward(x: Matrix): Matrix {
+    this.inputShape = [x._shape[0], x._shape[1]];
+    this.outputShape = [x._shape[0], x._shape[1]];
+    
     // Only scale elements if rate is > 0
     if (this.rate === 0) {
       return x;

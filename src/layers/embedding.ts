@@ -56,7 +56,7 @@ export default class Embedding {
     
     // Weight shape: [embeddingDim, vocabSize]
     // Setiap kolom (vertikal) merepresentasikan satu kata/vektor
-    this.weight = mj.random([embeddingDim, vocabSize]); 
+    this.weight = mj.xavier([embeddingDim, vocabSize]); 
     
     this.optimizerWeight = setOptimizer(optimizer, this.weight._shape, 1e-5);
     // Jumlah parameter total tabel embedding

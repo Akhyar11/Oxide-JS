@@ -67,7 +67,7 @@ export default class Transformers extends Sequential {
     const dense = new Dense({
       units: units, 
       outputUnits: vocabSize, 
-      activation: "linear",  // Note: softmax can be applied in loss or another layer if needed
+      activation: "linear",
       alpha,
       status: "output",
     });
@@ -122,16 +122,15 @@ export default class Transformers extends Sequential {
     this.xRes2.addInPlace(xDrop2Out);
 
     // --- Output Projection ---
-    // Instead of flatten, we apply Dense to every token in sequence: [vocabSize, seqLen]
     return this.dense.forward(this.xRes2);
   }
 
   backward(y: Matrix) {
-    // 1. Backward Output Dense -> grad shape: [units, seqLen]
+    // 1. Backward Output Dense
     const errDense = this.dense.backward(y, mj.matrix([[]]));
     this.loss = this.dense.loss;
 
-    // Gradient that flows into Residual 2 (from the output projection)
+    // Gradient that flows into Residual 2
     this.errRes2Buf.copyFrom(errDense);
     
     // 2. Backward FFN block
@@ -141,7 +140,7 @@ export default class Transformers extends Sequential {
     const errFfn1 = this.ffn1.backward(y, errDropFfn);
     const errLn2 = this.ln2.backward(y, errFfn1);
 
-    // Gradient that flows into Residual 1 is: (Grad from Ln2) + (Grad flowing bypass in Res 2)
+    // Gradient that flows into Residual 1
     this.errRes1Buf.copyFrom(this.errRes2Buf);
     this.errRes1Buf.addInPlace(errLn2);
 
@@ -150,8 +149,7 @@ export default class Transformers extends Sequential {
     const errMha = this.mha.backward(y, errDrop1);
     const errLn1 = this.ln1.backward(y, errMha);
 
-    // Gradient into PE is: (Grad from Ln1) + (Grad flowing bypass in Res 1)
-    // we reuse errRes1Buf since we don't need it anymore
+    // Gradient into PE
     this.errRes1Buf.addInPlace(errLn1);
     const totalErrPe = this.errRes1Buf;
 
@@ -160,30 +158,7 @@ export default class Transformers extends Sequential {
     this.embedding.backward(y, errEmb);
   }
 
-  load(path: string) {
-    super.load(path);
-    for (const layer of this.layers) {
-      if (layer instanceof Embedding) this.embedding = layer;
-      else if (layer instanceof PositionalEncoding) this.pe = layer;
-      else if (layer instanceof MultiHeadAttention) this.mha = layer;
-      else if (layer instanceof Dropout) {
-         // assign based on their indices if needed, standard load does layers anyway
-      }
-      // re-mapping might require strict index checking if multiple of same layer exist
-    }
-  }
-
-  resizeVocab(newVocabSize: number): void {
-      this.embedding.resize(newVocabSize);
-      this.dense.resize(newVocabSize);
-  }
-
-  fit(
-    X: Matrix[],
-    y: Matrix[],
-    epochs: number,
-    cb: (loss: number) => any = (_) => { }
-  ) {
+  fit(X: Matrix[], y: Matrix[], epochs: number, cb: (loss: number) => any = (_) => { }) {
     for (let i = 0; i < epochs; i++) {
       this.dense.resetLoss();
       let epochLoss = 0;
@@ -196,7 +171,6 @@ export default class Transformers extends Sequential {
 
       this.loss = epochLoss;
       cb(this.loss);
-
       if (this.loss < 0.01) return 0;
     }
   }

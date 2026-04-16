@@ -55,14 +55,9 @@ export default class Sequential {
     error = "mse",
   }: CompileDenseLayers) {
     for (let layer of this.layers) {
-      if (layer instanceof Dense) {
-        layer.compile({ alpha, optimizer, error });
-      } else if (layer instanceof Convolution) {
-        layer.compile({ alpha, optimizer, error });
-      } else if (layer.name === "embedding layer" || layer.name === "self attention layer") {
-        (layer as any).compile({ alpha, optimizer });
+      if (typeof (layer as any).compile === "function") {
+        (layer as any).compile({ alpha, optimizer, error });
       }
-      // Activation layer dan layer tanpa weights tidak perlu dicompile
     }
   }
 

@@ -71,8 +71,11 @@ export default class Dense {
     this.outputUnits = outputUnits;
     this.inputShape = [units, 1];
     this.outputShape = [outputUnits, 1];
-    this.weight = mj.random([outputUnits, units]);
+    
+    // Gunakan Xavier initialization untuk stabilitas lebih baik
+    this.weight = mj.xavier([outputUnits, units]);
     this.bias = mj.zeros([outputUnits, 1]);
+    
     this.z = mj.zeros([outputUnits, 1]); // Buffer for dotProduct + bias
     this.errWeightBuffer = mj.zeros([outputUnits, units]); // Buffer for errWeight
     this.activation = setActivation(activation);
@@ -127,14 +130,27 @@ export default class Dense {
   }
 
   forward(x: Matrix): Matrix {
+    const [units, seqLen] = x._shape;
     this.input = x;
     
-    // Optimasi: Gunakan buffer 'z' yang sudah di-pre-allocate
-    // 1. MatMul weight * input -> simpan di this.z
+    // Periksa apakah buffer z perlu di-resize (misal untuk sequence length > 1)
+    if (this.z._shape[0] !== this.outputUnits || this.z._shape[1] !== seqLen) {
+        this.z = mj.zeros([this.outputUnits, seqLen]);
+    }
+    
+    // 1. MatMul weight * input -> simpan di this.z 
+    // [outputUnits, units] * [units, seqLen] -> [outputUnits, seqLen]
     mj.dotProduct(this.weight, this.input, this.z);
     
-    // 2. Tambahkan bias In-Place ke this.z
-    this.z.addInPlace(this.bias);
+    // 2. Tambahkan bias secara broadcast (per kolom)
+    const [rows, cols] = this.z._shape;
+    const zData = this.z._data;
+    const bData = this.bias._data;
+    for (let j = 0; j < cols; j++) {
+        for (let i = 0; i < rows; i++) {
+            zData[i * cols + j] += bData[i];
+        }
+    }
 
     // 3. Activation
     const [result, dResult] = this.activation(this.z);
@@ -144,6 +160,7 @@ export default class Dense {
   }
 
   backward(y: Matrix, err: Matrix): Matrix {
+    const [rows, seqLen] = this.result._shape;
     let e: Matrix = mj.matrix([]);
     let lossValue = 0;
     if (this.status === "output") {
@@ -159,24 +176,46 @@ export default class Dense {
     if (this.activationName === "softmax") {
       errActivation = softmaxBackward(this.result, e, false);
     } else {
-       // Optimasi: subInPlace atau reuse jika memungkinkan. 
-       // Untuk saat ini kita buat baru karena dInput unik tiap pass.
       errActivation = mj.mul(e, this.dInput);
     }
 
-    // 1. Hitung gradien weight & bias menggunakan buffer
-    const errWeight = mj.dotProduct(errActivation, this.input, this.errWeightBuffer, false, true);
+    // 1. Hitung gradien weight
+    // [outputUnits, seqLen] * [seqLen, units] -> [outputUnits, units]
+    const gradWeight = mj.dotProduct(errActivation, this.input, this.errWeightBuffer, false, true);
     
-    // 2. Dapatkan update dari optimizer (mereka juga me-reuse buffer sekarang)
-    const updateWeight = this.optimizerWeight.calculate(errWeight, this.alpha);
-    const updateBias = this.optimizerBias.calculate(errActivation, this.alpha);
+    // 2. Hitung gradien bias (Sum sepanjang sequence/kolom)
+    const gbData = new Float64Array(this.outputUnits);
+    const eaData = errActivation._data;
+    for (let j = 0; j < seqLen; j++) {
+        for (let i = 0; i < this.outputUnits; i++) {
+            gbData[i] += eaData[i * seqLen + j];
+        }
+    }
+    const gradBias = Matrix.fromFlat(gbData, [this.outputUnits, 1]);
 
-    // 3. Update In-Place!
+    // [New] Gradient Clipping: Batasi nilai gradien agar tidak meledak
+    this.clipGradients(gradWeight, 5.0);
+    this.clipGradients(gradBias, 5.0);
+
+    // 3. Dapatkan update dari optimizer
+    const updateWeight = this.optimizerWeight.calculate(gradWeight, this.alpha);
+    const updateBias = this.optimizerBias.calculate(gradBias, this.alpha);
+
+    // 4. Update In-Place!
     this.weight.subInPlace(updateWeight);
     this.bias.subInPlace(updateBias);
 
-    // 4. Hitung gradien ke layer sebelumnya
+    // 5. Hitung gradien ke layer sebelumnya
+    // [units, outputUnits] * [outputUnits, seqLen] -> [units, seqLen]
     return mj.dotProduct(this.weight, errActivation, undefined, true, false);
+  }
+
+  private clipGradients(m: Matrix, limit: number) {
+    const data = m._data;
+    for (let i = 0; i < data.length; i++) {
+        if (data[i] > limit) data[i] = limit;
+        else if (data[i] < -limit) data[i] = -limit;
+    }
   }
 
   /**

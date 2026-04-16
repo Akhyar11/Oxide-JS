@@ -22,6 +22,8 @@ import transpose from "./transpose";
 import zeros from "./zeros";
 import convolution from "./convolution";
 import norm from "./norm";
+import xavier from "./xavier";
+import he from "./he";
 
 const mj = {
   absm,
@@ -48,6 +50,8 @@ const mj = {
   zeros,
   convolution,
   norm,
+  xavier,
+  he,
 };
 
 export default mj;

@@ -23,6 +23,11 @@ export default class MultiHeadAttention {
   
   attentionHeads: SelfAttention[];
   wo: Dense;
+  
+  inputShape: [number, number];
+  outputShape: [number, number];
+  params: number;
+  loss: number = 0;
 
   private input: Matrix = mj.matrix([]);
 
@@ -32,6 +37,9 @@ export default class MultiHeadAttention {
     this.seqLen = seqLen;
     this.alpha = alpha;
     this.status = status;
+    
+    this.inputShape = [units, seqLen];
+    this.outputShape = [units, seqLen];
     
     if (this.units % this.heads !== 0) {
       throw new Error(`units (${units}) must be divisible by heads (${heads})`);
@@ -55,6 +63,16 @@ export default class MultiHeadAttention {
       activation: "linear",
       alpha,
     });
+
+    this.params = this.heads * this.attentionHeads[0].params + this.wo.params;
+  }
+
+  compile({ alpha, optimizer }: { alpha?: number; optimizer?: any }) {
+    if (alpha !== undefined) this.alpha = alpha;
+    for (const head of this.attentionHeads) {
+      head.compile({ alpha, optimizer });
+    }
+    this.wo.compile({ alpha, optimizer });
   }
 
   forward(x: Matrix): Matrix {

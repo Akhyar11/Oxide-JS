@@ -52,8 +52,15 @@ export default function SoftmaxCrossEntropy(
   const yData = yTrue._data;
   for (let i = 0; i < yData.length; i++) {
     const y = yData[i];
+    if (y === 0) {
+        gradData[i] = pData[i];
+        continue;
+    }
     const p = Math.max(epsilon, pData[i]);
-    loss += -(y * Math.log(p));
+    const l = -(y * Math.log(p));
+    if (!Number.isNaN(l)) {
+        loss += l;
+    }
     gradData[i] = pData[i] - y;
   }
   return [loss, Matrix.fromFlat(gradData, [logits._shape[0], logits._shape[1]])];

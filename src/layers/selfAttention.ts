@@ -62,9 +62,9 @@ export default class SelfAttention {
     this.outputShape = [this.outputUnits, seqLen];
     // params: 3 bobot matrix (Q, K, V) masing-masing [outputUnits x units]
     this.params = 3 * this.outputUnits * this.units;
-    this.q = mj.random([this.outputUnits, this.units]);
-    this.k = mj.random([this.outputUnits, this.units]);
-    this.v = mj.random([this.outputUnits, this.units]);
+    this.q = mj.xavier([this.outputUnits, this.units]);
+    this.k = mj.xavier([this.outputUnits, this.units]);
+    this.v = mj.xavier([this.outputUnits, this.units]);
     this.lossFunc = setLoss(loss);
     this.status = status;
     this.alpha = alpha;
@@ -142,6 +142,7 @@ export default class SelfAttention {
       mj.dotProduct(wv, this.attention),
       this.padMask
     );
+
     this.outputShape = [output._shape[0], output._shape[1]];
 
     this.input = x;
@@ -189,6 +190,11 @@ export default class SelfAttention {
     const oldK = this.oldKBuffer;
     const oldV = this.oldVBuffer;
 
+    // [New] Gradient Clipping
+    this.clipGradients(gradQ, 5.0);
+    this.clipGradients(gradK, 5.0);
+    this.clipGradients(gradV, 5.0);
+
     // Update bobot In-Place!
     this.q.subInPlace(this.optimizerQ.calculate(gradQ, this.alpha));
     this.k.subInPlace(this.optimizerK.calculate(gradK, this.alpha));
@@ -204,6 +210,14 @@ export default class SelfAttention {
     gradQOutput.addInPlace(gradVOutput);
     
     return gradQOutput;
+  }
+
+  private clipGradients(m: Matrix, limit: number) {
+    const data = m._data;
+    for (let i = 0; i < data.length; i++) {
+        if (data[i] > limit) data[i] = limit;
+        else if (data[i] < -limit) data[i] = -limit;
+    }
   }
 
 
