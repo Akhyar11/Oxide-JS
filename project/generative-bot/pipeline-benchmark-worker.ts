@@ -39,7 +39,7 @@ function run(): void {
 
   model.compile({ alpha: cfg.modelConfig.alpha, optimizer: "adam", error: "softmaxCrossEntropy" });
 
-  const inputs = cfg.samples.map((sample) => Matrix.fromFlat(Float64Array.from(sample), [cfg.contextLen, 1]));
+  const inputs = cfg.samples.map((sample) => Matrix.fromFlat(Float32Array.from(sample), [cfg.contextLen, 1]));
   const start = Date.now();
   for (const input of inputs) {
     model.forward(input);

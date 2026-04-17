@@ -8,13 +8,13 @@ import { isNativeAvailable, mulNative } from "./rust_backend";
 export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matrix): Matrix {
   if (typeof a === "number") {
     const bm = b as Matrix;
-    const resultData = out ? out._data : new Float64Array(bm._data.length);
+    const resultData = out ? out._data : new Float32Array(bm._data.length);
     for (let i = 0; i < bm._data.length; i++) resultData[i] = a * bm._data[i];
     return out || Matrix.fromFlat(resultData, [bm._shape[0], bm._shape[1]]);
   }
   if (typeof b === "number") {
     const am = a as Matrix;
-    const resultData = out ? out._data : new Float64Array(am._data.length);
+    const resultData = out ? out._data : new Float32Array(am._data.length);
     for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] * b;
     return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
   }
@@ -25,7 +25,7 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
     throw new Error(`bentuk dari a harus sama dengan matrix ${am._shape} != ${bm._shape}`);
   }
 
-  const resultData = out ? out._data : new Float64Array(am._data.length);
+  const resultData = out ? out._data : new Float32Array(am._data.length);
 
   // USE NATIVE IF AVAILABLE
   if (isNativeAvailable()) {

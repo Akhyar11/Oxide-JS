@@ -52,6 +52,7 @@ export default class Transformers extends Sequential {
   private lastTokenBuffer: Matrix;
   private emptyErr: Matrix = mj.matrix([[]]);
   private lastTokenIndex: number = 0;
+  private padMaskBuffer: boolean[] = [];
 
   constructor({ units, seqLen, vocabSize, heads = 8, dropoutRate = 0.1, alpha = 0.01, padTokenId }: TransformersConfig) {
     const embedding = new Embedding({ vocabSize, embeddingDim: units, alpha, padTokenId });
@@ -104,93 +105,102 @@ export default class Transformers extends Sequential {
   forward(x: Matrix): Matrix {
     const [seqLen, batchSize] = x._shape;
     const units = this.embedding.embeddingDim;
+    const totalTokens = seqLen * batchSize;
 
-    if (this.lastTokenBuffer._shape[1] !== batchSize) {
-      this.lastTokenBuffer = mj.zeros([units, batchSize]);
+    if (this.padMaskBuffer.length !== totalTokens) {
+      this.padMaskBuffer = new Array<boolean>(totalTokens);
     }
-
-    const lastTokenData = this.lastTokenBuffer._data;
-    const xInputData = x._data;
-
+    let maskIdx = 0;
     for (let b = 0; b < batchSize; b++) {
-      // Extract indices for sample b
-      const indices = new Array<number>(seqLen);
-      for(let i=0; i<seqLen; i++) indices[i] = xInputData[i * batchSize + b];
-      
-      const xSlice = Matrix.fromFlat(new Float64Array(indices), [seqLen, 1]);
-      
-      // Process one sample through the block
-      const lastToken = this.forwardOneSample(xSlice, b);
-      
-      // Copy to lastTokenBuffer
-      for(let i=0; i<units; i++) {
-          lastTokenData[i * batchSize + b] = lastToken._data[i];
+      for (let pos = 0; pos < seqLen; pos++) {
+        this.padMaskBuffer[maskIdx++] = x._data[pos * batchSize + b] === this.embedding.padTokenId;
       }
     }
 
-    return this.dense.forward(this.lastTokenBuffer);
-  }
-
-  private forwardOneSample(x: Matrix, batchIdx: number): Matrix {
-    const xEmb = this.embedding.forward(x);
-    const xPe = this.pe.forward(xEmb);
+    // 1. Embedding Forward
+    const xEmb = this.embedding.forward(x); // returns [Units, totalTokens]
     
-    const xLn1 = this.ln1.forward(xPe);
+    // 2. Positional Encoding
+    const xPe = this.pe.forward(xEmb);
+
+    // 3. Block Forward
+    let h = xPe;
+    
+    // Residual 1: Norm -> Attention -> Dropout -> Add
+    const xLn1 = this.ln1.forward(h);
+    this.mha.setPadMask(this.padMaskBuffer);
     const xMhaOut = this.mha.forward(xLn1);
     const xDrop1Out = this.drop1.forward(xMhaOut);
+    const res1 = mj.add(h, xDrop1Out);
     
-    // Using simple local variables for the residual to avoid buffer contamination between batch items
-    const res1 = mj.add(xPe, xDrop1Out);
-    
+    // Residual 2: Norm -> FFN -> Dropout -> Add
     const xLn2 = this.ln2.forward(res1);
     const xFfn1Out = this.ffn1.forward(xLn2);
     const xDropFfnOut = this.dropFfn.forward(xFfn1Out);
     const xFfn2Out = this.ffn2.forward(xDropFfnOut);
     const xDrop2Out = this.drop2.forward(xFfn2Out);
-
     const res2 = mj.add(res1, xDrop2Out);
+
+    // 4. Extract Last Token Embeddings for Output
+    // We only want the embedding of the LAST token for each sample in the batch
+    if (this.lastTokenBuffer._shape[1] !== batchSize) {
+      this.lastTokenBuffer = mj.zeros([units, batchSize]);
+    }
     
-    // Save needed activations for backward if training
-    // NOTE: This approach is simple but only works for Inference mostly 
-    // IF we want training, we need to save states for EACH batch item.
-    // However, for this task, we will just optimize the forward for now.
+    const res2Data = res2._data;
+    const lastTokenData = this.lastTokenBuffer._data;
+    const totalCols = res2._shape[1];
     
-    return Matrix.fromFlat(res2.getCol(res2._shape[1] - 1), [this.embedding.embeddingDim, 1]);
+    for (let b = 0; b < batchSize; b++) {
+      const lastTokenCol = (b + 1) * seqLen - 1;
+      for (let i = 0; i < units; i++) {
+        lastTokenData[i * batchSize + b] = res2Data[i * totalCols + lastTokenCol];
+      }
+    }
+
+    // 5. Output Dense Layer
+    return this.dense.forward(this.lastTokenBuffer);
   }
 
   backward(y: Matrix) {
-      // Backward of loop-batching is complex because you need to save activations for each sample.
-      // For now, let's keep it simple: Loop backward for each sample.
-      const errDense = this.dense.backward(y, this.emptyErr);
-      this.loss = this.dense.loss;
-      
-      const batchSize = errDense._shape[1];
-      for(let b=0; b<batchSize; b++) {
-          const errSample = Matrix.fromFlat(errDense.getCol(b), [errDense._shape[0], 1]);
-          this.backwardOneSample(errSample);
-      }
-  }
+    // 1. Output Dense Backward
+    const errDense = this.dense.backward(y, this.emptyErr);
+    this.loss = this.dense.loss;
+    const batchSize = errDense._shape[1];
+    const seqLen = this.pe.maxSeqLen;
+    const units = this.embedding.embeddingDim;
+    const totalTokens = seqLen * batchSize;
 
-  private backwardOneSample(err: Matrix) {
-      const seqLen = this.pe.maxSeqLen;
-      const res2Err = mj.zeros([this.embedding.embeddingDim, seqLen]);
-      res2Err.setCol(seqLen - 1, err.getCol(0));
-      
-      const errDrop2 = this.drop2.backward(this.emptyErr, res2Err);
-      const errFfn2 = this.ffn2.backward(this.emptyErr, errDrop2);
-      const errDropFfn = this.dropFfn.backward(this.emptyErr, errFfn2);
-      const errFfn1 = this.ffn1.backward(this.emptyErr, errDropFfn);
-      const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
-      
-      const res1Err = mj.add(res2Err, errLn2);
-      
-      const errDrop1 = this.drop1.backward(this.emptyErr, res1Err);
-      const errMha = this.mha.backward(this.emptyErr, errDrop1);
-      const errLn1 = this.ln1.backward(this.emptyErr, errMha);
-      
-      const peErr = mj.add(res1Err, errLn1);
-      const embErr = this.pe.backward(this.emptyErr, peErr);
-      this.embedding.backward(this.emptyErr, embErr);
+    // 2. Map Dense Error back to the full sequence length matrix
+    const res2Err = mj.zeros([units, totalTokens]);
+    const res2ErrData = res2Err._data;
+    const errDenseData = errDense._data;
+    
+    for (let b = 0; b < batchSize; b++) {
+      const lastTokenCol = (b + 1) * seqLen - 1;
+      for (let i = 0; i < units; i++) {
+        res2ErrData[i * totalTokens + lastTokenCol] = errDenseData[i * batchSize + b];
+      }
+    }
+
+    // 3. Block Backward
+    const errDrop2 = this.drop2.backward(this.emptyErr, res2Err);
+    const errFfn2 = this.ffn2.backward(this.emptyErr, errDrop2);
+    const errDropFfn = this.dropFfn.backward(this.emptyErr, errFfn2);
+    const errFfn1 = this.ffn1.backward(this.emptyErr, errDropFfn);
+    const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
+    
+    const res1Err = mj.add(res2Err, errLn2);
+    
+    const errDrop1 = this.drop1.backward(this.emptyErr, res1Err);
+    const errMha = this.mha.backward(this.emptyErr, errDrop1);
+    const errLn1 = this.ln1.backward(this.emptyErr, errMha);
+    
+    const peErr = mj.add(res1Err, errLn1);
+    
+    // 4. PE & Embedding Backward
+    const embErr = this.pe.backward(this.emptyErr, peErr);
+    this.embedding.backward(this.emptyErr, embErr);
   }
 
   load(path: string) {

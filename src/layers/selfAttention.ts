@@ -235,7 +235,7 @@ export default class SelfAttention {
   }
 
   private static applyMasks(
-    scoreData: Float64Array,
+    scoreData: Float32Array | Float64Array,
     rows: number,
     cols: number,
     padMask: boolean[]

@@ -33,7 +33,7 @@ export default function dotProduct(
 
   // USE NATIVE IF AVAILABLE
   if (isNativeAvailable()) {
-    const resultOut = out || Matrix.fromFlat(new Float64Array(aRows * bCols), [aRows, bCols]);
+    const resultOut = out || Matrix.fromFlat(new Float32Array(aRows * bCols), [aRows, bCols]);
     dotProductNative(a._data, a._shape, b._data, b._shape, transA, transB, resultOut._data);
     return resultOut;
   }
@@ -44,7 +44,7 @@ export default function dotProduct(
     }
   }
 
-  const resultData = out ? out._data : new Float64Array(aRows * bCols);
+  const resultData = out ? out._data : new Float32Array(aRows * bCols);
   const aData = a._data;
   const bData = b._data;
 

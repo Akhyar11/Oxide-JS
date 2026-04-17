@@ -50,7 +50,7 @@ Capai peningkatan throughput training CPU secara drastis dengan prioritas:
 
 ### 1. Hot path masih campur `Float32` dan `Float64`
 
-Beberapa operasi dan buffer runtime masih mengalokasikan `Float64Array` walaupun storage `Matrix` sudah `Float32Array`. Ini menambah bandwidth memori, cache pressure, dan risiko konversi implisit.
+Beberapa operasi dan buffer runtime masih mengalokasikan `Float32Array` walaupun storage `Matrix` sudah `Float32Array`. Ini menambah bandwidth memori, cache pressure, dan risiko konversi implisit.
 
 Contoh lokasi:
 

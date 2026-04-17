@@ -20,6 +20,7 @@ export type matrix2d = number[][];
 export type matrix3d = number[][][];
 export type MatrixCollection = Matrix | number;
 export type MatrixShape = [number, number];
+export type MatrixFlatData = Float32Array | Float64Array;
 export { Matrix };
 export type ActivationType = "sigmoid" | "tanh" | "relu" | "lRelu" | "linear" | "softmax";
 export type StatusLayer =

@@ -10,7 +10,7 @@ export default function xavier(shape: MatrixShape): Matrix {
   const n_out = shape[0];
   const limit = Math.sqrt(6 / (n_in + n_out));
   const n = n_in * n_out;
-  const data = new Float64Array(n);
+  const data = new Float32Array(n);
   
   for (let i = 0; i < n; i++) {
     data[i] = (Math.random() * 2 - 1) * limit;

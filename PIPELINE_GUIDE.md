@@ -140,7 +140,7 @@ Worker 3: Output Projection + Softmax
 {
   stageId: 0,
   microBatchId: 5,
-  data: Float64Array,
+  data: Float32Array,
   shape: [32, 256]
 }
 
@@ -148,7 +148,7 @@ Worker 3: Output Projection + Softmax
 {
   stageId: 0,
   microBatchId: 5,
-  result: Float64Array,
+  result: Float32Array,
   shape: [32, 256]
 }
 ```

@@ -14,7 +14,7 @@ export function BinaryCrossEntropy(
   const epsilon = 1e-15; // hindari log(0)
   const yData = yTrue._data;
   const pData = yPred._data;
-  const gradData = new Float64Array(yData.length);
+  const gradData = new Float32Array(yData.length);
 
   let loss = 0;
   for (let i = 0; i < yData.length; i++) {
@@ -42,7 +42,7 @@ export default function CategoricalCrossEntropy(
   const epsilon = 1e-15;
   const yData = yTrue._data;
   const pData = yPred._data;
-  const gradData = new Float64Array(yData.length);
+  const gradData = new Float32Array(yData.length);
 
   let loss = 0;
   for (let i = 0; i < yData.length; i++) {

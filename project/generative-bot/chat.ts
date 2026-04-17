@@ -56,7 +56,7 @@ function printDelta(currentFullText: string, lastPrintedText: string): string {
 
 // 2. Sample Token (copied from main.ts for independence)
 function sampleToken(logits: Matrix, temp: number, generated: number[], ids: any): number {
-    const adjusted = new Float64Array(logits._data);
+    const adjusted = new Float32Array(logits._data);
     const seen = new Set(generated);
     for (let i = 0; i < adjusted.length; i++) {
         if (seen.has(i)) {
@@ -79,7 +79,7 @@ function sampleToken(logits: Matrix, temp: number, generated: number[], ids: any
         return maxI;
     }
 
-    const scaledData = new Float64Array(adjusted.length);
+    const scaledData = new Float32Array(adjusted.length);
     for (let i = 0; i < adjusted.length; i++) scaledData[i] = adjusted[i] / temp;
     const [sp] = softmax(Matrix.fromFlat(scaledData, [logits._shape[0], logits._shape[1]]), false);
 

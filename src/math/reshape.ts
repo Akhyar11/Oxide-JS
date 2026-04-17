@@ -12,6 +12,6 @@ export default function reshape(a: Matrix, shape: MatrixShape): Matrix {
     );
   }
   // Data sudah flat dan urut — hanya copy dan ubah shape
-  const result = new Float64Array(a._data);
+  const result = new Float32Array(a._data);
   return Matrix.fromFlat(result, shape);
 }

@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { dotProduct, dotProductInto, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative } = nativeBinding
+const { dotProduct, dotProductInto, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, layerNormBackwardNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative, multiHeadAttentionForwardNativeInto, multiHeadAttentionBackwardNativeInto } = nativeBinding
 
 module.exports.dotProduct = dotProduct
 module.exports.dotProductInto = dotProductInto
@@ -321,6 +321,7 @@ module.exports.divMatricesInto = divMatricesInto
 module.exports.softmaxNativeInto = softmaxNativeInto
 module.exports.softmaxBackwardNativeInto = softmaxBackwardNativeInto
 module.exports.layerNormNativeInto = layerNormNativeInto
+module.exports.layerNormBackwardNativeInto = layerNormBackwardNativeInto
 module.exports.reluNativeInto = reluNativeInto
 module.exports.sigmoidNativeInto = sigmoidNativeInto
 module.exports.tanhNativeInto = tanhNativeInto
@@ -337,3 +338,5 @@ module.exports.mseNative = mseNative
 module.exports.addBiasNative = addBiasNative
 module.exports.sumAxisNative = sumAxisNative
 module.exports.clipGradientsNative = clipGradientsNative
+module.exports.multiHeadAttentionForwardNativeInto = multiHeadAttentionForwardNativeInto
+module.exports.multiHeadAttentionBackwardNativeInto = multiHeadAttentionBackwardNativeInto

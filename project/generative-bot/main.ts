@@ -15,11 +15,10 @@ import { Profiler } from "../../src/utils/profiler";
 const DEFAULT_CONTEXT_LEN = 128; 
 const DEFAULT_EMBEDDING_DIM = 64;
 const DEFAULT_HEADS = 8;
-const LEARNING_RATE = 0.00001;
+const LEARNING_RATE = 1e-5;
 const EPOCHS = 100;
 const TEMPERATURE = 0.7;
-const TOKENIZER_VOCAB_SIZE = 20000;
-const CHECKPOINT_EVERY = 10;
+const TOKENIZER_VOCAB_SIZE = 15000;
 const BATCH_SIZE = 64;
 const RESET_TRAINING = process.env.RESET_TRAINING === "1";
 const TRAINING_MODE = process.env.TRAINING_MODE?.toLowerCase();
@@ -286,6 +285,7 @@ async function main() {
     // Matriks buffer untuk batch
     const batchX = mj.zeros([runtimeConfig.seqLen, BATCH_SIZE]);
     const batchY = mj.zeros([1, BATCH_SIZE]);
+    const tailBatchBuffers = new Map<number, { x: Matrix; y: Matrix }>();
 
     let bestLoss = Infinity; // Melacak loss terbaik
 
@@ -298,18 +298,33 @@ async function main() {
         for (let i = 0; i < trainPairs.length; i += BATCH_SIZE) {
             const actualBatchSize = Math.min(BATCH_SIZE, trainPairs.length - i);
             
-            // Resize buffer jika batch terakhir lebih kecil
-            const currentBatchX = actualBatchSize === BATCH_SIZE ? batchX : mj.zeros([runtimeConfig.seqLen, actualBatchSize]);
-            const currentBatchY = actualBatchSize === BATCH_SIZE ? batchY : mj.zeros([1, actualBatchSize]);
+            // Reuse buffer batch terakhir agar tidak alokasi ulang tiap epoch
+            let currentBatchX = batchX;
+            let currentBatchY = batchY;
+            if (actualBatchSize !== BATCH_SIZE) {
+                let tail = tailBatchBuffers.get(actualBatchSize);
+                if (!tail) {
+                    tail = {
+                        x: mj.zeros([runtimeConfig.seqLen, actualBatchSize]),
+                        y: mj.zeros([1, actualBatchSize]),
+                    };
+                    tailBatchBuffers.set(actualBatchSize, tail);
+                }
+                currentBatchX = tail.x;
+                currentBatchY = tail.y;
+            }
             
             const xData = currentBatchX._data;
             const yData = currentBatchY._data;
+            xData.fill(PAD_ID);
+            yData.fill(0);
 
             for (let b = 0; b < actualBatchSize; b++) {
                 const pair = trainPairs[i + b];
-                // Copy xData per kolom
-                for (let row = 0; row < runtimeConfig.seqLen; row++) {
-                    xData[row * actualBatchSize + b] = pair.xData[row];
+                // Copy sample ke matriks [seqLen, batch] dalam layout row-major
+                let dst = b;
+                for (let row = 0; row < runtimeConfig.seqLen; row++, dst += actualBatchSize) {
+                    xData[dst] = pair.xData[row];
                 }
                 yData[b] = pair.target;
             }

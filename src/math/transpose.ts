@@ -14,7 +14,7 @@ export default function transpose(a: Matrix, out?: Matrix): Matrix {
     }
   }
 
-  const resultData = out ? out._data : new Float64Array(rows * cols);
+  const resultData = out ? out._data : new Float32Array(rows * cols);
   const aData = a._data;
 
   // Optimasi: Membaca secara sequential dari 'a' untuk cache friendliness

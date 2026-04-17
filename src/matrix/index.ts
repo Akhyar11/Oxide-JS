@@ -1,10 +1,10 @@
-import { MatrixCollection, MatrixShape, matrix2d } from "../@types/type";
+import { MatrixCollection, MatrixFlatData, MatrixShape, matrix2d } from "../@types/type";
 import { isNativeAvailable, addInPlaceNative, subInPlaceNative, mulInPlaceNative } from "../math/rust_backend";
 
 /**
- * Matrix class yang dioptimasi dengan Float64Array
+ * Matrix class yang dioptimasi dengan Float32Array
  * 
- * Internal storage menggunakan Float64Array (flat, contiguous memory)
+ * Internal storage menggunakan Float32Array (flat, contiguous memory)
  * untuk performa yang jauh lebih baik dibanding number[][]
  * 
  * Akses: m._data[i * cols + j] (flat index)
@@ -12,16 +12,16 @@ import { isNativeAvailable, addInPlaceNative, subInPlaceNative, mulInPlaceNative
  */
 export default class Matrix {
   /** Internal flat storage — GUNAKAN INI untuk operasi cepat */
-  _data: Float64Array;
+  _data: Float32Array;
   _shape: MatrixShape;
 
   constructor({ array }: { array: matrix2d }) {
     const rows = array.length;
     const cols = rows > 0 && array[0] !== undefined ? array[0].length : 0;
     this._shape = [rows, cols];
-    this._data = new Float64Array(rows * cols);
+    this._data = new Float32Array(rows * cols);
 
-    // Copy from 2D array ke flat Float64Array
+    // Copy from 2D array ke flat Float32Array
     for (let i = 0; i < rows; i++) {
       const offset = i * cols;
       for (let j = 0; j < cols; j++) {
@@ -31,11 +31,12 @@ export default class Matrix {
   }
 
   /**
-   * Buat Matrix langsung dari Float64Array (CEPAT, tanpa copy dari 2D array)
+   * Buat Matrix langsung dari Float32Arraydatar.
+   * Data akan dinormalisasi ke Float32Array agar konsisten dengan backend native.
    */
-  static fromFlat(data: Float64Array, shape: MatrixShape): Matrix {
+  static fromFlat(data: MatrixFlatData | ArrayLike<number>, shape: MatrixShape): Matrix {
     const m = Object.create(Matrix.prototype) as Matrix;
-    m._data = data;
+    m._data = data instanceof Float32Array ? data : new Float32Array(data);
     m._shape = shape;
     return m;
   }
@@ -66,7 +67,7 @@ export default class Matrix {
     const rows = arr.length;
     const cols = rows > 0 && arr[0] !== undefined ? arr[0].length : 0;
     this._shape = [rows, cols];
-    this._data = new Float64Array(rows * cols);
+    this._data = new Float32Array(rows * cols);
     for (let i = 0; i < rows; i++) {
       const offset = i * cols;
       for (let j = 0; j < cols; j++) {
@@ -99,24 +100,24 @@ export default class Matrix {
   }
 
   /**
-   * Ekstrak kolom sebagai Float64Array baru
+   * Ekstrak kolom sebagai Float32Array baru
    */
-  getCol(colIndex: number): Float64Array {
+  getCol(colIndex: number): Float32Array {
     const [rows, cols] = this._shape;
-    const col = new Float64Array(rows);
+    const col = new Float32Array(rows);
     for (let i = 0; i < rows; i++) {
-        col[i] = this._data[i * cols + colIndex];
+      col[i] = this._data[i * cols + colIndex];
     }
     return col;
   }
 
   /**
-   * Set data kolom dari Float64Array
+   * Set data kolom dari typed array
    */
-  setCol(colIndex: number, data: Float64Array): void {
+  setCol(colIndex: number, data: MatrixFlatData): void {
     const [rows, cols] = this._shape;
     for (let i = 0; i < rows; i++) {
-        this._data[i * cols + colIndex] = data[i];
+      this._data[i * cols + colIndex] = data[i];
     }
   }
 
@@ -204,7 +205,7 @@ export default class Matrix {
    * Clone matrix ini ke objek baru
    */
   clone(): Matrix {
-    const newData = new Float64Array(this._data);
+    const newData = new Float32Array(this._data);
     return Matrix.fromFlat(newData, [...this._shape]);
   }
 
@@ -216,7 +217,7 @@ export default class Matrix {
       for (let i = 0; i < this._data.length; i++) this._data[i] += other;
     } else {
       if (isNativeAvailable()) {
-        addInPlaceNative(this._data, other._data);
+        addInPlaceNative(this._data as any, other._data as any);
       } else {
         for (let i = 0; i < this._data.length; i++) this._data[i] += other._data[i];
       }
@@ -231,7 +232,7 @@ export default class Matrix {
       for (let i = 0; i < this._data.length; i++) this._data[i] -= other;
     } else {
       if (isNativeAvailable()) {
-        subInPlaceNative(this._data, other._data);
+        subInPlaceNative(this._data as any, other._data as any);
       } else {
         for (let i = 0; i < this._data.length; i++) this._data[i] -= other._data[i];
       }
@@ -246,7 +247,7 @@ export default class Matrix {
       for (let i = 0; i < this._data.length; i++) this._data[i] *= other;
     } else {
       if (isNativeAvailable()) {
-        mulInPlaceNative(this._data, other._data);
+        mulInPlaceNative(this._data as any, other._data as any);
       } else {
         for (let i = 0; i < this._data.length; i++) this._data[i] *= other._data[i];
       }

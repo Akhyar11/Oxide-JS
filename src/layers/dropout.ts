@@ -11,6 +11,7 @@ export default class Dropout {
   inputShape: [number, number] = [0, 0];
   outputShape: [number, number] = [0, 0];
   params: number = 0;
+  private outputBuffer: Matrix = mj.matrix([]);
 
   constructor({ rate = 0.5, status = "input" }: { rate?: number; status?: StatusLayer }) {
     this.rate = rate;
@@ -41,8 +42,13 @@ export default class Dropout {
     }
 
     const scale = 1 / (1 - this.rate);
-    const data = new Float64Array(x._data.length);
-    const maskData = new Float64Array(x._data.length);
+    if (this.outputBuffer._shape[0] !== x._shape[0] || this.outputBuffer._shape[1] !== x._shape[1]) {
+      this.outputBuffer = Matrix.fromFlat(new Float32Array(x._data.length), x._shape);
+      this.mask = Matrix.fromFlat(new Float32Array(x._data.length), x._shape);
+    }
+
+    const data = this.outputBuffer._data;
+    const maskData = this.mask._data;
 
     for (let i = 0; i < x._data.length; i++) {
       if (Math.random() >= this.rate) {
@@ -54,8 +60,7 @@ export default class Dropout {
       }
     }
 
-    this.mask = Matrix.fromFlat(maskData, x._shape);
-    return Matrix.fromFlat(data, x._shape);
+    return this.outputBuffer;
   }
 
   backward(y: Matrix, err: Matrix): Matrix {

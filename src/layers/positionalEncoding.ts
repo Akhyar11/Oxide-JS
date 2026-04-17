@@ -75,44 +75,31 @@ export default class PositionalEncoding {
    * Output shape: [dModel, seqLen] (sama, hanya ditambah posisi)
    */
   forward(x: Matrix): Matrix {
-    const seqLen = x._shape[1];
-    this.inputShape = [this.dModel, seqLen];
-    this.outputShape = [this.dModel, seqLen];
+    const actualSeqLen = x._shape[1];
+    const seqLen = this.maxSeqLen; // Use the configured maxSeqLen for cycling
+    this.inputShape = [this.dModel, actualSeqLen];
+    this.outputShape = [this.dModel, actualSeqLen];
 
-    // Ambil slice PE table sesuai panjang sequence
-    const cols = x._shape[1];
+    const cols = actualSeqLen;
     
-    // Gunakan kembali buffer yang sudah dialokasikan untuk mencegah garabage collection
-    if (!this.resultBuffer || this.resultBuffer._shape[0] !== this.dModel || this.resultBuffer._shape[1] !== seqLen) {
-      this.resultBuffer = mj.zeros([this.dModel, seqLen]);
+    if (!this.resultBuffer || this.resultBuffer._shape[0] !== this.dModel || this.resultBuffer._shape[1] !== actualSeqLen) {
+      this.resultBuffer = mj.zeros([this.dModel, actualSeqLen]);
     }
     const result = this.resultBuffer._data;
+    result.fill(0);
     
     const xData = x._data;
     const peData = this.peTable._data;
     const peCols = this.peTable._shape[1];
 
-    // Deteksi label pad sekali saja untuk tiap posisi
-    const isPadColumn = new Array(seqLen).fill(true);
-    for (let j = 0; j < seqLen; j++) {
-      for (let k = 0; k < this.dModel; k++) {
-        if (xData[k * cols + j] !== 0) {
-          isPadColumn[j] = false;
-          break;
-        }
-      }
-    }
-
     for (let i = 0; i < this.dModel; i++) {
       const xOffset = i * cols;
       const peOffset = i * peCols;
-      const outOffset = i * seqLen;
-      for (let j = 0; j < seqLen; j++) {
-        if (isPadColumn[j]) {
-          result[outOffset + j] = 0;
-        } else {
-          result[outOffset + j] = xData[xOffset + j] + peData[peOffset + j];
-        }
+      const outOffset = i * cols;
+      for (let j = 0; j < cols; j++) {
+        const peIdx = j % seqLen; // Cycle PE for each batch item
+        const val = xData[xOffset + j];
+        result[outOffset + j] = val === 0 ? 0 : val + peData[peOffset + peIdx];
       }
     }
 

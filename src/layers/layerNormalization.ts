@@ -1,7 +1,7 @@
 import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
 import mj from "../math";
 import Matrix from "../matrix";
-import { isNativeAvailable, layerNormNative } from "../math/rust_backend";
+import { isNativeAvailable, layerNormNative, layerNormBackwardNative } from "../math/rust_backend";
 import setOptimizer from "../utils/setOptimizer";
 
 /**
@@ -32,6 +32,10 @@ export default class LayerNormalization {
   private optimizerName: Optimzier = "sgd";
   private optimizerGamma: OptimzierType;
   private optimizerBeta: OptimzierType;
+  private resultBuffer: Matrix = mj.matrix([]);
+  private dGammaBuffer: Matrix = mj.matrix([]);
+  private dBetaBuffer: Matrix = mj.matrix([]);
+  private dxBuffer: Matrix = mj.matrix([]);
 
   constructor({
     units,
@@ -79,21 +83,31 @@ export default class LayerNormalization {
     this.outputShape = [rows, cols];
 
     if (isNativeAvailable()) {
-      const res = new Float64Array(rows * cols);
-      const norm = new Float64Array(rows * cols);
-      const m = new Float64Array(cols);
-      const s = new Float64Array(cols);
-      layerNormNative(x._data, this.gamma._data, this.beta._data, rows, cols, this.epsilon, res, norm, m, s);
-      this.normalized = Matrix.fromFlat(norm, [rows, cols]);
-      this.mean = Matrix.fromFlat(m, [1, cols]);
-      this.std = Matrix.fromFlat(s, [1, cols]);
-      return Matrix.fromFlat(res, [rows, cols]);
+      if (this.resultBuffer._shape[0] !== rows || this.resultBuffer._shape[1] !== cols) {
+        this.resultBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+        this.normalized = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+        this.mean = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
+        this.std = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
+      }
+      layerNormNative(
+        x._data,
+        this.gamma._data,
+        this.beta._data,
+        rows,
+        cols,
+        this.epsilon,
+        this.resultBuffer._data,
+        this.normalized._data,
+        this.mean._data,
+        this.std._data
+      );
+      return this.resultBuffer;
     }
 
-    const result = new Float64Array(rows * cols);
-    const normalizedData = new Float64Array(rows * cols);
-    const means = new Float64Array(cols);
-    const vars = new Float64Array(cols);
+    const result = new Float32Array(rows * cols);
+    const normalizedData = new Float32Array(rows * cols);
+    const means = new Float32Array(cols);
+    const vars = new Float32Array(cols);
 
     const xData = x._data;
 
@@ -139,31 +153,75 @@ export default class LayerNormalization {
 
   backward(_y: Matrix, err: Matrix): Matrix {
     const [rows, cols] = err._shape;
-    const dGamma = new Float64Array(this.units);
-    const dBeta = new Float64Array(this.units);
-    const dx = new Float64Array(rows * cols);
+    if (this.dGammaBuffer._shape[0] !== this.units) {
+      this.dGammaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
+      this.dBetaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
+    }
+    if (this.dxBuffer._shape[0] !== rows || this.dxBuffer._shape[1] !== cols) {
+      this.dxBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+    }
+
+    const dGamma = this.dGammaBuffer._data;
+    const dBeta = this.dBetaBuffer._data;
+    const dx = this.dxBuffer._data;
+
+    dGamma.fill(0);
+    dBeta.fill(0);
+    dx.fill(0);
 
     const errData = err._data;
     const normData = this.normalized._data;
     const gData = this.gamma._data;
     const stdData = this.std._data;
 
-    // 1. Hitung gradien untuk gamma dan beta
-    for (let i = 0; i < rows; i++) {
-      let sumG = 0;
-      let sumB = 0;
-      for (let j = 0; j < cols; j++) {
-        const idx = i * cols + j;
-        sumG += errData[idx] * normData[idx];
-        sumB += errData[idx];
+    if (isNativeAvailable()) {
+      layerNormBackwardNative(
+        errData,
+        normData,
+        gData,
+        rows,
+        cols,
+        stdData,
+        dGamma,
+        dBeta,
+        dx
+      );
+    } else {
+      // 1. Hitung gradien untuk gamma dan beta
+      for (let i = 0; i < rows; i++) {
+        let sumG = 0;
+        let sumB = 0;
+        for (let j = 0; j < cols; j++) {
+          const idx = i * cols + j;
+          sumG += errData[idx] * normData[idx];
+          sumB += errData[idx];
+        }
+        dGamma[i] = sumG;
+        dBeta[i] = sumB;
       }
-      dGamma[i] = sumG;
-      dBeta[i] = sumB;
+
+      // 2. Hitung gradien ke input (dx)
+      for (let j = 0; j < cols; j++) {
+        const s = stdData[j];
+        let sum1 = 0;
+        let sum2 = 0;
+        for (let i = 0; i < rows; i++) {
+          const idx = i * cols + j;
+          const e = errData[idx] * gData[i];
+          sum1 += e;
+          sum2 += e * normData[idx];
+        }
+
+        for (let i = 0; i < rows; i++) {
+          const idx = i * cols + j;
+          dx[idx] = (gData[i] * errData[idx] - (sum1 / rows) - (normData[idx] * sum2 / rows)) / s;
+        }
+      }
     }
 
     // [Update]: Update gamma dan beta menggunakan optimizer
-    const gGrad = Matrix.fromFlat(dGamma, [this.units, 1]);
-    const bGrad = Matrix.fromFlat(dBeta, [this.units, 1]);
+    const gGrad = this.dGammaBuffer;
+    const bGrad = this.dBetaBuffer;
     
     // Gradient clipping untuk LN parameters
     this.clipGradients(gGrad, 1.0);
@@ -175,25 +233,7 @@ export default class LayerNormalization {
     this.gamma.subInPlace(gUpdate);
     this.beta.subInPlace(bUpdate);
 
-    // 2. Hitung gradien ke input (dx)
-    for (let j = 0; j < cols; j++) {
-      const s = stdData[j];
-      let sum1 = 0;
-      let sum2 = 0;
-      for (let i = 0; i < rows; i++) {
-        const idx = i * cols + j;
-        const e = errData[idx] * gData[i];
-        sum1 += e;
-        sum2 += e * normData[idx];
-      }
-
-      for (let i = 0; i < rows; i++) {
-        const idx = i * cols + j;
-        dx[idx] = (gData[i] * errData[idx] - (sum1 / rows) - (normData[idx] * sum2 / rows)) / s;
-      }
-    }
-
-    return Matrix.fromFlat(dx, [rows, cols]);
+    return this.dxBuffer;
   }
 
   private clipGradients(m: Matrix, limit: number) {

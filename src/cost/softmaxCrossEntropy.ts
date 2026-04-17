@@ -31,7 +31,7 @@ export default function SoftmaxCrossEntropy(
   const probs = softmaxOnly(logits, false);
   const epsilon = 1e-15;
   const pData = probs._data;
-  const gradData = new Float64Array(pData);
+  const gradData = new Float32Array(pData);
   const isSparseTarget = yTrue._shape[0] === 1;
 
   let totalLoss = 0;

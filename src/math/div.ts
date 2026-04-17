@@ -8,7 +8,7 @@ import { isNativeAvailable, divNative } from "./rust_backend";
 export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
   if (typeof a === "number") {
     const bm = b as Matrix;
-    const result = new Float64Array(bm._data.length);
+    const result = new Float32Array(bm._data.length);
     for (let i = 0; i < bm._data.length; i++) {
         if (bm._data[i] === 0) throw new Error(`Pembagian dengan nol pada indeks [${i}]`);
         result[i] = a / bm._data[i];
@@ -17,7 +17,7 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
   }
   if (typeof b === "number") {
     if (b === 0) throw new Error("Pembagian dengan nol (scalar = 0) tidak diizinkan");
-    const result = new Float64Array(a._data.length);
+    const result = new Float32Array(a._data.length);
     for (let i = 0; i < a._data.length; i++) result[i] = a._data[i] / b;
     return Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
   }
@@ -27,12 +27,12 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
 
   // USE NATIVE IF AVAILABLE
   if (isNativeAvailable()) {
-    const resultData = new Float64Array(a._data.length);
+    const resultData = new Float32Array(a._data.length);
     divNative(a._data, b._data, resultData);
     return Matrix.fromFlat(resultData, [a._shape[0], a._shape[1]]);
   }
 
-  const result = new Float64Array(a._data.length);
+  const result = new Float32Array(a._data.length);
   for (let i = 0; i < a._data.length; i++) {
     if (b._data[i] === 0) throw new Error(`Pembagian dengan nol pada indeks [${i}]`);
     result[i] = a._data[i] / b._data[i];

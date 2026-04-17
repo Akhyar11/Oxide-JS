@@ -5,8 +5,9 @@ const disableNativeByEnv = process.env.ML_DISABLE_NATIVE === "1";
 
 if (!disableNativeByEnv) {
   try {
-    // Hanya gunakan satu nama konsisten yang di-generate oleh script build
-    native = require("../../ml-native.node");
+    // Gunakan loader NAPI-RS agar memilih artefak platform yang benar.
+    // Menghindari pemakaian binary stale ketika file *.node lama masih ada di repo root.
+    native = require("../../index.js");
   } catch (e) {
     // console.warn("Rust Backend: Native module failed to load.");
   }
@@ -22,94 +23,119 @@ export const isNativeAvailable = () => native !== null && !forceDisable;
 
 
 export const dotProductNative = (
-  aData: Float64Array,
+  aData: Float32Array,
   aShape: MatrixShape,
-  bData: Float64Array,
+  bData: Float32Array,
   bShape: MatrixShape,
   transA: boolean,
   transB: boolean,
-  outData: Float64Array
+  outData: Float32Array
 ): void => {
   if (!native) throw new Error("Native backend not available");
   native.dotProductInto(aData, Array.from(aShape), bData, Array.from(bShape), outData, transA, transB);
 };
 
-export const addNative = (a: Float64Array, b: Float64Array, out: Float64Array): void => {
+export const addNative = (a: Float32Array, b: Float32Array, out: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.addMatricesInto(a, b, out);
 };
 
-export const subNative = (a: Float64Array, b: Float64Array, out: Float64Array): void => {
+export const subNative = (a: Float32Array, b: Float32Array, out: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.subMatricesInto(a, b, out);
 };
 
-export const mulNative = (a: Float64Array, b: Float64Array, out: Float64Array): void => {
+export const mulNative = (a: Float32Array, b: Float32Array, out: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.mulMatricesInto(a, b, out);
 };
 
-export const divNative = (a: Float64Array, b: Float64Array, out: Float64Array): void => {
+export const divNative = (a: Float32Array, b: Float32Array, out: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.divMatricesInto(a, b, out);
 };
 
-export const addInPlaceNative = (a: Float64Array, b: Float64Array): void => {
+export const addInPlaceNative = (a: Float32Array, b: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.addInPlace(a, b);
 };
 
-export const subInPlaceNative = (a: Float64Array, b: Float64Array): void => {
+export const subInPlaceNative = (a: Float32Array, b: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.subInPlace(a, b);
 };
 
-export const mulInPlaceNative = (a: Float64Array, b: Float64Array): void => {
+export const mulInPlaceNative = (a: Float32Array, b: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.mulInPlace(a, b);
 };
 
 export const softmaxNative = (
-  data: Float64Array,
+  data: Float32Array,
   rows: number,
   cols: number,
   isRow: boolean,
-  out: Float64Array
+  out: Float32Array
 ): void => {
   if (!native) throw new Error("Native backend not available");
   native.softmaxNativeInto(data, rows, cols, isRow, out);
 };
 
 export const softmaxBackwardNative = (
-  sData: Float64Array,
-  gData: Float64Array,
+  sData: Float32Array,
+  gData: Float32Array,
   rows: number,
   cols: number,
   isRow: boolean,
-  out: Float64Array
+  out: Float32Array
 ): void => {
   if (!native) throw new Error("Native backend not available");
   native.softmaxBackwardNativeInto(sData, gData, rows, cols, isRow, out);
 };
 
 export const layerNormNative = (
-  xData: Float64Array,
-  gamma: Float64Array,
-  beta: Float64Array,
+  xData: Float32Array,
+  gamma: Float32Array,
+  beta: Float32Array,
   rows: number,
   cols: number,
   eps: number,
-  outRes: Float64Array,
-  outNorm: Float64Array,
-  outMeans: Float64Array,
-  outStds: Float64Array
+  outRes: Float32Array,
+  outNorm: Float32Array,
+  outMeans: Float32Array,
+  outStds: Float32Array
 ): void => {
   if (!native) throw new Error("Native backend not available");
   native.layerNormNativeInto(xData, gamma, beta, rows, cols, eps, outRes, outNorm, outMeans, outStds);
 };
 
+export const layerNormBackwardNative = (
+  errData: Float32Array,
+  normData: Float32Array,
+  gammaData: Float32Array,
+  rows: number,
+  cols: number,
+  stdData: Float32Array,
+  dGammaOut: Float32Array,
+  dBetaOut: Float32Array,
+  dxOut: Float32Array
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.layerNormBackwardNativeInto(
+    errData,
+    normData,
+    gammaData,
+    rows,
+    cols,
+    stdData,
+    dGammaOut,
+    dBetaOut,
+    dxOut
+  );
+};
+
 export const applyAttentionMaskNative = (
-  data: Float64Array,
+  data: Float32Array,
   padMask: boolean[],
   rows: number,
   cols: number,
@@ -119,11 +145,75 @@ export const applyAttentionMaskNative = (
   native.applyAttentionMaskNative(data, padMask, rows, cols, scale);
 };
 
+export const multiHeadAttentionForwardNative = (
+  qData: Float32Array,
+  kData: Float32Array,
+  vData: Float32Array,
+  padMask: boolean[],
+  heads: number,
+  headUnits: number,
+  seqLen: number,
+  batchSize: number,
+  scale: number,
+  outData: Float32Array,
+  attentionData: Float32Array
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.multiHeadAttentionForwardNativeInto(
+    qData,
+    kData,
+    vData,
+    padMask,
+    heads,
+    headUnits,
+    seqLen,
+    batchSize,
+    scale,
+    outData,
+    attentionData
+  );
+};
+
+export const multiHeadAttentionBackwardNative = (
+  qData: Float32Array,
+  kData: Float32Array,
+  vData: Float32Array,
+  attentionData: Float32Array,
+  dOutData: Float32Array,
+  padMask: boolean[],
+  heads: number,
+  headUnits: number,
+  seqLen: number,
+  batchSize: number,
+  scale: number,
+  dQOut: Float32Array,
+  dKOut: Float32Array,
+  dVOut: Float32Array
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.multiHeadAttentionBackwardNativeInto(
+    qData,
+    kData,
+    vData,
+    attentionData,
+    dOutData,
+    padMask,
+    heads,
+    headUnits,
+    seqLen,
+    batchSize,
+    scale,
+    dQOut,
+    dKOut,
+    dVOut
+  );
+};
+
 export const adamUpdateNative = (
-  grad: Float64Array,
-  m: Float64Array,
-  v: Float64Array,
-  buffer: Float64Array,
+  grad: Float32Array,
+  m: Float32Array,
+  v: Float32Array,
+  buffer: Float32Array,
   t: number,
   alpha: number,
   beta1: number,
@@ -134,33 +224,33 @@ export const adamUpdateNative = (
   native.adamUpdateNative(grad, m, v, buffer, t, alpha, beta1, beta2, epsilon);
 };
 
-export const reluNative = (input: Float64Array, outRes: Float64Array, outGrad: Float64Array): void => {
+export const reluNative = (input: Float32Array, outRes: Float32Array, outGrad: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.reluNativeInto(input, outRes, outGrad);
 };
 
-export const sigmoidNative = (input: Float64Array, outRes: Float64Array, outGrad: Float64Array): void => {
+export const sigmoidNative = (input: Float32Array, outRes: Float32Array, outGrad: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.sigmoidNativeInto(input, outRes, outGrad);
 };
 
-export const tanhNative = (input: Float64Array, outRes: Float64Array, outGrad: Float64Array): void => {
+export const tanhNative = (input: Float32Array, outRes: Float32Array, outGrad: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.tanhNativeInto(input, outRes, outGrad);
 };
 
-export const mseNative = (yTrue: Float64Array, yPred: Float64Array): number[] => {
+export const mseNative = (yTrue: Float32Array, yPred: Float32Array): number[] => {
   if (!native) throw new Error("Native backend not available");
   return native.mseNative(yTrue, yPred);
 };
 
 export const embeddingForwardNative = (
   indices: number[],
-  weightData: Float64Array,
+  weightData: Float32Array,
   vocabSize: number,
   embeddingDim: number,
   padTokenId: number | null,
-  out: Float64Array
+  out: Float32Array
 ): void => {
   if (!native) throw new Error("Native backend not available");
   native.embeddingForwardNativeInto(indices, weightData, vocabSize, embeddingDim, padTokenId, out);
@@ -168,8 +258,8 @@ export const embeddingForwardNative = (
 
 export const embeddingBackwardNative = (
   indices: number[],
-  errData: Float64Array,
-  gradData: Float64Array,
+  errData: Float32Array,
+  gradData: Float32Array,
   vocabSize: number,
   embeddingDim: number,
   padTokenId: number | null
@@ -179,47 +269,47 @@ export const embeddingBackwardNative = (
 };
 
 export const convolutionNative = (
-  aData: Float64Array,
+  aData: Float32Array,
   aRows: number,
   aCols: number,
-  kData: Float64Array,
+  kData: Float32Array,
   kRows: number,
   kCols: number
-): Float64Array => {
+): Float32Array => {
   if (!native) throw new Error("Native backend not available");
   const outRows = aRows - kRows + 1;
   const outCols = aCols - kCols + 1;
-  const out = new Float64Array(outRows * outCols);
+  const out = new Float32Array(outRows * outCols);
   native.convolutionNativeInto(aData, aRows, aCols, kData, kRows, kCols, out);
   return out;
 };
 
 export const convBackwardInputNative = (
-  errData: Float64Array,
+  errData: Float32Array,
   errRows: number,
   errCols: number,
-  inputData: Float64Array,
+  inputData: Float32Array,
   inputRows: number,
   inputCols: number,
   outRows: number,
   outCols: number
-): Float64Array => {
+): Float32Array => {
   if (!native) throw new Error("Native backend not available");
-  const out = new Float64Array(outRows * outCols);
+  const out = new Float32Array(outRows * outCols);
   native.convBackwardInputNativeInto(errData, errRows, errCols, inputData, inputRows, inputCols, outRows, outCols, out);
   return out;
 };
-export const addBiasNative = (data: Float64Array, bias: Float64Array, rows: number, cols: number): void => {
+export const addBiasNative = (data: Float32Array, bias: Float32Array, rows: number, cols: number): void => {
   if (!native) throw new Error("Native backend not available");
   native.addBiasNative(data, bias, rows, cols);
 };
 
-export const sumAxisNative = (data: Float64Array, rows: number, cols: number, axis: number, out: Float64Array): void => {
+export const sumAxisNative = (data: Float32Array, rows: number, cols: number, axis: number, out: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.sumAxisNative(data, rows, cols, axis, out);
 };
 
-export const clipGradientsNative = (data: Float64Array, limit: number): void => {
+export const clipGradientsNative = (data: Float32Array, limit: number): void => {
   if (!native) throw new Error("Native backend not available");
   native.clipGradientsNative(data, limit);
 };

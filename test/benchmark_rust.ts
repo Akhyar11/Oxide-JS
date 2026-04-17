@@ -6,7 +6,7 @@ const SCALE = 2; // Perbesar matriks untuk membedakan performa
 const ITERS = 10;
 
 function makeMatrix(rows: number, cols: number): Matrix {
-  const data = new Float64Array(rows * cols);
+  const data = new Float32Array(rows * cols);
   for (let i = 0; i < data.length; i++) data[i] = Math.random();
   return Matrix.fromFlat(data, [rows, cols]);
 }

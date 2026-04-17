@@ -1,7 +1,6 @@
 import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
-import { softmaxBackwardInto, softmaxInto } from "../activation";
 import mj from "../math";
-import { applyAttentionMaskNative, isNativeAvailable } from "../math/rust_backend";
+import { isNativeAvailable, multiHeadAttentionBackwardNative, multiHeadAttentionForwardNative } from "../math/rust_backend";
 import Matrix from "../matrix";
 import setOptimizer from "../utils/setOptimizer";
 import Dense from "./dense";
@@ -67,10 +66,7 @@ export default class MultiHeadAttention {
   private dQHeadViews: Matrix[] = [];
   private dKHeadViews: Matrix[] = [];
   private dVHeadViews: Matrix[] = [];
-  private scoreBuffers: Matrix[] = [];
-  private attentionBuffers: Matrix[] = [];
-  private errAttentionBuffers: Matrix[] = [];
-  private errScoreBuffers: Matrix[] = [];
+  private attentionData: Float32Array = new Float32Array(0);
 
   constructor({ units, heads, seqLen, alpha = 0.1, status = "input" }: MultiHeadAttentionLayer) {
     this.units = units;
@@ -122,7 +118,7 @@ export default class MultiHeadAttention {
     this.oldVBuffer = mj.zeros([this.units, this.units]);
 
     this.params = 3 * this.units * this.units + this.wo.params;
-    this.ensureSequenceBuffers(seqLen);
+    this.ensureSequenceBuffersForBatch(seqLen);
   }
 
   compile({ alpha, optimizer, error }: { alpha?: number; optimizer?: Optimzier; error?: Cost }) {
@@ -136,34 +132,59 @@ export default class MultiHeadAttention {
     this.wo.compile({ alpha, optimizer, error });
   }
 
+  setPadMask(padMask: boolean[]): void {
+    this.padMask = padMask;
+  }
+
   forward(x: Matrix): Matrix {
-    const seqLen = x._shape[1];
-    this.ensureSequenceBuffers(seqLen);
+    const totalCols = x._shape[1];
+    const seqLen = this.seqLen;
+    const batchSize = Math.floor(totalCols / seqLen);
+    
+    this.ensureSequenceBuffersForBatch(totalCols);
 
     this.input = x;
-    this.padMask = MultiHeadAttention.detectPadColumns(x, this.padMask);
+    if (this.padMask.length !== totalCols) {
+      this.padMask = MultiHeadAttention.detectPadColumns(x, this.padMask);
+    }
 
     mj.dotProduct(this.q, x, this.Q);
     mj.dotProduct(this.k, x, this.K);
     mj.dotProduct(this.v, x, this.V);
 
     const scale = 1 / Math.sqrt(this.headUnits);
-    for (let i = 0; i < this.heads; i++) {
-      const score = mj.dotProduct(this.kHeadViews[i], this.qHeadViews[i], this.scoreBuffers[i], true, false);
 
-      if (isNativeAvailable()) {
-        applyAttentionMaskNative(score._data, this.padMask, score._shape[0], score._shape[1], scale);
-      } else {
-        const scoreData = score._data;
-        for (let j = 0; j < scoreData.length; j++) {
-          scoreData[j] *= scale;
-        }
-        MultiHeadAttention.applyMasks(scoreData, score._shape[0], score._shape[1], this.padMask);
-      }
+    this.concatenated._data.fill(0);
+    this.attentionData.fill(0);
 
-      softmaxInto(score, this.attentionBuffers[i], false);
-      mj.dotProduct(this.vHeadViews[i], this.attentionBuffers[i], this.outHeadViews[i]);
-      MultiHeadAttention.zeroMaskedColumnsInPlace(this.outHeadViews[i], this.padMask);
+    if (isNativeAvailable()) {
+      multiHeadAttentionForwardNative(
+        this.Q._data,
+        this.K._data,
+        this.V._data,
+        this.padMask,
+        this.heads,
+        this.headUnits,
+        seqLen,
+        batchSize,
+        scale,
+        this.concatenated._data,
+        this.attentionData
+      );
+    } else {
+      MultiHeadAttention.forwardFallback(
+        this.Q._data,
+        this.K._data,
+        this.V._data,
+        this.padMask,
+        this.heads,
+        this.headUnits,
+        seqLen,
+        batchSize,
+        scale,
+        this.concatenated._data,
+        this.attentionData
+      );
     }
 
     this.outputShape = [this.concatenated._shape[0], this.concatenated._shape[1]];
@@ -172,23 +193,49 @@ export default class MultiHeadAttention {
 
   backward(y: Matrix, err: Matrix): Matrix {
     const dCat = this.wo.backward(y, err);
-    const seqLen = dCat._shape[1];
-    this.ensureSequenceBuffers(seqLen);
-
+    const totalCols = dCat._shape[1];
+    const seqLen = this.seqLen;
+    const batchSize = Math.floor(totalCols / seqLen);
     const scale = 1 / Math.sqrt(this.headUnits);
-    const headSpan = this.headUnits * seqLen;
 
-    for (let i = 0; i < this.heads; i++) {
-      const start = i * headSpan;
-      const errHead = Matrix.fromFlat(dCat._data.subarray(start, start + headSpan), [this.headUnits, seqLen]);
+    this.dQAll._data.fill(0);
+    this.dKAll._data.fill(0);
+    this.dVAll._data.fill(0);
 
-      mj.dotProduct(errHead, this.attentionBuffers[i], this.dVHeadViews[i], false, true);
-      mj.dotProduct(this.vHeadViews[i], errHead, this.errAttentionBuffers[i], true, false);
-      softmaxBackwardInto(this.attentionBuffers[i], this.errAttentionBuffers[i], this.errScoreBuffers[i], false);
-      this.errScoreBuffers[i].mulInPlace(scale);
-
-      mj.dotProduct(this.kHeadViews[i], this.errScoreBuffers[i], this.dQHeadViews[i]);
-      mj.dotProduct(this.qHeadViews[i], this.errScoreBuffers[i], this.dKHeadViews[i], false, true);
+    if (isNativeAvailable()) {
+      multiHeadAttentionBackwardNative(
+        this.Q._data,
+        this.K._data,
+        this.V._data,
+        this.attentionData,
+        dCat._data,
+        this.padMask,
+        this.heads,
+        this.headUnits,
+        seqLen,
+        batchSize,
+        scale,
+        this.dQAll._data,
+        this.dKAll._data,
+        this.dVAll._data
+      );
+    } else {
+      MultiHeadAttention.backwardFallback(
+        this.Q._data,
+        this.K._data,
+        this.V._data,
+        this.attentionData,
+        dCat._data,
+        this.padMask,
+        this.heads,
+        this.headUnits,
+        seqLen,
+        batchSize,
+        scale,
+        this.dQAll._data,
+        this.dKAll._data,
+        this.dVAll._data
+      );
     }
 
     const gradQ = mj.dotProduct(this.dQAll, this.input, this.gradQBuffer, false, true);
@@ -245,44 +292,34 @@ export default class MultiHeadAttention {
     }
   }
 
-  private ensureSequenceBuffers(seqLen: number) {
-    if (this.seqLen === seqLen && this.Q._shape[1] === seqLen && this.qHeadViews.length === this.heads) {
+  private ensureSequenceBuffersForBatch(totalCols: number) {
+    if (this.Q._shape[1] === totalCols && this.qHeadViews.length === this.heads) {
       return;
     }
 
-    this.seqLen = seqLen;
-    this.inputShape = [this.units, seqLen];
-    this.outputShape = [this.units, seqLen];
+    this.inputShape = [this.units, totalCols];
+    this.outputShape = [this.units, totalCols];
 
-    this.Q = mj.zeros([this.units, seqLen]);
-    this.K = mj.zeros([this.units, seqLen]);
-    this.V = mj.zeros([this.units, seqLen]);
-    this.concatenated = mj.zeros([this.units, seqLen]);
+    this.Q = mj.zeros([this.units, totalCols]);
+    this.K = mj.zeros([this.units, totalCols]);
+    this.V = mj.zeros([this.units, totalCols]);
+    this.concatenated = mj.zeros([this.units, totalCols]);
 
-    this.gradInputBuffer = mj.zeros([this.units, seqLen]);
-    this.gradContributionBuffer = mj.zeros([this.units, seqLen]);
-    this.dQAll = mj.zeros([this.units, seqLen]);
-    this.dKAll = mj.zeros([this.units, seqLen]);
-    this.dVAll = mj.zeros([this.units, seqLen]);
+    this.gradInputBuffer = mj.zeros([this.units, totalCols]);
+    this.gradContributionBuffer = mj.zeros([this.units, totalCols]);
+    this.dQAll = mj.zeros([this.units, totalCols]);
+    this.dKAll = mj.zeros([this.units, totalCols]);
+    this.dVAll = mj.zeros([this.units, totalCols]);
 
-    this.qHeadViews = this.createHeadViews(this.Q, seqLen);
-    this.kHeadViews = this.createHeadViews(this.K, seqLen);
-    this.vHeadViews = this.createHeadViews(this.V, seqLen);
-    this.outHeadViews = this.createHeadViews(this.concatenated, seqLen);
-    this.dQHeadViews = this.createHeadViews(this.dQAll, seqLen);
-    this.dKHeadViews = this.createHeadViews(this.dKAll, seqLen);
-    this.dVHeadViews = this.createHeadViews(this.dVAll, seqLen);
-
-    this.scoreBuffers = new Array<Matrix>(this.heads);
-    this.attentionBuffers = new Array<Matrix>(this.heads);
-    this.errAttentionBuffers = new Array<Matrix>(this.heads);
-    this.errScoreBuffers = new Array<Matrix>(this.heads);
-    for (let i = 0; i < this.heads; i++) {
-      this.scoreBuffers[i] = mj.zeros([seqLen, seqLen]);
-      this.attentionBuffers[i] = mj.zeros([seqLen, seqLen]);
-      this.errAttentionBuffers[i] = mj.zeros([seqLen, seqLen]);
-      this.errScoreBuffers[i] = mj.zeros([seqLen, seqLen]);
-    }
+    this.qHeadViews = this.createHeadViews(this.Q, totalCols);
+    this.kHeadViews = this.createHeadViews(this.K, totalCols);
+    this.vHeadViews = this.createHeadViews(this.V, totalCols);
+    this.outHeadViews = this.createHeadViews(this.concatenated, totalCols);
+    this.dQHeadViews = this.createHeadViews(this.dQAll, totalCols);
+    this.dKHeadViews = this.createHeadViews(this.dKAll, totalCols);
+    this.dVHeadViews = this.createHeadViews(this.dVAll, totalCols);
+    const batchSize = Math.floor(totalCols / this.seqLen);
+    this.attentionData = new Float32Array(this.heads * batchSize * this.seqLen * this.seqLen);
   }
 
   private createHeadViews(matrix: Matrix, seqLen: number): Matrix[] {
@@ -296,9 +333,9 @@ export default class MultiHeadAttention {
   }
 
   private loadLegacyHeads(headsData: Array<{ q: number[][]; k: number[][]; v: number[][] }>) {
-    const fusedQ = new Float64Array(this.units * this.units);
-    const fusedK = new Float64Array(this.units * this.units);
-    const fusedV = new Float64Array(this.units * this.units);
+    const fusedQ = new Float32Array(this.units * this.units);
+    const fusedK = new Float32Array(this.units * this.units);
+    const fusedV = new Float32Array(this.units * this.units);
 
     for (let head = 0; head < this.heads; head++) {
       const legacyHead = headsData[head];
@@ -348,7 +385,7 @@ export default class MultiHeadAttention {
   }
 
   private static applyMasks(
-    scoreData: Float64Array,
+    scoreData: Float32Array,
     rows: number,
     cols: number,
     padMask: boolean[]
@@ -378,6 +415,156 @@ export default class MultiHeadAttention {
       if (!padMask[j]) continue;
       for (let i = 0; i < rows; i++) {
         out[i * cols + j] = 0;
+      }
+    }
+  }
+
+  private static forwardFallback(
+    qData: Float32Array,
+    kData: Float32Array,
+    vData: Float32Array,
+    padMask: boolean[],
+    heads: number,
+    headUnits: number,
+    seqLen: number,
+    batchSize: number,
+    scale: number,
+    outData: Float32Array,
+    attentionData: Float32Array
+  ): void {
+    const totalCols = seqLen * batchSize;
+    for (let head = 0; head < heads; head++) {
+      const rowStart = head * headUnits;
+      for (let batch = 0; batch < batchSize; batch++) {
+        const sampleOffset = batch * seqLen;
+        const attnOffset = (head * batchSize + batch) * seqLen * seqLen;
+
+        for (let qPos = 0; qPos < seqLen; qPos++) {
+          const qCol = sampleOffset + qPos;
+          if (padMask[qCol]) continue;
+
+          let maxScore = -Infinity;
+          for (let kPos = 0; kPos < seqLen; kPos++) {
+            const kCol = sampleOffset + kPos;
+            const scoreIdx = attnOffset + kPos * seqLen + qPos;
+            if (padMask[kCol] || kPos > qPos) {
+              attentionData[scoreIdx] = Number.NEGATIVE_INFINITY;
+              continue;
+            }
+            let score = 0;
+            for (let i = 0; i < headUnits; i++) {
+              const row = rowStart + i;
+              score += kData[row * totalCols + kCol] * qData[row * totalCols + qCol];
+            }
+            score *= scale;
+            attentionData[scoreIdx] = score;
+            if (score > maxScore) maxScore = score;
+          }
+
+          if (!Number.isFinite(maxScore)) continue;
+
+          let sumExp = 0;
+          for (let kPos = 0; kPos < seqLen; kPos++) {
+            const scoreIdx = attnOffset + kPos * seqLen + qPos;
+            const score = attentionData[scoreIdx];
+            if (!Number.isFinite(score)) {
+              attentionData[scoreIdx] = 0;
+              continue;
+            }
+            const expValue = Math.exp(score - maxScore);
+            attentionData[scoreIdx] = expValue;
+            sumExp += expValue;
+          }
+
+          if (!Number.isFinite(sumExp) || sumExp <= 0) {
+            for (let kPos = 0; kPos < seqLen; kPos++) {
+              attentionData[attnOffset + kPos * seqLen + qPos] = 0;
+            }
+            continue;
+          }
+
+          for (let kPos = 0; kPos < seqLen; kPos++) {
+            attentionData[attnOffset + kPos * seqLen + qPos] /= sumExp;
+          }
+
+          for (let i = 0; i < headUnits; i++) {
+            const row = rowStart + i;
+            let sum = 0;
+            for (let kPos = 0; kPos < seqLen; kPos++) {
+              const kCol = sampleOffset + kPos;
+              sum += vData[row * totalCols + kCol] * attentionData[attnOffset + kPos * seqLen + qPos];
+            }
+            outData[row * totalCols + qCol] = sum;
+          }
+        }
+      }
+    }
+  }
+
+  private static backwardFallback(
+    qData: Float32Array,
+    kData: Float32Array,
+    vData: Float32Array,
+    attentionData: Float32Array,
+    dOutData: Float32Array,
+    padMask: boolean[],
+    heads: number,
+    headUnits: number,
+    seqLen: number,
+    batchSize: number,
+    scale: number,
+    dQOut: Float32Array,
+    dKOut: Float32Array,
+    dVOut: Float32Array
+  ): void {
+    const totalCols = seqLen * batchSize;
+    const errAttention = new Float32Array(seqLen * seqLen);
+    const errScore = new Float32Array(seqLen * seqLen);
+
+    for (let head = 0; head < heads; head++) {
+      const rowStart = head * headUnits;
+      for (let batch = 0; batch < batchSize; batch++) {
+        const sampleOffset = batch * seqLen;
+        const attnOffset = (head * batchSize + batch) * seqLen * seqLen;
+        errAttention.fill(0);
+        errScore.fill(0);
+
+        for (let qPos = 0; qPos < seqLen; qPos++) {
+          const qCol = sampleOffset + qPos;
+          if (padMask[qCol]) continue;
+
+          for (let i = 0; i < headUnits; i++) {
+            const row = rowStart + i;
+            const dOutVal = dOutData[row * totalCols + qCol];
+            for (let kPos = 0; kPos < seqLen; kPos++) {
+              const attnIdx = attnOffset + kPos * seqLen + qPos;
+              dVOut[row * totalCols + sampleOffset + kPos] += dOutVal * attentionData[attnIdx];
+              errAttention[kPos * seqLen + qPos] += vData[row * totalCols + sampleOffset + kPos] * dOutVal;
+            }
+          }
+
+          let dot = 0;
+          for (let kPos = 0; kPos < seqLen; kPos++) {
+            const localIdx = kPos * seqLen + qPos;
+            dot += attentionData[attnOffset + localIdx] * errAttention[localIdx];
+          }
+
+          for (let kPos = 0; kPos < seqLen; kPos++) {
+            const localIdx = kPos * seqLen + qPos;
+            errScore[localIdx] = attentionData[attnOffset + localIdx] * (errAttention[localIdx] - dot) * scale;
+          }
+
+          for (let i = 0; i < headUnits; i++) {
+            const row = rowStart + i;
+            let dqSum = 0;
+            for (let kPos = 0; kPos < seqLen; kPos++) {
+              const scoreGrad = errScore[kPos * seqLen + qPos];
+              dqSum += kData[row * totalCols + sampleOffset + kPos] * scoreGrad;
+              dKOut[row * totalCols + sampleOffset + kPos] += qData[row * totalCols + qCol] * scoreGrad;
+            }
+            dQOut[row * totalCols + qCol] = dqSum;
+          }
+        }
       }
     }
   }

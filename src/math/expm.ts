@@ -6,7 +6,7 @@ import Matrix from "../matrix";
  * @returns Matrix
  */
 export default function expm(a: Matrix): Matrix {
-  const result = new Float64Array(a._data.length);
+  const result = new Float32Array(a._data.length);
   const data = a._data;
   for (let i = 0; i < data.length; i++) {
     result[i] = Math.exp(data[i]);

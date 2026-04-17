@@ -8,7 +8,7 @@ const EMBED_DIM = 256;
 const ITERS = 10;
 
 function makeMatrix(r: number, c: number) {
-    const data = new Float64Array(r * c);
+    const data = new Float32Array(r * c);
     for (let i = 0; i < data.length; i++) data[i] = Math.random();
     return Matrix.fromFlat(data, [r, c]);
 }

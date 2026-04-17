@@ -38,6 +38,7 @@ export default class Embedding {
   private outputBuffer: Matrix | null = null;
   private gradWeightBuffer: Matrix | null = null;
   private errOutputBuffer: Matrix | null = null;
+  private orderedInputBuffer: number[] = [];
 
   constructor({
     vocabSize,
@@ -98,13 +99,24 @@ export default class Embedding {
   }
 
   forward(x: Matrix): Matrix {
-    // Memproses input berisi list index token, e.g. [1, 5, 2]
-    // x bisa berupa matriks 1D [seqLen, 1] atau [1, seqLen]
-    const flatX = mj.flatten(x);
-    this.inputIndices = Array.from(flatX._data);
+    // Susun token secara sample-contiguous: semua token sample 0, lalu sample 1, dst.
+    // Ini membuat layout downstream konsisten dengan blok [sample][seq] pada attention.
+    const [rows, cols] = x._shape;
+    const totalTokens = rows * cols;
+    if (this.orderedInputBuffer.length !== totalTokens) {
+      this.orderedInputBuffer = new Array<number>(totalTokens);
+    }
 
-    const seqLen = this.inputIndices.length;
-    this.inputShape = [seqLen, 1];
+    let writeIdx = 0;
+    for (let col = 0; col < cols; col++) {
+      for (let row = 0; row < rows; row++) {
+        this.orderedInputBuffer[writeIdx++] = x._data[row * cols + col];
+      }
+    }
+    this.inputIndices = this.orderedInputBuffer;
+
+    const seqLen = totalTokens;
+    this.inputShape = [rows, cols];
 
     // Karena ML_V2 kita memproses array vertikal (kolom per kolom),
     // output kita atur menjadi [embeddingDim, seqLen]
@@ -114,6 +126,7 @@ export default class Embedding {
       this.outputBuffer = mj.zeros([this.embeddingDim, seqLen]);
     }
     const outputData = this.outputBuffer._data;
+    outputData.fill(0);
 
     if (isNativeAvailable()) {
       embeddingForwardNative(this.inputIndices, this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);

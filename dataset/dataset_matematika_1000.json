@@ -1,0 +1,4002 @@
+[
+  {
+    "prompt": "x + 2 = 19, berapa x?",
+    "response": "17"
+  },
+  {
+    "prompt": "97 + 33 = ?",
+    "response": "130"
+  },
+  {
+    "prompt": "Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "42 - 2 = ?",
+    "response": "40"
+  },
+  {
+    "prompt": "32 + 12 = ?",
+    "response": "44"
+  },
+  {
+    "prompt": "Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "3 + 70 = ?",
+    "response": "73"
+  },
+  {
+    "prompt": "32 - 22 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "Soal: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "10 + 42 = ?",
+    "response": "52"
+  },
+  {
+    "prompt": "50 - 46 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "93 + 2 = ?",
+    "response": "95"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Soal: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Soal: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "Soal: Apa itu perbandingan?",
+    "response": "Perbandingan adalah membandingkan dua nilai."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "Apa itu sudut siku-siku?",
+    "response": "Sudut siku-siku adalah sudut yang besarnya 90 derajat."
+  },
+  {
+    "prompt": "48 / 8 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "93 - 60 = ?",
+    "response": "33"
+  },
+  {
+    "prompt": "2 x 12 = ?",
+    "response": "24"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "Soal: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "67 - 19 = ?",
+    "response": "48"
+  },
+  {
+    "prompt": "Jelaskan: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "7 x 11 = ?",
+    "response": "77"
+  },
+  {
+    "prompt": "8 + 11 = ?",
+    "response": "19"
+  },
+  {
+    "prompt": "6 - 4 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "2 x 6 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "1 x 10 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "88 + 84 = ?",
+    "response": "172"
+  },
+  {
+    "prompt": "66 / 11 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "12 / 12 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Soal: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Soal: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "4 x 1 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "9 / 1 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "84 - 25 = ?",
+    "response": "59"
+  },
+  {
+    "prompt": "91 - 11 = ?",
+    "response": "80"
+  },
+  {
+    "prompt": "19 + 77 = ?",
+    "response": "96"
+  },
+  {
+    "prompt": "60 / 12 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "4/5 dalam desimal = ?",
+    "response": "0.8"
+  },
+  {
+    "prompt": "Pertanyaan: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "80 + 44 = ?",
+    "response": "124"
+  },
+  {
+    "prompt": "5 x 3 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "9 x 4 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "Jelaskan: Contoh himpunan?",
+    "response": "{1, 2, 3}"
+  },
+  {
+    "prompt": "6 x 7 = ?",
+    "response": "42"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "10 + 45 = ?",
+    "response": "55"
+  },
+  {
+    "prompt": "Soal: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "72 - 18 = ?",
+    "response": "54"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu jari-jari?",
+    "response": "Jari-jari adalah jarak dari titik pusat ke tepi lingkaran."
+  },
+  {
+    "prompt": "Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "21 / 3 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "15 + 97 = ?",
+    "response": "112"
+  },
+  {
+    "prompt": "Soal: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "8 + 49 = ?",
+    "response": "57"
+  },
+  {
+    "prompt": "20 / 10 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "97 + 85 = ?",
+    "response": "182"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "12 / 4 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "10 x 11 = ?",
+    "response": "110"
+  },
+  {
+    "prompt": "88 / 11 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "70 / 10 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "7 x 1 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "44 - 35 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "30 / 5 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "43 + 63 = ?",
+    "response": "106"
+  },
+  {
+    "prompt": "18 - 2 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "Soal: Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "5 x 6 = ?",
+    "response": "30"
+  },
+  {
+    "prompt": "1 x 4 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "21 - 13 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "16 / 2 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "29 - 1 = ?",
+    "response": "28"
+  },
+  {
+    "prompt": "Jelaskan: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "x + 8 = 22, berapa x?",
+    "response": "14"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "39 + 47 = ?",
+    "response": "86"
+  },
+  {
+    "prompt": "9 x 12 = ?",
+    "response": "108"
+  },
+  {
+    "prompt": "7 x 2 = ?",
+    "response": "14"
+  },
+  {
+    "prompt": "4/5 dalam desimal = ?",
+    "response": "0.8"
+  },
+  {
+    "prompt": "Soal: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "9 - 6 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "1 - 1 = ?",
+    "response": "0"
+  },
+  {
+    "prompt": "98 + 45 = ?",
+    "response": "143"
+  },
+  {
+    "prompt": "Soal: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "5 - 5 = ?",
+    "response": "0"
+  },
+  {
+    "prompt": "83 + 8 = ?",
+    "response": "91"
+  },
+  {
+    "prompt": "74 + 77 = ?",
+    "response": "151"
+  },
+  {
+    "prompt": "Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "1 + 26 = ?",
+    "response": "27"
+  },
+  {
+    "prompt": "Soal: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "Pertanyaan: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "10 / 2 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "21 + 61 = ?",
+    "response": "82"
+  },
+  {
+    "prompt": "94 - 88 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "39 - 32 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "Pertanyaan: Contoh himpunan?",
+    "response": "{1, 2, 3}"
+  },
+  {
+    "prompt": "x + 5 = 10, berapa x?",
+    "response": "5"
+  },
+  {
+    "prompt": "96 - 44 = ?",
+    "response": "52"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut lancip?",
+    "response": "Sudut lancip adalah sudut yang kurang dari 90 derajat."
+  },
+  {
+    "prompt": "Soal: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut siku-siku?",
+    "response": "Sudut siku-siku adalah sudut yang besarnya 90 derajat."
+  },
+  {
+    "prompt": "24 / 3 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "Pertanyaan: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "44 - 9 = ?",
+    "response": "35"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "Soal: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "8 x 8 = ?",
+    "response": "64"
+  },
+  {
+    "prompt": "68 - 32 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Soal: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "5 x 11 = ?",
+    "response": "55"
+  },
+  {
+    "prompt": "10 / 10 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "38 + 7 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "18 / 6 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "90 - 89 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "Soal: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "94 + 97 = ?",
+    "response": "191"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "37 - 23 = ?",
+    "response": "14"
+  },
+  {
+    "prompt": "99 / 9 = ?",
+    "response": "11"
+  },
+  {
+    "prompt": "89 - 51 = ?",
+    "response": "38"
+  },
+  {
+    "prompt": "68 - 21 = ?",
+    "response": "47"
+  },
+  {
+    "prompt": "3 x 2 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "3 x 4 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "4 / 4 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Soal: Contoh bilangan bulat?",
+    "response": "-3, 0, dan 5."
+  },
+  {
+    "prompt": "Tolong jawab: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "Pertanyaan: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "69 + 43 = ?",
+    "response": "112"
+  },
+  {
+    "prompt": "18 - 5 = ?",
+    "response": "13"
+  },
+  {
+    "prompt": "35 / 5 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "36 / 3 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "Berapa rata-rata dari 16, 2, dan 9?",
+    "response": "9"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "2 x 10 = ?",
+    "response": "20"
+  },
+  {
+    "prompt": "66 / 11 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "84 + 72 = ?",
+    "response": "156"
+  },
+  {
+    "prompt": "Pertanyaan: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "Berapa rata-rata dari 6, 1, dan 11?",
+    "response": "6"
+  },
+  {
+    "prompt": "Soal: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "2 x 5 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "Soal: Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "12 / 12 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "68 - 14 = ?",
+    "response": "54"
+  },
+  {
+    "prompt": "7 x 9 = ?",
+    "response": "63"
+  },
+  {
+    "prompt": "39 + 89 = ?",
+    "response": "128"
+  },
+  {
+    "prompt": "3 x 2 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "23 + 51 = ?",
+    "response": "74"
+  },
+  {
+    "prompt": "63 / 7 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "12 x 7 = ?",
+    "response": "84"
+  },
+  {
+    "prompt": "90 + 86 = ?",
+    "response": "176"
+  },
+  {
+    "prompt": "12 x 6 = ?",
+    "response": "72"
+  },
+  {
+    "prompt": "42 - 42 = ?",
+    "response": "0"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "5 x 4 = ?",
+    "response": "20"
+  },
+  {
+    "prompt": "86 - 29 = ?",
+    "response": "57"
+  },
+  {
+    "prompt": "9 x 12 = ?",
+    "response": "108"
+  },
+  {
+    "prompt": "Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "1 / 1 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "77 - 39 = ?",
+    "response": "38"
+  },
+  {
+    "prompt": "11 x 3 = ?",
+    "response": "33"
+  },
+  {
+    "prompt": "Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "Jelaskan: Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "51 - 5 = ?",
+    "response": "46"
+  },
+  {
+    "prompt": "75 - 72 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Soal: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "56 - 16 = ?",
+    "response": "40"
+  },
+  {
+    "prompt": "56 + 90 = ?",
+    "response": "146"
+  },
+  {
+    "prompt": "85 - 80 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "Soal: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "66 + 11 = ?",
+    "response": "77"
+  },
+  {
+    "prompt": "Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "x + 6 = 8, berapa x?",
+    "response": "2"
+  },
+  {
+    "prompt": "81 + 64 = ?",
+    "response": "145"
+  },
+  {
+    "prompt": "84 + 91 = ?",
+    "response": "175"
+  },
+  {
+    "prompt": "11 + 22 = ?",
+    "response": "33"
+  },
+  {
+    "prompt": "Soal: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "Soal: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "25% sama dengan pecahan berapa?",
+    "response": "1/4"
+  },
+  {
+    "prompt": "Soal: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Soal: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "41 + 46 = ?",
+    "response": "87"
+  },
+  {
+    "prompt": "Pertanyaan: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "48 / 6 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "100 - 51 = ?",
+    "response": "49"
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "16 / 2 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "95 - 10 = ?",
+    "response": "85"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "71 + 66 = ?",
+    "response": "137"
+  },
+  {
+    "prompt": "66 + 18 = ?",
+    "response": "84"
+  },
+  {
+    "prompt": "95 + 95 = ?",
+    "response": "190"
+  },
+  {
+    "prompt": "Jelaskan: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "35 / 5 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "6 - 4 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "78 + 29 = ?",
+    "response": "107"
+  },
+  {
+    "prompt": "1/5 dalam desimal = ?",
+    "response": "0.2"
+  },
+  {
+    "prompt": "61 + 26 = ?",
+    "response": "87"
+  },
+  {
+    "prompt": "60 / 5 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "3/4 dalam desimal = ?",
+    "response": "0.75"
+  },
+  {
+    "prompt": "56 + 16 = ?",
+    "response": "72"
+  },
+  {
+    "prompt": "70 - 49 = ?",
+    "response": "21"
+  },
+  {
+    "prompt": "72 / 9 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "42 + 91 = ?",
+    "response": "133"
+  },
+  {
+    "prompt": "47 + 1 = ?",
+    "response": "48"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "8 x 4 = ?",
+    "response": "32"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu perbandingan?",
+    "response": "Perbandingan adalah membandingkan dua nilai."
+  },
+  {
+    "prompt": "Soal: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "5 x 3 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "65 - 29 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "Soal: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "6 x 6 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "6 x 8 = ?",
+    "response": "48"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "77 - 16 = ?",
+    "response": "61"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "Soal: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "12 x 2 = ?",
+    "response": "24"
+  },
+  {
+    "prompt": "10 - 9 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "65 + 37 = ?",
+    "response": "102"
+  },
+  {
+    "prompt": "96 / 8 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "Soal: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "26 + 2 = ?",
+    "response": "28"
+  },
+  {
+    "prompt": "41 - 23 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "98 + 63 = ?",
+    "response": "161"
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "Soal: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "1 - 1 = ?",
+    "response": "0"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "1/5 dalam desimal = ?",
+    "response": "0.2"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "2 x 9 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "10 x 6 = ?",
+    "response": "60"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "30 / 10 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Pertanyaan: Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "Soal: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "51 - 14 = ?",
+    "response": "37"
+  },
+  {
+    "prompt": "11 x 11 = ?",
+    "response": "121"
+  },
+  {
+    "prompt": "10 x 4 = ?",
+    "response": "40"
+  },
+  {
+    "prompt": "29 - 25 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Soal: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "Soal: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu perbandingan?",
+    "response": "Perbandingan adalah membandingkan dua nilai."
+  },
+  {
+    "prompt": "40 + 37 = ?",
+    "response": "77"
+  },
+  {
+    "prompt": "6 / 3 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "14 / 7 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "Soal: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "44 / 11 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "83 + 32 = ?",
+    "response": "115"
+  },
+  {
+    "prompt": "6 - 4 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "93 - 40 = ?",
+    "response": "53"
+  },
+  {
+    "prompt": "x + 13 = 15, berapa x?",
+    "response": "2"
+  },
+  {
+    "prompt": "Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "93 + 44 = ?",
+    "response": "137"
+  },
+  {
+    "prompt": "Soal: Contoh variabel?",
+    "response": "x dan y."
+  },
+  {
+    "prompt": "81 - 24 = ?",
+    "response": "57"
+  },
+  {
+    "prompt": "83 - 79 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "22 - 1 = ?",
+    "response": "21"
+  },
+  {
+    "prompt": "10 + 63 = ?",
+    "response": "73"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "85 - 80 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "14 / 2 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "33 / 11 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "Soal: Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "Pertanyaan: Contoh himpunan?",
+    "response": "{1, 2, 3}"
+  },
+  {
+    "prompt": "12 / 1 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "Soal: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut lancip?",
+    "response": "Sudut lancip adalah sudut yang kurang dari 90 derajat."
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "72 - 18 = ?",
+    "response": "54"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "x + 5 = 14, berapa x?",
+    "response": "9"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "5 + 7 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "16 / 4 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "110 / 11 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "93 + 54 = ?",
+    "response": "147"
+  },
+  {
+    "prompt": "1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "8 + 19 = ?",
+    "response": "27"
+  },
+  {
+    "prompt": "Tolong jawab: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "21 - 3 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "57 - 12 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "79 - 24 = ?",
+    "response": "55"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "9 / 1 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "10 / 1 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "63 / 7 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "45 + 7 = ?",
+    "response": "52"
+  },
+  {
+    "prompt": "Soal: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "83 + 20 = ?",
+    "response": "103"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "2 / 2 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "2 x 2 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "11 - 7 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "6 x 7 = ?",
+    "response": "42"
+  },
+  {
+    "prompt": "16 / 4 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "42 - 27 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "Tolong jawab: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "51 + 50 = ?",
+    "response": "101"
+  },
+  {
+    "prompt": "89 - 42 = ?",
+    "response": "47"
+  },
+  {
+    "prompt": "Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "48 - 6 = ?",
+    "response": "42"
+  },
+  {
+    "prompt": "Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "7 x 4 = ?",
+    "response": "28"
+  },
+  {
+    "prompt": "x + 14 = 31, berapa x?",
+    "response": "17"
+  },
+  {
+    "prompt": "99 / 11 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "44 / 11 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "58 + 35 = ?",
+    "response": "93"
+  },
+  {
+    "prompt": "9 + 12 = ?",
+    "response": "21"
+  },
+  {
+    "prompt": "40 / 4 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "Tolong jawab: Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "55 - 32 = ?",
+    "response": "23"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "Soal: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "21 - 5 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "57 + 41 = ?",
+    "response": "98"
+  },
+  {
+    "prompt": "35 - 31 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "4 + 7 = ?",
+    "response": "11"
+  },
+  {
+    "prompt": "74 - 59 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "22 / 11 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "87 - 86 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "77 / 7 = ?",
+    "response": "11"
+  },
+  {
+    "prompt": "62 - 12 = ?",
+    "response": "50"
+  },
+  {
+    "prompt": "Soal: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "42 / 6 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "Pertanyaan: Contoh variabel?",
+    "response": "x dan y."
+  },
+  {
+    "prompt": "Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "55 + 72 = ?",
+    "response": "127"
+  },
+  {
+    "prompt": "70 - 36 = ?",
+    "response": "34"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "10 x 6 = ?",
+    "response": "60"
+  },
+  {
+    "prompt": "8 x 12 = ?",
+    "response": "96"
+  },
+  {
+    "prompt": "11 x 5 = ?",
+    "response": "55"
+  },
+  {
+    "prompt": "36 + 9 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "Soal: Apa itu perbandingan?",
+    "response": "Perbandingan adalah membandingkan dua nilai."
+  },
+  {
+    "prompt": "6 x 12 = ?",
+    "response": "72"
+  },
+  {
+    "prompt": "7 x 3 = ?",
+    "response": "21"
+  },
+  {
+    "prompt": "49 / 7 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "1 x 2 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "Soal: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "108 / 12 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "28 - 23 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "x + 10 = 16, berapa x?",
+    "response": "6"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "93 + 82 = ?",
+    "response": "175"
+  },
+  {
+    "prompt": "87 - 4 = ?",
+    "response": "83"
+  },
+  {
+    "prompt": "5 x 6 = ?",
+    "response": "30"
+  },
+  {
+    "prompt": "9 x 9 = ?",
+    "response": "81"
+  },
+  {
+    "prompt": "14 + 4 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "45 / 9 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "3 + 6 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "98 - 2 = ?",
+    "response": "96"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Soal: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "18 + 68 = ?",
+    "response": "86"
+  },
+  {
+    "prompt": "Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "77 + 44 = ?",
+    "response": "121"
+  },
+  {
+    "prompt": "50 / 10 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "11 / 11 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "59 - 41 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "69 + 56 = ?",
+    "response": "125"
+  },
+  {
+    "prompt": "6 + 31 = ?",
+    "response": "37"
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "5 x 12 = ?",
+    "response": "60"
+  },
+  {
+    "prompt": "Soal: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "91 - 51 = ?",
+    "response": "40"
+  },
+  {
+    "prompt": "7 x 4 = ?",
+    "response": "28"
+  },
+  {
+    "prompt": "93 + 1 = ?",
+    "response": "94"
+  },
+  {
+    "prompt": "Berapa rata-rata dari 19, 18, dan 5?",
+    "response": "14"
+  },
+  {
+    "prompt": "66 - 18 = ?",
+    "response": "48"
+  },
+  {
+    "prompt": "Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "Contoh variabel?",
+    "response": "x dan y."
+  },
+  {
+    "prompt": "62 + 92 = ?",
+    "response": "154"
+  },
+  {
+    "prompt": "Soal: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "14 + 3 = ?",
+    "response": "17"
+  },
+  {
+    "prompt": "4 x 4 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "Jelaskan: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "12 x 12 = ?",
+    "response": "144"
+  },
+  {
+    "prompt": "12 - 2 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "1 x 12 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "x + 20 = 26, berapa x?",
+    "response": "6"
+  },
+  {
+    "prompt": "63 + 66 = ?",
+    "response": "129"
+  },
+  {
+    "prompt": "16 / 8 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "33 + 62 = ?",
+    "response": "95"
+  },
+  {
+    "prompt": "5 x 5 = ?",
+    "response": "25"
+  },
+  {
+    "prompt": "63 / 9 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "36 - 20 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "6 / 6 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "50% sama dengan pecahan berapa?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "2 x 6 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "23 - 15 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "Tolong jawab: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "18 / 6 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "12 x 7 = ?",
+    "response": "84"
+  },
+  {
+    "prompt": "12 / 4 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "24 + 21 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "18 + 77 = ?",
+    "response": "95"
+  },
+  {
+    "prompt": "Jelaskan: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "1/4 dalam desimal = ?",
+    "response": "0.25"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "10 x 3 = ?",
+    "response": "30"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "86 - 74 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Berapa rata-rata dari 9, 16, dan 14?",
+    "response": "13"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "61 + 43 = ?",
+    "response": "104"
+  },
+  {
+    "prompt": "Soal: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "41 - 25 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "72 - 64 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "1 x 12 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "60 + 18 = ?",
+    "response": "78"
+  },
+  {
+    "prompt": "4 / 4 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Soal: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "88 - 18 = ?",
+    "response": "70"
+  },
+  {
+    "prompt": "3 x 10 = ?",
+    "response": "30"
+  },
+  {
+    "prompt": "x + 4 = 8, berapa x?",
+    "response": "4"
+  },
+  {
+    "prompt": "29 - 1 = ?",
+    "response": "28"
+  },
+  {
+    "prompt": "43 - 38 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "36 / 3 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "1 x 9 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "86 - 56 = ?",
+    "response": "30"
+  },
+  {
+    "prompt": "34 - 28 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "40 + 78 = ?",
+    "response": "118"
+  },
+  {
+    "prompt": "29 - 14 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "72 / 12 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "86 + 15 = ?",
+    "response": "101"
+  },
+  {
+    "prompt": "Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "3/4 dalam desimal = ?",
+    "response": "0.75"
+  },
+  {
+    "prompt": "11 x 4 = ?",
+    "response": "44"
+  },
+  {
+    "prompt": "32 + 60 = ?",
+    "response": "92"
+  },
+  {
+    "prompt": "64 / 8 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "72 / 12 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "6 x 6 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "3 x 6 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "72 - 13 = ?",
+    "response": "59"
+  },
+  {
+    "prompt": "25% sama dengan pecahan berapa?",
+    "response": "1/4"
+  },
+  {
+    "prompt": "Soal: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "24 / 12 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "Soal: Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "72 + 71 = ?",
+    "response": "143"
+  },
+  {
+    "prompt": "Tolong jawab: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "7 / 7 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "84 - 25 = ?",
+    "response": "59"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "4 / 4 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "120 / 12 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "7 x 3 = ?",
+    "response": "21"
+  },
+  {
+    "prompt": "83 - 73 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "78 - 17 = ?",
+    "response": "61"
+  },
+  {
+    "prompt": "x + 6 = 16, berapa x?",
+    "response": "10"
+  },
+  {
+    "prompt": "6 + 49 = ?",
+    "response": "55"
+  },
+  {
+    "prompt": "11 x 7 = ?",
+    "response": "77"
+  },
+  {
+    "prompt": "3 x 3 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "Jelaskan: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "10 x 3 = ?",
+    "response": "30"
+  },
+  {
+    "prompt": "Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut siku-siku?",
+    "response": "Sudut siku-siku adalah sudut yang besarnya 90 derajat."
+  },
+  {
+    "prompt": "6 x 3 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "Soal: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "18 / 6 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "65 + 84 = ?",
+    "response": "149"
+  },
+  {
+    "prompt": "6 x 11 = ?",
+    "response": "66"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "1/4 dalam desimal = ?",
+    "response": "0.25"
+  },
+  {
+    "prompt": "49 + 7 = ?",
+    "response": "56"
+  },
+  {
+    "prompt": "120 / 10 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "50% sama dengan pecahan berapa?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "Jelaskan: Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "12 + 78 = ?",
+    "response": "90"
+  },
+  {
+    "prompt": "63 - 60 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "44 + 83 = ?",
+    "response": "127"
+  },
+  {
+    "prompt": "Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "21 / 3 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "59 - 14 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Soal: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "16 + 42 = ?",
+    "response": "58"
+  },
+  {
+    "prompt": "99 - 4 = ?",
+    "response": "95"
+  },
+  {
+    "prompt": "24 - 8 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "58 + 67 = ?",
+    "response": "125"
+  },
+  {
+    "prompt": "40 + 82 = ?",
+    "response": "122"
+  },
+  {
+    "prompt": "96 - 52 = ?",
+    "response": "44"
+  },
+  {
+    "prompt": "Jelaskan: Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "Tolong jawab: Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "90 / 10 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "84 - 43 = ?",
+    "response": "41"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "2 + 3 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "27 / 3 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "36 / 9 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "53 + 9 = ?",
+    "response": "62"
+  },
+  {
+    "prompt": "Soal: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "9 x 12 = ?",
+    "response": "108"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "56 + 49 = ?",
+    "response": "105"
+  },
+  {
+    "prompt": "38 - 19 = ?",
+    "response": "19"
+  },
+  {
+    "prompt": "3 x 5 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "47 + 43 = ?",
+    "response": "90"
+  },
+  {
+    "prompt": "1/4 dalam desimal = ?",
+    "response": "0.25"
+  },
+  {
+    "prompt": "51 - 43 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "48 + 36 = ?",
+    "response": "84"
+  },
+  {
+    "prompt": "Pertanyaan: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "1/5 dalam desimal = ?",
+    "response": "0.2"
+  },
+  {
+    "prompt": "72 / 6 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "72 - 28 = ?",
+    "response": "44"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "1 x 10 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "1/5 dalam desimal = ?",
+    "response": "0.2"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu perbandingan?",
+    "response": "Perbandingan adalah membandingkan dua nilai."
+  },
+  {
+    "prompt": "65 - 17 = ?",
+    "response": "48"
+  },
+  {
+    "prompt": "20 / 5 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "92 + 52 = ?",
+    "response": "144"
+  },
+  {
+    "prompt": "Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "Pertanyaan: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "x + 15 = 33, berapa x?",
+    "response": "18"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut tumpul?",
+    "response": "Sudut tumpul adalah sudut yang lebih dari 90 derajat."
+  },
+  {
+    "prompt": "x + 16 = 33, berapa x?",
+    "response": "17"
+  },
+  {
+    "prompt": "45 - 39 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "4 x 5 = ?",
+    "response": "20"
+  },
+  {
+    "prompt": "Tolong jawab: Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "34 + 93 = ?",
+    "response": "127"
+  },
+  {
+    "prompt": "1/5 dalam desimal = ?",
+    "response": "0.2"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "Soal: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "Jelaskan: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "70 + 72 = ?",
+    "response": "142"
+  },
+  {
+    "prompt": "87 + 26 = ?",
+    "response": "113"
+  },
+  {
+    "prompt": "Soal: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "10 / 5 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "Soal: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "63 - 37 = ?",
+    "response": "26"
+  },
+  {
+    "prompt": "4 x 2 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "10 x 10 = ?",
+    "response": "100"
+  },
+  {
+    "prompt": "Soal: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "27 / 9 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Soal: Apa itu sudut lancip?",
+    "response": "Sudut lancip adalah sudut yang kurang dari 90 derajat."
+  },
+  {
+    "prompt": "7 x 6 = ?",
+    "response": "42"
+  },
+  {
+    "prompt": "x + 18 = 24, berapa x?",
+    "response": "6"
+  },
+  {
+    "prompt": "Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "9 x 9 = ?",
+    "response": "81"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "4 / 2 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "9 x 8 = ?",
+    "response": "72"
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "Jelaskan: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "20 / 5 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "32 / 8 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "Soal: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "45 / 5 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "Soal: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "2/5 dalam desimal = ?",
+    "response": "0.4"
+  },
+  {
+    "prompt": "Soal: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "56 + 75 = ?",
+    "response": "131"
+  },
+  {
+    "prompt": "Jelaskan: Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "x + 9 = 22, berapa x?",
+    "response": "13"
+  },
+  {
+    "prompt": "8 x 1 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "1 + 34 = ?",
+    "response": "35"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut lancip?",
+    "response": "Sudut lancip adalah sudut yang kurang dari 90 derajat."
+  },
+  {
+    "prompt": "Tolong jawab: Contoh variabel?",
+    "response": "x dan y."
+  },
+  {
+    "prompt": "9 x 2 = ?",
+    "response": "18"
+  },
+  {
+    "prompt": "x + 5 = 15, berapa x?",
+    "response": "10"
+  },
+  {
+    "prompt": "100 - 59 = ?",
+    "response": "41"
+  },
+  {
+    "prompt": "20 + 51 = ?",
+    "response": "71"
+  },
+  {
+    "prompt": "2 - 2 = ?",
+    "response": "0"
+  },
+  {
+    "prompt": "Pertanyaan: Contoh variabel?",
+    "response": "x dan y."
+  },
+  {
+    "prompt": "5 x 3 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "8 - 7 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "11 x 7 = ?",
+    "response": "77"
+  },
+  {
+    "prompt": "9 / 9 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu jari-jari?",
+    "response": "Jari-jari adalah jarak dari titik pusat ke tepi lingkaran."
+  },
+  {
+    "prompt": "10 x 10 = ?",
+    "response": "100"
+  },
+  {
+    "prompt": "77 - 26 = ?",
+    "response": "51"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "8 x 10 = ?",
+    "response": "80"
+  },
+  {
+    "prompt": "Berapa rata-rata dari 14, 11, dan 11?",
+    "response": "12"
+  },
+  {
+    "prompt": "90 + 98 = ?",
+    "response": "188"
+  },
+  {
+    "prompt": "29 + 15 = ?",
+    "response": "44"
+  },
+  {
+    "prompt": "56 - 23 = ?",
+    "response": "33"
+  },
+  {
+    "prompt": "50 + 67 = ?",
+    "response": "117"
+  },
+  {
+    "prompt": "Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "31 - 1 = ?",
+    "response": "30"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu sudut lancip?",
+    "response": "Sudut lancip adalah sudut yang kurang dari 90 derajat."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "7 - 5 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "11 x 10 = ?",
+    "response": "110"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "96 / 12 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "24 + 65 = ?",
+    "response": "89"
+  },
+  {
+    "prompt": "Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "24 / 3 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "73 + 61 = ?",
+    "response": "134"
+  },
+  {
+    "prompt": "Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "57 - 13 = ?",
+    "response": "44"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "1/4 dalam desimal = ?",
+    "response": "0.25"
+  },
+  {
+    "prompt": "Pertanyaan: Contoh bilangan bulat?",
+    "response": "-3, 0, dan 5."
+  },
+  {
+    "prompt": "Pertanyaan: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu jari-jari?",
+    "response": "Jari-jari adalah jarak dari titik pusat ke tepi lingkaran."
+  },
+  {
+    "prompt": "7 x 4 = ?",
+    "response": "28"
+  },
+  {
+    "prompt": "9 x 9 = ?",
+    "response": "81"
+  },
+  {
+    "prompt": "11 x 10 = ?",
+    "response": "110"
+  },
+  {
+    "prompt": "Soal: Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "132 / 11 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "36 / 9 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "2 x 1 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "20% sama dengan pecahan berapa?",
+    "response": "1/5"
+  },
+  {
+    "prompt": "Soal: Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "74 - 58 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "4 x 12 = ?",
+    "response": "48"
+  },
+  {
+    "prompt": "Soal: Apa itu perbandingan?",
+    "response": "Perbandingan adalah membandingkan dua nilai."
+  },
+  {
+    "prompt": "Soal: Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "Soal: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "74 + 77 = ?",
+    "response": "151"
+  },
+  {
+    "prompt": "12 x 7 = ?",
+    "response": "84"
+  },
+  {
+    "prompt": "Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "90 + 9 = ?",
+    "response": "99"
+  },
+  {
+    "prompt": "66 / 11 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "Berapa rata-rata dari 6, 14, dan 16?",
+    "response": "12"
+  },
+  {
+    "prompt": "2 x 8 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "5 x 8 = ?",
+    "response": "40"
+  },
+  {
+    "prompt": "9 + 27 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "x + 20 = 36, berapa x?",
+    "response": "16"
+  },
+  {
+    "prompt": "Soal: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "12 + 33 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "30 + 88 = ?",
+    "response": "118"
+  },
+  {
+    "prompt": "Soal: Contoh himpunan?",
+    "response": "{1, 2, 3}"
+  },
+  {
+    "prompt": "Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "11 - 6 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "10% sama dengan pecahan berapa?",
+    "response": "1/10"
+  },
+  {
+    "prompt": "Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "23 - 18 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "Jelaskan: Contoh variabel?",
+    "response": "x dan y."
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "x + 4 = 14, berapa x?",
+    "response": "10"
+  },
+  {
+    "prompt": "42 - 8 = ?",
+    "response": "34"
+  },
+  {
+    "prompt": "Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "Berapa rata-rata dari 8, 12, dan 7?",
+    "response": "9"
+  },
+  {
+    "prompt": "44 / 11 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "8 x 10 = ?",
+    "response": "80"
+  },
+  {
+    "prompt": "9 + 18 = ?",
+    "response": "27"
+  },
+  {
+    "prompt": "Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "7 x 5 = ?",
+    "response": "35"
+  },
+  {
+    "prompt": "Soal: Contoh himpunan?",
+    "response": "{1, 2, 3}"
+  },
+  {
+    "prompt": "Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "Soal: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "35 / 5 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "15 - 10 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut siku-siku?",
+    "response": "Sudut siku-siku adalah sudut yang besarnya 90 derajat."
+  },
+  {
+    "prompt": "37 + 25 = ?",
+    "response": "62"
+  },
+  {
+    "prompt": "50 - 5 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "4 x 4 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "99 + 39 = ?",
+    "response": "138"
+  },
+  {
+    "prompt": "18 - 13 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "4 + 62 = ?",
+    "response": "66"
+  },
+  {
+    "prompt": "55 - 12 = ?",
+    "response": "43"
+  },
+  {
+    "prompt": "11 - 2 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "27 + 99 = ?",
+    "response": "126"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "64 - 43 = ?",
+    "response": "21"
+  },
+  {
+    "prompt": "Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "Pertanyaan: Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "41 + 26 = ?",
+    "response": "67"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "Pertanyaan: Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "Pertanyaan: Contoh variabel?",
+    "response": "x dan y."
+  },
+  {
+    "prompt": "34 + 10 = ?",
+    "response": "44"
+  },
+  {
+    "prompt": "64 / 8 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "Apa itu skala?",
+    "response": "Skala adalah perbandingan ukuran."
+  },
+  {
+    "prompt": "3 / 1 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "42 - 34 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "38 - 15 = ?",
+    "response": "23"
+  },
+  {
+    "prompt": "89 - 37 = ?",
+    "response": "52"
+  },
+  {
+    "prompt": "Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "10 + 76 = ?",
+    "response": "86"
+  },
+  {
+    "prompt": "7 x 2 = ?",
+    "response": "14"
+  },
+  {
+    "prompt": "1/2 dalam desimal = ?",
+    "response": "0.5"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "21 + 2 = ?",
+    "response": "23"
+  },
+  {
+    "prompt": "Tolong jawab: Contoh bilangan bulat?",
+    "response": "-3, 0, dan 5."
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  },
+  {
+    "prompt": "50 - 49 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "50 / 10 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "4 - 1 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "81 - 77 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Berapa rata-rata dari 20, 9, dan 1?",
+    "response": "10"
+  },
+  {
+    "prompt": "50% sama dengan pecahan berapa?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Soal: Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "15 + 55 = ?",
+    "response": "70"
+  },
+  {
+    "prompt": "75 + 95 = ?",
+    "response": "170"
+  },
+  {
+    "prompt": "90 / 10 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "Soal: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "3 + 33 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "9 - 7 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "59 + 25 = ?",
+    "response": "84"
+  },
+  {
+    "prompt": "Soal: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "7 x 1 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "20% sama dengan pecahan berapa?",
+    "response": "1/5"
+  },
+  {
+    "prompt": "12 / 3 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "16 / 4 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "65 - 33 = ?",
+    "response": "32"
+  },
+  {
+    "prompt": "7 + 67 = ?",
+    "response": "74"
+  },
+  {
+    "prompt": "22 + 7 = ?",
+    "response": "29"
+  },
+  {
+    "prompt": "50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "80 - 45 = ?",
+    "response": "35"
+  },
+  {
+    "prompt": "6 x 9 = ?",
+    "response": "54"
+  },
+  {
+    "prompt": "70 / 10 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu penjumlahan?",
+    "response": "Penjumlahan adalah proses menambah bilangan."
+  },
+  {
+    "prompt": "Soal: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "79 - 8 = ?",
+    "response": "71"
+  },
+  {
+    "prompt": "60 / 10 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu lingkaran?",
+    "response": "Lingkaran adalah bangun datar tanpa sudut."
+  },
+  {
+    "prompt": "24 / 8 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "38 - 2 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "48 - 33 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "36 / 9 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Soal: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "54 + 53 = ?",
+    "response": "107"
+  },
+  {
+    "prompt": "10% sama dengan pecahan berapa?",
+    "response": "1/10"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut siku-siku?",
+    "response": "Sudut siku-siku adalah sudut yang besarnya 90 derajat."
+  },
+  {
+    "prompt": "71 + 82 = ?",
+    "response": "153"
+  },
+  {
+    "prompt": "66 / 6 = ?",
+    "response": "11"
+  },
+  {
+    "prompt": "Apa rumus keliling persegi?",
+    "response": "Keliling persegi adalah empat kali sisi."
+  },
+  {
+    "prompt": "Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu rata-rata?",
+    "response": "Rata-rata adalah jumlah semua data dibagi banyaknya data."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu matematika?",
+    "response": "Matematika adalah ilmu tentang bilangan dan pola."
+  },
+  {
+    "prompt": "4/5 dalam desimal = ?",
+    "response": "0.8"
+  },
+  {
+    "prompt": "23 - 22 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu variabel?",
+    "response": "Variabel adalah simbol pengganti bilangan."
+  },
+  {
+    "prompt": "9 x 5 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "Soal: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "7 - 1 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "85 + 3 = ?",
+    "response": "88"
+  },
+  {
+    "prompt": "6 x 6 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu solusi persamaan?",
+    "response": "Solusi persamaan adalah nilai yang membuat persamaan benar."
+  },
+  {
+    "prompt": "25% sama dengan pecahan berapa?",
+    "response": "1/4"
+  },
+  {
+    "prompt": "90 + 42 = ?",
+    "response": "132"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "94 - 74 = ?",
+    "response": "20"
+  },
+  {
+    "prompt": "88 + 40 = ?",
+    "response": "128"
+  },
+  {
+    "prompt": "46 + 70 = ?",
+    "response": "116"
+  },
+  {
+    "prompt": "48 / 8 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "6 x 2 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "15 / 3 = ?",
+    "response": "5"
+  },
+  {
+    "prompt": "24 / 12 = ?",
+    "response": "2"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "Tolong jawab: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "20 - 10 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "52 - 33 = ?",
+    "response": "19"
+  },
+  {
+    "prompt": "Soal: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "Tolong jawab: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "Soal: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "27 + 53 = ?",
+    "response": "80"
+  },
+  {
+    "prompt": "60 / 6 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "25 - 21 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "86 + 100 = ?",
+    "response": "186"
+  },
+  {
+    "prompt": "Contoh bilangan bulat?",
+    "response": "-3, 0, dan 5."
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut lancip?",
+    "response": "Sudut lancip adalah sudut yang kurang dari 90 derajat."
+  },
+  {
+    "prompt": "15 / 5 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "6 + 10 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "Tolong jawab: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "64 / 8 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "21 - 21 = ?",
+    "response": "0"
+  },
+  {
+    "prompt": "18 / 3 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "38 - 11 = ?",
+    "response": "27"
+  },
+  {
+    "prompt": "90 + 40 = ?",
+    "response": "130"
+  },
+  {
+    "prompt": "Jelaskan: Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "Soal: Apa itu bilangan bulat?",
+    "response": "Bilangan bulat terdiri dari bilangan negatif, nol, dan positif."
+  },
+  {
+    "prompt": "Soal: Apa itu sudut siku-siku?",
+    "response": "Sudut siku-siku adalah sudut yang besarnya 90 derajat."
+  },
+  {
+    "prompt": "Soal: 50% sama dengan?",
+    "response": "1/2"
+  },
+  {
+    "prompt": "Soal: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "31 - 21 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "12 x 5 = ?",
+    "response": "60"
+  },
+  {
+    "prompt": "86 + 19 = ?",
+    "response": "105"
+  },
+  {
+    "prompt": "91 + 66 = ?",
+    "response": "157"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "72 / 9 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "44 - 10 = ?",
+    "response": "34"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "21 / 3 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu pengurangan?",
+    "response": "Pengurangan adalah proses mengurangi bilangan."
+  },
+  {
+    "prompt": "61 - 9 = ?",
+    "response": "52"
+  },
+  {
+    "prompt": "12 x 2 = ?",
+    "response": "24"
+  },
+  {
+    "prompt": "Soal: Apa itu garis?",
+    "response": "Garis adalah kumpulan titik yang memanjang lurus."
+  },
+  {
+    "prompt": "x + 18 = 26, berapa x?",
+    "response": "8"
+  },
+  {
+    "prompt": "40 + 26 = ?",
+    "response": "66"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "9 x 5 = ?",
+    "response": "45"
+  },
+  {
+    "prompt": "1/2 dalam desimal = ?",
+    "response": "0.5"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Soal: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "Soal: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "96 - 81 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "Soal: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "Apa itu persamaan?",
+    "response": "Persamaan adalah kalimat matematika yang memiliki tanda sama dengan."
+  },
+  {
+    "prompt": "15 - 11 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "92 - 45 = ?",
+    "response": "47"
+  },
+  {
+    "prompt": "Tolong jawab: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "Jelaskan: Matematika digunakan untuk apa?",
+    "response": "Matematika digunakan dalam kehidupan sehari-hari."
+  },
+  {
+    "prompt": "Pertanyaan: Jumlah sudut segitiga?",
+    "response": "Jumlah sudut segitiga adalah 180 derajat."
+  },
+  {
+    "prompt": "5 x 5 = ?",
+    "response": "25"
+  },
+  {
+    "prompt": "17 + 19 = ?",
+    "response": "36"
+  },
+  {
+    "prompt": "4 + 17 = ?",
+    "response": "21"
+  },
+  {
+    "prompt": "22 - 11 = ?",
+    "response": "11"
+  },
+  {
+    "prompt": "12 x 7 = ?",
+    "response": "84"
+  },
+  {
+    "prompt": "Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "8 x 8 = ?",
+    "response": "64"
+  },
+  {
+    "prompt": "12 x 6 = ?",
+    "response": "72"
+  },
+  {
+    "prompt": "63 / 7 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "17 + 52 = ?",
+    "response": "69"
+  },
+  {
+    "prompt": "2 x 4 = ?",
+    "response": "8"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu sudut?",
+    "response": "Sudut adalah pertemuan dua garis."
+  },
+  {
+    "prompt": "Soal: Apa itu pecahan?",
+    "response": "Pecahan adalah bagian dari keseluruhan."
+  },
+  {
+    "prompt": "Soal: Apa rumus luas persegi?",
+    "response": "Luas persegi adalah sisi kali sisi."
+  },
+  {
+    "prompt": "33 / 11 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "63 - 37 = ?",
+    "response": "26"
+  },
+  {
+    "prompt": "4/5 dalam desimal = ?",
+    "response": "0.8"
+  },
+  {
+    "prompt": "7 / 7 = ?",
+    "response": "1"
+  },
+  {
+    "prompt": "Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu sudut siku-siku?",
+    "response": "Sudut siku-siku adalah sudut yang besarnya 90 derajat."
+  },
+  {
+    "prompt": "Soal: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "18 / 3 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "39 - 39 = ?",
+    "response": "0"
+  },
+  {
+    "prompt": "82 - 26 = ?",
+    "response": "56"
+  },
+  {
+    "prompt": "1/4 dalam desimal = ?",
+    "response": "0.25"
+  },
+  {
+    "prompt": "80 / 8 = ?",
+    "response": "10"
+  },
+  {
+    "prompt": "7 x 7 = ?",
+    "response": "49"
+  },
+  {
+    "prompt": "3 x 1 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Jelaskan: Apa itu jari-jari?",
+    "response": "Jari-jari adalah jarak dari titik pusat ke tepi lingkaran."
+  },
+  {
+    "prompt": "Apa itu persen?",
+    "response": "Persen adalah pecahan per seratus."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu pembagian?",
+    "response": "Pembagian adalah kebalikan dari perkalian."
+  },
+  {
+    "prompt": "1 x 12 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "10 x 4 = ?",
+    "response": "40"
+  },
+  {
+    "prompt": "6 / 1 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "Soal: Apa itu perkalian?",
+    "response": "Perkalian adalah penjumlahan berulang."
+  },
+  {
+    "prompt": "Apa itu data?",
+    "response": "Data adalah kumpulan informasi."
+  },
+  {
+    "prompt": "20 / 5 = ?",
+    "response": "4"
+  },
+  {
+    "prompt": "Tolong jawab: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "12 / 4 = ?",
+    "response": "3"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu segitiga?",
+    "response": "Segitiga adalah bangun datar yang memiliki tiga sisi."
+  },
+  {
+    "prompt": "38 - 5 = ?",
+    "response": "33"
+  },
+  {
+    "prompt": "Tolong jawab: Apa manfaat matematika?",
+    "response": "Matematika melatih logika dan pemecahan masalah."
+  },
+  {
+    "prompt": "22 + 87 = ?",
+    "response": "109"
+  },
+  {
+    "prompt": "5 x 3 = ?",
+    "response": "15"
+  },
+  {
+    "prompt": "31 + 26 = ?",
+    "response": "57"
+  },
+  {
+    "prompt": "60 / 10 = ?",
+    "response": "6"
+  },
+  {
+    "prompt": "Apa itu persegi?",
+    "response": "Persegi adalah bangun datar dengan empat sisi sama panjang."
+  },
+  {
+    "prompt": "4/5 dalam desimal = ?",
+    "response": "0.8"
+  },
+  {
+    "prompt": "Pertanyaan: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu diameter?",
+    "response": "Diameter adalah dua kali jari-jari."
+  },
+  {
+    "prompt": "94 + 11 = ?",
+    "response": "105"
+  },
+  {
+    "prompt": "1 x 7 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "8 + 79 = ?",
+    "response": "87"
+  },
+  {
+    "prompt": "4 x 3 = ?",
+    "response": "12"
+  },
+  {
+    "prompt": "Soal: Apa itu himpunan?",
+    "response": "Himpunan adalah kumpulan objek yang terdefinisi dengan jelas."
+  },
+  {
+    "prompt": "40 + 95 = ?",
+    "response": "135"
+  },
+  {
+    "prompt": "Apa itu diagram Venn?",
+    "response": "Diagram Venn adalah gambar untuk menunjukkan hubungan antar himpunan."
+  },
+  {
+    "prompt": "24 - 13 = ?",
+    "response": "11"
+  },
+  {
+    "prompt": "Tolong jawab: Apa itu bentuk aljabar?",
+    "response": "Bentuk aljabar adalah bentuk matematika yang menggunakan variabel."
+  },
+  {
+    "prompt": "3 x 3 = ?",
+    "response": "9"
+  },
+  {
+    "prompt": "4 x 4 = ?",
+    "response": "16"
+  },
+  {
+    "prompt": "Pertanyaan: 1/2 artinya?",
+    "response": "Setengah."
+  },
+  {
+    "prompt": "1 x 7 = ?",
+    "response": "7"
+  },
+  {
+    "prompt": "75% sama dengan pecahan berapa?",
+    "response": "3/4"
+  }
+]
