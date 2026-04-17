@@ -10,6 +10,14 @@
 ## Environment
 
 - OS:
+- Kernel:
+- Arsitektur:
+- CPU:
+- Core / Thread:
+- RAM:
+- Swap:
+- npm:
+- Rust:
 - Runtime Node.js:
 - Backend native aktif:
 - Catatan hardware:

@@ -2,11 +2,7 @@
 
 `ML_V2` adalah playground sekaligus library machine learning berbasis TypeScript yang membangun sendiri komponen inti deep learning: `Matrix`, operasi numerik, activation, loss, optimizer, layer, model `Sequential`, model `Transformers`, tokenizer BPE, dan pipeline training berbasis worker thread.
 
-Project ini sudah berisi contoh pemakaian nyata:
-
-- `project/chatbot.ts`: intent classifier sederhana.
-- `project/math-bot/*`: next-token prediction untuk bot matematika.
-- `project/generative-bot/*`: generative bot, fine-tuning, tokenizer training, dan pipeline benchmark.
+Project ini berfokus pada framework dan blok bangunan ML. Anda bisa menambahkan use case, dataset, dan eksperimen lokal sendiri di luar API inti tanpa harus menjadikannya bagian dari repo.
 
 README ini dibuat berdasarkan struktur dan implementasi project saat ini, jadi isinya mengikuti kode yang benar-benar ada di repo.
 
@@ -24,8 +20,8 @@ Secara mental, project ini punya 6 lapisan:
    Model tingkat tinggi: `Sequential`, `Transformers`, `DimentionalityReduction`.
 5. `src/tokenizer`
    Tokenizer BPE untuk text-to-token dan token-to-text.
-6. `project/*`
-   Contoh implementasi ML end-to-end.
+6. `build/` dan area kerja lokal Anda
+   Dipakai untuk hasil build, eksperimen, dan integrasi end-to-end di mesin lokal.
 
 Catatan penting:
 
@@ -50,14 +46,6 @@ src/
 
 src-rust/
   src/lib.rs         Implementasi native ops via napi-rs
-
-project/
-  chatbot.ts         Intent classifier
-  math-bot/          Training dan chat bot matematika
-  generative-bot/    Training text generator, fine-tune, benchmark pipeline
-
-dataset/
-  Dataset contoh untuk intent, matematika, dan text generatif
 
 test/
   Test dan benchmark untuk operasi matriks, tokenizer, transformer, dan training
@@ -85,23 +73,13 @@ Untuk mode debug:
 npm run build:rust:debug
 ```
 
-### Menjalankan contoh yang sudah ada
+### Menjalankan test bawaan
 
 ```bash
-npm run train:math-bot
-npm run chat:math-bot
 npm test
 ```
 
-Beberapa script lain belum didaftarkan di `package.json`, jadi jalankan langsung dengan `ts-node`:
-
-```bash
-npx ts-node project/chatbot.ts
-npx ts-node project/generative-bot/main.ts
-npx ts-node project/generative-bot/finetune.ts
-npx ts-node project/generative-bot/train-tokenizer.ts
-npx ts-node project/generative-bot/advanced-training.ts
-```
+Untuk training/inference aplikasi Anda sendiri, buat script lokal yang mengimpor modul dari `src/*`.
 
 ## 4. Alur Membuat Model ML Dengan Project Ini
 
@@ -130,11 +108,11 @@ Pakai `Transformers` saat:
 
 - input berupa token sequence,
 - target adalah next-token prediction,
-- Anda ingin chatbot generatif, language model kecil, atau bot domain-spesifik.
+- Anda ingin language model kecil atau generator teks domain-spesifik.
 
 ## 5. Tutorial Cepat: Membuat Model Klasifikasi
 
-Contoh paling dekat adalah `project/chatbot.ts`.
+Contoh ini menunjukkan pola umum untuk klasifikasi teks.
 
 ### Langkah 1. Siapkan teks dan tokenizer
 
@@ -198,13 +176,13 @@ for (let epoch = 0; epoch < 300; epoch++) {
 ### Langkah 5. Simpan model
 
 ```ts
-model.save("dataset/chatbot_model.json");
-tokenizer.save("dataset/chatbot_vocab.json");
+model.save("model.json");
+tokenizer.save("vocab.json");
 ```
 
 ## 6. Tutorial Cepat: Membuat Model Generatif / Next Token
 
-Contoh paling jelas ada di `project/math-bot/main.ts` dan `project/generative-bot/main.ts`.
+Pola ini cocok untuk training next-token prediction secara umum.
 
 ### Ide training yang dipakai repo ini
 
@@ -654,154 +632,84 @@ Fungsi native yang diekspos di `index.d.ts` mencakup:
 
 Praktiknya, Anda jarang memanggil fungsi ini langsung. Layer dan helper di `src/math/rust_backend.ts` yang akan memilih native path atau fallback JS.
 
-## 13. Tutorial Berdasarkan Project Contoh
+## 13. Pola Integrasi Yang Disarankan
 
-## `project/chatbot.ts`
+Jika Anda ingin memakai library ini tanpa memasukkan script aplikasi atau dataset ke repo, pola kerja yang paling aman adalah memisahkan:
 
-Tujuan:
+- `src/*` untuk framework inti,
+- folder lokal ter-ignore untuk dataset, checkpoint, dan script eksperimen,
+- file model/vocab hasil training di luar area yang dilacak git.
 
-- klasifikasi intent dari teks,
-- contoh sederhana arsitektur `Sequential`.
+Contoh struktur lokal yang aman:
 
-Fungsi penting di file ini:
+```text
+src/
+test/
+.gitignore
 
-| Fungsi | Kegunaan |
-| --- | --- |
-| `shuffle(arr)` | Mengacak sample tiap epoch. |
-| `evaluateMath(text)` | Rule-based evaluator untuk ekspresi matematika sederhana. |
-| `predict(text)` | Tokenize teks, forward model, softmax, argmax intent, lalu pilih response. |
-| `chat()` | Loop CLI interaktif. |
+local/
+  datasets/
+  models/
+  scripts/
+```
 
-Kenapa file ini penting:
+Contoh `.gitignore`:
 
-- ini contoh paling kecil untuk belajar menyusun model sendiri,
-- pipeline datanya jelas dari teks -> token -> matrix -> logits -> intent.
+```gitignore
+/node_modules
+/build
+/local
+```
 
-## `project/math-bot/data.ts`
+### Script training minimal
 
-Fungsi:
+Buat script lokal yang:
 
-| Fungsi | Kegunaan |
-| --- | --- |
-| `normalizeMathRecord(record)` | Menyatukan format record dataset matematika ke prompt training standar. |
-| `recordsToCorpus(records)` | Mengubah array record menjadi corpus string siap tokenizer. |
-| `buildChatPrompt(question)` | Membuat prompt inferensi untuk bot matematika. |
-| `loadMathTrainingCorpus(dataPath)` | Validasi dan muat corpus matematika dari file JSON. |
+1. memuat corpus Anda sendiri,
+2. melatih atau memuat `BPETokenizer`,
+3. membangun `Sequential` atau `Transformers`,
+4. menjalankan loop `forward()` dan `backward()`,
+5. menyimpan model ke folder lokal non-tracked.
 
-## `project/math-bot/main.ts`
+Contoh arah implementasi:
 
-Tujuan:
+```ts
+const tokenizer = new BPETokenizer({ vocabSize: 8000, minFrequency: 2 });
+tokenizer.train(corpus);
+tokenizer.save("local/models/vocab.json");
 
-- melatih math bot transformer kecil.
+const model = new Transformers({
+  units: 64,
+  seqLen: 128,
+  vocabSize: tokenizer.getVocabSize(),
+  heads: 8,
+  alpha: 1e-4,
+  padTokenId: tokenizer.getPadId(),
+});
 
-Fungsi penting:
+model.compile({ alpha: 1e-4, optimizer: "adam", error: "softmaxCrossEntropy" });
+```
 
-| Fungsi | Kegunaan |
-| --- | --- |
-| `shouldSaveBestCheckpoint(currentLoss, bestLoss)` | Menentukan kapan checkpoint terbaik disimpan. |
-| `loadOrCreateMathTokenizer(corpus, vocabPath)` | Load tokenizer lama atau train tokenizer baru lalu update vocab. |
-| `main()` | Menjalankan seluruh workflow training. |
+### Script inferensi minimal
 
-Alur file ini:
+Untuk inferensi, pola umumnya:
 
-1. load dataset matematika,
-2. load/train tokenizer,
-3. buat pasangan `(context, next_token)`,
-4. bangun atau load `Transformers`,
-5. jika vocab bertambah, panggil `resizeVocab()`,
-6. training per batch,
-7. simpan checkpoint terbaik.
+1. load vocab,
+2. load model,
+3. ubah dropout ke mode `test` bila dipakai,
+4. encode prompt,
+5. lakukan `forward()` berulang sambil sampling token.
 
-## `project/math-bot/chat.ts`
+### Script fine-tune minimal
 
-Tujuan:
-
-- chat CLI dengan model matematika yang sudah dilatih.
-
-Fungsi penting:
-
-| Fungsi | Kegunaan |
-| --- | --- |
-| `readModelConfig(modelPath)` | Menebak config transformer dari file JSON model. |
-| `sampleToken(logits, generated, padId)` | Sampling token dengan temperature, top-k, dan repetition penalty. |
-| `generateAnswer(model, tokenizer, modelConfig, question)` | Generate jawaban token demi token. |
-| `main()` | Load model, set dropout ke `test`, lalu buka chat CLI. |
-
-## `project/generative-bot/main.ts`
-
-Tujuan:
-
-- melatih generative bot umum dari dataset teks.
-
-Fungsi penting:
-
-| Fungsi | Kegunaan |
-| --- | --- |
-| `setDropoutLayersStatus(layers, status)` | Mengubah semua dropout ke mode `train` atau `test`. |
-| `askQuestion(question)` | Input CLI. |
-| `selectTrainingMode(hasCheckpoint)` | Memilih mode `resume` atau `reset`. |
-| `readModelConfig(modelPath)` | Infer config model lama dari file JSON. |
-| `formatDuration(ms)` | Format durasi untuk log training. |
-| `shuffleInPlace(items)` | Shuffle sample. |
-| `main()` | Workflow lengkap training generative model dan interactive chat. |
-| `generate(seed, maxTokens)` | Helper generate internal setelah training selesai. |
-
-File ini adalah referensi terbaik untuk training language model kecil dari nol menggunakan repo ini.
-
-## `project/generative-bot/finetune.ts`
-
-Tujuan:
-
-- fine-tuning model generatif yang sudah ada.
-
-Fungsi penting:
-
-| Fungsi | Kegunaan |
-| --- | --- |
-| `readModelConfig(modelPath)` | Ambil config model dasar sebelum fine-tune. |
-
-Alur fine-tuning:
+Untuk fine-tuning model lama:
 
 1. muat tokenizer lama,
-2. update vocab dengan percakapan baru,
-3. load model dasar,
+2. `tokenizer.update()` dengan data baru,
+3. muat bobot model lama,
 4. `resizeVocab()` bila vocab bertambah,
-5. training hanya pada data percakapan baru dengan learning rate lebih kecil,
-6. simpan `finetuned_model.json` dan `finetuned_vocab.json`.
-
-## `project/generative-bot/train-tokenizer.ts`
-
-Tujuan:
-
-- melatih tokenizer saja tanpa model.
-
-Fungsi:
-
-| Fungsi | Kegunaan |
-| --- | --- |
-| `main()` | Memuat korpus kata, melatih BPE tokenizer, menyimpan vocab, lalu menampilkan summary. |
-
-Pakai file ini jika Anda ingin mengunci vocabulary dulu sebelum training model.
-
-## `project/generative-bot/advanced-training.ts`
-
-Tujuan:
-
-- contoh training yang lebih canggih dan eksplorasi worker-based pipeline.
-
-Class dan fungsi penting:
-
-| Fungsi | Kegunaan |
-| --- | --- |
-| `AdvancedTrainer.constructor(...)` | Inisialisasi trainer, tokenizer, config, dan pipeline opsional. |
-| `train(samples)` | Menjalankan epoch training dan mencatat metrik. |
-| `trainNaive(samples)` | Training sequential di main thread. |
-| `trainWithPipeline(samples)` | Training dengan worker-thread data parallel. |
-| `loadTrainingData(dataPath)` | Mengubah dataset text menjadi sample `(input, target)`. |
-| `saveMetrics(outputPath)` | Menyimpan log metric training. |
-| `getMetrics()` | Mengambil salinan metric. |
-| `cleanup()` | Menutup worker pipeline. |
-| `main()` | Menjalankan seluruh demo advanced training. |
+5. compile ulang dengan learning rate lebih kecil,
+6. training pada data tambahan saja.
 
 ## 14. Referensi Pipeline dan Worker
 
@@ -849,7 +757,7 @@ Jika Anda ingin memakai repo ini untuk project lain, pola paling aman adalah:
 3. Buat pasangan `(context, next token)`.
 4. Bangun `Transformers`.
 5. Training batch demi batch.
-6. Saat inference, pakai loop sampling seperti `math-bot/chat.ts`.
+6. Saat inference, pakai loop sampling token dari logits output.
 
 ### C. Untuk fine-tune model lama
 
@@ -875,11 +783,11 @@ Berdasarkan analisis kode, ada beberapa hal yang penting dipahami saat memakai r
 
 Kalau tujuan Anda adalah memakai repo ini untuk eksperimen ML pribadi, urutan belajar terbaik adalah:
 
-1. Jalankan `project/chatbot.ts` untuk memahami alur `Sequential`.
-2. Jalankan `project/math-bot/main.ts` untuk memahami tokenizer + transformer + next-token training.
-3. Jalankan `project/math-bot/chat.ts` untuk melihat inferensi.
-4. Lanjut ke `project/generative-bot/main.ts` dan `finetune.ts` bila ingin model generatif domain-spesifik.
-5. Gunakan `advanced-training.ts` kalau Anda ingin eksplorasi paralelisme worker.
+1. Mulai dari `Matrix`, `mj`, dan `Dense` untuk memahami alur numeriknya.
+2. Lanjut ke `Sequential` untuk klasifikasi/regresi sederhana.
+3. Setelah itu pelajari `BPETokenizer`, `Embedding`, dan `Transformers` untuk tugas text generation.
+4. Gunakan modul `pipeline` bila Anda ingin eksplorasi worker-thread training.
+5. Simpan dataset dan checkpoint di folder lokal yang di-ignore git agar repo tetap bersih.
 
 ## 18. Ringkasan Singkat
 
@@ -887,8 +795,7 @@ Kalau diringkas, repo ini bisa dipakai untuk:
 
 - belajar cara kerja library ML dari bawah,
 - membuat classifier teks sederhana,
-- membuat chatbot intent,
 - membuat next-token predictor,
-- membuat bot generatif domain-spesifik,
+- membuat generator teks domain-spesifik,
 - fine-tune model text kecil,
 - eksperimen optimasi lewat native Rust dan worker thread.
