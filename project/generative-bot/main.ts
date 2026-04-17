@@ -6,6 +6,7 @@ import { BPETokenizer } from "../../src/tokenizer";
 import { softmax } from "../../src/activation";
 import mj from "../../src/math";
 import Matrix from "../../src/matrix";
+import { Profiler } from "../../src/utils/profiler";
 
 // ================================================================
 // GENERATIVE CHATBOT — Latih pada cerita rakyat (Next-Word Prediction)
@@ -28,7 +29,7 @@ const generativeModelPath = path.join(botDatasetDir, "generative_model.json");
 const generativeVocabPath = path.join(botDatasetDir, "generative_vocab.json");
 
 interface TrainPair {
-    xData: Float64Array;
+    xData: Float32Array;
     target: number;
 }
 
@@ -41,6 +42,12 @@ interface ModelConfig {
 }
 
 type TrainingMode = "resume" | "reset";
+
+function setDropoutLayersStatus(layers: Array<{ name: string; status?: string }>, status: "train" | "test"): void {
+    for (const layer of layers) {
+        if (layer.name === "dropout layer") layer.status = status;
+    }
+}
 
 function askQuestion(question: string): Promise<string> {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -214,7 +221,7 @@ async function main() {
         for (let i = 0; i < tokens.length - 1; i++) {
             const start = Math.max(0, i - runtimeConfig.seqLen + 1);
             const ctxLen = i - start + 1;
-            const xData = new Float64Array(runtimeConfig.seqLen);
+            const xData = new Float32Array(runtimeConfig.seqLen);
             xData.fill(PAD_ID);
             const offset = runtimeConfig.seqLen - ctxLen;
             for (let j = 0; j < ctxLen; j++) {
@@ -267,8 +274,8 @@ async function main() {
     console.log(`\n=== 4. ${shouldResume ? "Resuming" : "Starting"} Training (${EPOCHS} Epochs) ===\n`);
 
     // Pastikan semua layer (terutama Dropout) masuk ke mode training
+    setDropoutLayersStatus(model.layers as Array<{ name: string; status?: string }>, "train");
     for (const l of model.layers) {
-        if (l.name === "dropout layer") l.status = "train";
         // Hanya update alpha, jangan reset optimizer/loss ke default
         if ((l as any).compile) (l as any).compile({ alpha: LEARNING_RATE });
     }
@@ -307,8 +314,17 @@ async function main() {
                 yData[b] = pair.target;
             }
 
+            Profiler.start("Forward");
             model.forward(currentBatchX);
+            Profiler.end("Forward");
+
+            Profiler.start("Backward");
             model.backward(currentBatchY);
+            Profiler.end("Backward");
+
+            if ((i / BATCH_SIZE) % 10 === 0 && i > 0) {
+                Profiler.report();
+            }
         }
 
         const epochElapsed = performance.now() - epochStart;
@@ -346,7 +362,7 @@ async function main() {
             while (win.length < runtimeConfig.seqLen) win.unshift(PAD_ID);
             const logits = model.forward(mj.matrix(win.map(token => [token])));
 
-            const lastLogits = new Float64Array(VOCAB_SIZE);
+            const lastLogits = new Float32Array(VOCAB_SIZE);
             for (let v = 0; v < VOCAB_SIZE; v++) {
                 lastLogits[v] = logits._data[v] / TEMPERATURE;
             }
