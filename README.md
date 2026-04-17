@@ -799,3 +799,10 @@ Kalau diringkas, repo ini bisa dipakai untuk:
 - membuat generator teks domain-spesifik,
 - fine-tune model text kecil,
 - eksperimen optimasi lewat native Rust dan worker thread.
+
+## 19. Dukungan (Support)
+
+Jika Anda merasa project ini bermanfaat atau Anda menyukainya, Anda bisa memberikan dukungan melalui Saweria:
+
+[![Saweria](https://img.shields.io/badge/Saweria-Donasi-orange?style=for-the-badge&logo=saweria)](https://saweria.co/akhyaruhui)
+
