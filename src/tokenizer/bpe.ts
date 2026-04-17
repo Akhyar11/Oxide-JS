@@ -65,6 +65,8 @@ export default class BPETokenizer {
       this.vocab.set(token, nextId++);
     }
 
+    this.sanitize(); // Clean existing state before training
+
     // === STEP 2: Tokenisasi awal — pecah setiap kata jadi karakter ===
     // Pre-tokenize: split berdasarkan spasi, tambahkan word boundary marker
     // "saya makan" → ["▁s", "a", "y", "a", " ", "▁m", "a", "k", "a", "n"]
@@ -110,6 +112,8 @@ export default class BPETokenizer {
       this.vocabSize = newVocabSize;
     }
 
+    this.sanitize(); // Clean existing state before update
+
     let nextId = 0;
     for (const id of this.vocab.values()) {
       if (id >= nextId) nextId = id + 1;
@@ -135,7 +139,7 @@ export default class BPETokenizer {
       for (const char of symbols) {
         if (!this.vocab.has(char)) {
           const allocatedId = this.allocateTokenId(char, nextId);
-          if (allocatedId !== null && allocatedId >= nextId) {
+          if (allocatedId >= nextId) {
             nextId = allocatedId + 1;
           }
         }
@@ -147,8 +151,30 @@ export default class BPETokenizer {
         symbols = this.applyMerge(symbols, left, right, merged);
       }
       
-      // Hanya masukkan ke korpus training jika kata tersebut masih "kompleks" (> 3 token)
-      // Ini agar BPE fokus memperpendek kata-kata yang masih terlalu panjang.
+      // Hal pertama yang perlu di cek dari korpus baru: apakah ada kombinasi > 3 token?
+      // Jika ada, masukkan ke token alokasi (placeholder) atau buat ID baru.
+      // UPDATE: Hanya lakukan ini untuk kata (alfabet), simbol kombinasi (1-2-3) diabaikan.
+      if (symbols.length > 3) {
+        const fullWord = symbols.join("");
+        const isAlphabeticWord = /^[▁a-zA-Z]+$/.test(fullWord);
+
+        if (isAlphabeticWord) {
+          if (!this.vocab.has(fullWord)) {
+            console.log(`[BPE] Kata kompleks terdeteksi: "${fullWord}" (${symbols.length} token). Mengalokasikan token baru.`);
+            const allocatedId = this.allocateTokenId(fullWord, nextId);
+            if (allocatedId >= nextId) {
+              nextId = allocatedId + 1;
+            }
+          }
+          // Gunakan token utuh yang baru (atau lama) agar panjangnya jadi 1 token
+          symbols = [fullWord];
+        } else {
+          console.log(`[BPE] Kombinasi simbol terdeteksi: "${fullWord}" (${symbols.length} token). Biarkan tetap di korpus BPE.`);
+        }
+      }
+      
+      // Hanya masukkan ke korpus training jika kata tersebut (entah bagaimana) masih "kompleks"
+      // Seharusnya sekarang sudah jadi 1 token jika melewati blok di atas.
       if (symbols.length > 3) {
         corpus.push({ symbols, freq });
       }
@@ -166,14 +192,24 @@ export default class BPETokenizer {
 
   private runBPE(corpus: { symbols: string[]; freq: number }[], nextId: number): void {
     // === STEP 3: Iterasi BPE — gabungkan pasangan paling sering ===
-    while (this.vocab.size < this.vocabSize) {
+    // Terus berjalan selama ada target vocab yang belum tercapai 
+    // ATAU masih ada kata yang terlalu panjang (> 3 token).
+    while (this.vocab.size < this.vocabSize || corpus.some(c => c.symbols.length > 3)) {
       // 3a. Hitung frekuensi semua pasangan yang bersebelahan
       const pairFreq: Map<string, number> = new Map();
 
       for (const { symbols, freq } of corpus) {
         for (let i = 0; i < symbols.length - 1; i++) {
+          const left = symbols[i];
+          const right = symbols[i + 1];
+          const merged = left + right;
+
+          // Hanya izinkan merge jika hasilnya adalah kata (alfabet + boundary)
+          // Simbol dan angka TIDAK boleh di-merge.
+          if (!/^[▁a-zA-Z]+$/.test(merged)) continue;
+
           // Gunakan separator NULL (\0) yang hampir mustahil ada di text dataset
-          const pair = symbols[i] + "\0" + symbols[i + 1];
+          const pair = left + "\0" + right;
           pairFreq.set(pair, (pairFreq.get(pair) ?? 0) + freq);
         }
       }
@@ -206,13 +242,9 @@ export default class BPETokenizer {
       const alreadyMerged = this.merges.some(([l, r]) => l === left && r === right);
       
       if (!alreadyMerged) {
-        this.merges.push([left, right]);
         if (!this.vocab.has(merged)) {
+          this.merges.push([left, right]);
           const allocatedId = this.allocateTokenId(merged, nextId);
-          if (allocatedId === null) {
-            this.merges.pop();
-            break;
-          }
           if (allocatedId >= nextId) {
             nextId = allocatedId + 1;
           }
@@ -267,7 +299,7 @@ export default class BPETokenizer {
     return result;
   }
 
-  private allocateTokenId(token: string, nextId: number): number | null {
+  private allocateTokenId(token: string, nextId: number): number {
     const existingId = this.vocab.get(token);
     if (existingId !== undefined) {
       return existingId;
@@ -275,17 +307,57 @@ export default class BPETokenizer {
 
     const reusablePlaceholder = this.findReusablePlaceholder();
     if (reusablePlaceholder) {
+      console.log(`[BPE] Menempati token alokasi: "${reusablePlaceholder.token}" (${reusablePlaceholder.id}) -> "${token}"`);
       this.vocab.delete(reusablePlaceholder.token);
       this.vocab.set(token, reusablePlaceholder.id);
       return reusablePlaceholder.id;
     }
 
-    if (this.vocab.size >= this.vocabSize) {
-      return null;
+    // Jika tidak ada token alokasi/placeholder, buat ID baru.
+    // Ini mendukung ekspansi vocabulary secara dinamis.
+    this.vocab.set(token, nextId);
+    if (this.vocab.size > this.vocabSize) {
+      this.vocabSize = this.vocab.size;
+    }
+    return nextId;
+  }
+
+  /**
+   * Proactively remove polluted tokens (compound symbols/digits)
+   * that might have been learned in previous sessions.
+   */
+  private sanitize(): void {
+    const isWord = (t: string) => /^[▁a-zA-Z]+$/.test(t);
+    const beforeCount = this.vocab.size;
+
+    // 1. Filter merges
+    const initialMergeCount = this.merges.length;
+    this.merges = this.merges.filter(([l, r]) => isWord(l + r));
+    if (this.merges.length < initialMergeCount) {
+      console.log(`[BPE] Sanitize: Removed ${initialMergeCount - this.merges.length} polluted merge rules.`);
     }
 
-    this.vocab.set(token, nextId);
-    return nextId;
+    // 2. Filter vocab (remove compound symbols)
+    for (const [token, id] of this.vocab) {
+      const isSpecial = this.specialTokens.includes(token) || 
+                       token.startsWith("<UNUSED_") || 
+                       token.startsWith("<RESERVED_");
+      if (isSpecial) continue;
+
+      // Single characters are always kept
+      const isSingleChar = [...token].length <= 1;
+      if (isSingleChar) continue;
+
+      if (!isWord(token)) {
+        console.log(`[BPE] Removing polluted token: "${token}" (ID: ${id})`);
+        this.vocab.delete(token);
+      }
+    }
+
+    if (this.vocab.size < beforeCount) {
+      this.buildReverseVocab();
+      console.log(`[BPE] Sanitize: Removed ${beforeCount - this.vocab.size} polluted tokens.`);
+    }
   }
 
   private findReusablePlaceholder(): { token: string; id: number } | null {
@@ -316,8 +388,16 @@ export default class BPETokenizer {
     for (const word of words) {
       if (word.length === 0) continue;
 
+      // Optimasi: Cek apakah kata utuh sudah ada di vocab (terutama hasil incremental update)
+      const fullWord = WORD_BOUNDARY + word;
+      const existingId = this.vocab.get(fullWord);
+      if (existingId !== undefined) {
+        tokenIds.push(existingId);
+        continue;
+      }
+
       // Pecah kata jadi karakter dengan word boundary
-      let symbols = [...(WORD_BOUNDARY + word)];
+      let symbols = [...fullWord];
 
       // Terapkan semua merge rules secara berurutan
       for (const [left, right] of this.merges) {
@@ -432,6 +512,7 @@ export default class BPETokenizer {
     const tokenizer = new BPETokenizer(data.config);
     tokenizer.vocab = new Map(Object.entries(data.vocab).map(([k, v]) => [k, v as number]));
     tokenizer.merges = data.merges;
+    tokenizer.sanitize(); // Clean up loaded data
     tokenizer.buildReverseVocab();
 
     console.log(`[BPE] Vocabulary dimuat dari: ${filepath} (${tokenizer.vocab.size} tokens, ${tokenizer.merges.length} merges)`);

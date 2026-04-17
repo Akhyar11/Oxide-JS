@@ -9,8 +9,8 @@ import { loadMathTrainingCorpus } from "./data";
 const CONTEXT_LEN = 64;
 const EMBEDDING_DIM = 64;
 const HEADS = 8;
-const LEARNING_RATE = 1e-5;
-const EPOCHS = 1000;
+const LEARNING_RATE = 1e-3;
+const EPOCHS = 500;
 const VOCAB_SIZE = 1000;
 const BATCH_SIZE = 32;
 
@@ -130,12 +130,12 @@ async function main() {
   const runtimeConfig = hasExistingModel
     ? readModelConfig(modelPath)
     : {
-        units: EMBEDDING_DIM,
-        seqLen: CONTEXT_LEN,
-        heads: HEADS,
-        padTokenId: padId,
-        vocabSize: finalVocabSize,
-      };
+      units: EMBEDDING_DIM,
+      seqLen: CONTEXT_LEN,
+      heads: HEADS,
+      padTokenId: padId,
+      vocabSize: finalVocabSize,
+    };
 
   console.log(`\n=== ${hasExistingModel ? "Loading Existing Model" : "Building Model From Scratch"} ===\n`);
   const model = new Transformers({
