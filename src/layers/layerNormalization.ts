@@ -74,6 +74,10 @@ export default class LayerNormalization {
     this.gamma._shape = [gamma.length, gamma[0]?.length ?? 0];
     this.beta._value = beta;
     this.beta._shape = [beta.length, beta[0]?.length ?? 0];
+    this.units = this.gamma._shape[0];
+    this.params = this.units * 2;
+    this.optimizerGamma = setOptimizer(this.optimizerName, this.gamma._shape, this.alpha);
+    this.optimizerBeta = setOptimizer(this.optimizerName, this.beta._shape, this.alpha);
   }
 
   forward(x: Matrix): Matrix {
@@ -104,10 +108,17 @@ export default class LayerNormalization {
       return this.resultBuffer;
     }
 
-    const result = new Float32Array(rows * cols);
-    const normalizedData = new Float32Array(rows * cols);
-    const means = new Float32Array(cols);
-    const vars = new Float32Array(cols);
+    if (this.resultBuffer._shape[0] !== rows || this.resultBuffer._shape[1] !== cols) {
+      this.resultBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+      this.normalized = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+      this.mean = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
+      this.std = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
+    }
+
+    const result = this.resultBuffer._data;
+    const normalizedData = this.normalized._data;
+    const means = this.mean._data;
+    const stds = this.std._data;
 
     const xData = x._data;
 
@@ -125,19 +136,15 @@ export default class LayerNormalization {
         const diff = xData[i * cols + j] - m;
         sumSq += diff * diff;
       }
-      vars[j] = sumSq / rows;
+      stds[j] = Math.sqrt(sumSq / rows + this.epsilon);
     }
-
-    this.mean = Matrix.fromFlat(means, [1, cols]);
-    this.std = Matrix.fromFlat(vars.map(v => Math.sqrt(v + this.epsilon)), [1, cols]);
 
     // Normalize
     const gData = this.gamma._data;
     const bData = this.beta._data;
-    const stdData = this.std._data;
 
     for (let j = 0; j < cols; j++) {
-      const s = stdData[j];
+      const s = stds[j];
       const m = means[j];
       for (let i = 0; i < rows; i++) {
         const idx = i * cols + j;
@@ -147,8 +154,7 @@ export default class LayerNormalization {
       }
     }
 
-    this.normalized = Matrix.fromFlat(normalizedData, [rows, cols]);
-    return Matrix.fromFlat(result, [rows, cols]);
+    return this.resultBuffer;
   }
 
   backward(_y: Matrix, err: Matrix): Matrix {

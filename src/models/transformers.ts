@@ -53,6 +53,8 @@ export default class Transformers extends Sequential {
   private emptyErr: Matrix = mj.matrix([[]]);
   private lastTokenIndex: number = 0;
   private padMaskBuffer: boolean[] = [];
+  private profilerEnabled: boolean = false;
+  private profileStats: { [key: string]: { totalMs: number; count: number } } = Object.create(null);
 
   constructor({ units, seqLen, vocabSize, heads = 8, dropoutRate = 0.1, alpha = 0.01, padTokenId }: TransformersConfig) {
     const embedding = new Embedding({ vocabSize, embeddingDim: units, alpha, padTokenId });
@@ -100,6 +102,7 @@ export default class Transformers extends Sequential {
     this.errRes2Buf = mj.zeros([units, seqLen]);
     this.lastTokenBuffer = mj.zeros([units, 1]);
     this.vocabSize = vocabSize;
+    this.train();
   }
 
   forward(x: Matrix): Matrix {
@@ -107,6 +110,7 @@ export default class Transformers extends Sequential {
     const units = this.embedding.embeddingDim;
     const totalTokens = seqLen * batchSize;
 
+    const padMaskStart = this.profileStart();
     if (this.padMaskBuffer.length !== totalTokens) {
       this.padMaskBuffer = new Array<boolean>(totalTokens);
     }
@@ -116,9 +120,12 @@ export default class Transformers extends Sequential {
         this.padMaskBuffer[maskIdx++] = x._data[pos * batchSize + b] === this.embedding.padTokenId;
       }
     }
+    this.profileEnd("pad mask creation", padMaskStart);
 
     // 1. Embedding Forward
+    const embeddingForwardStart = this.profileStart();
     const xEmb = this.embedding.forward(x); // returns [Units, totalTokens]
+    this.profileEnd("embedding forward", embeddingForwardStart);
     
     // 2. Positional Encoding
     const xPe = this.pe.forward(xEmb);
@@ -127,18 +134,26 @@ export default class Transformers extends Sequential {
     let h = xPe;
     
     // Residual 1: Norm -> Attention -> Dropout -> Add
+    const layerNorm1ForwardStart = this.profileStart();
     const xLn1 = this.ln1.forward(h);
+    this.profileEnd("layer norm forward", layerNorm1ForwardStart);
     this.mha.setPadMask(this.padMaskBuffer);
+    const mhaForwardStart = this.profileStart();
     const xMhaOut = this.mha.forward(xLn1);
+    this.profileEnd("MHA forward", mhaForwardStart);
     const xDrop1Out = this.drop1.forward(xMhaOut);
     const res1 = mj.add(h, xDrop1Out);
     
     // Residual 2: Norm -> FFN -> Dropout -> Add
+    const layerNorm2ForwardStart = this.profileStart();
     const xLn2 = this.ln2.forward(res1);
+    this.profileEnd("layer norm forward", layerNorm2ForwardStart);
+    const ffnForwardStart = this.profileStart();
     const xFfn1Out = this.ffn1.forward(xLn2);
     const xDropFfnOut = this.dropFfn.forward(xFfn1Out);
     const xFfn2Out = this.ffn2.forward(xDropFfnOut);
     const xDrop2Out = this.drop2.forward(xFfn2Out);
+    this.profileEnd("FFN forward", ffnForwardStart);
     const res2 = mj.add(res1, xDrop2Out);
 
     // 4. Extract Last Token Embeddings for Output
@@ -159,12 +174,17 @@ export default class Transformers extends Sequential {
     }
 
     // 5. Output Dense Layer
-    return this.dense.forward(this.lastTokenBuffer);
+    const outputDenseForwardStart = this.profileStart();
+    const out = this.dense.forward(this.lastTokenBuffer);
+    this.profileEnd("output dense forward", outputDenseForwardStart);
+    return out;
   }
 
   backward(y: Matrix) {
     // 1. Output Dense Backward
+    const outputDenseBackwardStart = this.profileStart();
     const errDense = this.dense.backward(y, this.emptyErr);
+    this.profileEnd("output dense backward", outputDenseBackwardStart);
     this.loss = this.dense.loss;
     const batchSize = errDense._shape[1];
     const seqLen = this.pe.maxSeqLen;
@@ -172,7 +192,13 @@ export default class Transformers extends Sequential {
     const totalTokens = seqLen * batchSize;
 
     // 2. Map Dense Error back to the full sequence length matrix
-    const res2Err = mj.zeros([units, totalTokens]);
+    const mapDenseErrStart = this.profileStart();
+    if (this.errRes2Buf._shape[0] !== units || this.errRes2Buf._shape[1] !== totalTokens) {
+      this.errRes2Buf = mj.zeros([units, totalTokens]);
+    } else {
+      this.errRes2Buf._data.fill(0);
+    }
+    const res2Err = this.errRes2Buf;
     const res2ErrData = res2Err._data;
     const errDenseData = errDense._data;
     
@@ -182,25 +208,36 @@ export default class Transformers extends Sequential {
         res2ErrData[i * totalTokens + lastTokenCol] = errDenseData[i * batchSize + b];
       }
     }
+    this.profileEnd("mapping dense error", mapDenseErrStart);
 
     // 3. Block Backward
+    const ffnBackwardStart = this.profileStart();
     const errDrop2 = this.drop2.backward(this.emptyErr, res2Err);
     const errFfn2 = this.ffn2.backward(this.emptyErr, errDrop2);
     const errDropFfn = this.dropFfn.backward(this.emptyErr, errFfn2);
     const errFfn1 = this.ffn1.backward(this.emptyErr, errDropFfn);
+    this.profileEnd("FFN backward", ffnBackwardStart);
+    const layerNorm2BackwardStart = this.profileStart();
     const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
+    this.profileEnd("layer norm backward", layerNorm2BackwardStart);
     
     const res1Err = mj.add(res2Err, errLn2);
     
     const errDrop1 = this.drop1.backward(this.emptyErr, res1Err);
+    const mhaBackwardStart = this.profileStart();
     const errMha = this.mha.backward(this.emptyErr, errDrop1);
+    this.profileEnd("MHA backward", mhaBackwardStart);
+    const layerNorm1BackwardStart = this.profileStart();
     const errLn1 = this.ln1.backward(this.emptyErr, errMha);
+    this.profileEnd("layer norm backward", layerNorm1BackwardStart);
     
     const peErr = mj.add(res1Err, errLn1);
     
     // 4. PE & Embedding Backward
+    const embeddingBackwardStart = this.profileStart();
     const embErr = this.pe.backward(this.emptyErr, peErr);
     this.embedding.backward(this.emptyErr, embErr);
+    this.profileEnd("embedding backward", embeddingBackwardStart);
   }
 
   load(path: string) {
@@ -240,6 +277,7 @@ export default class Transformers extends Sequential {
   }
 
   fit(X: Matrix[], y: Matrix[], epochs: number, cb: (loss: number) => any = (_) => { }) {
+    this.train();
     for (let i = 0; i < epochs; i++) {
       this.dense.resetLoss();
       let epochLoss = 0;
@@ -254,5 +292,54 @@ export default class Transformers extends Sequential {
       cb(this.loss);
       if (this.loss < 0.01) return 0;
     }
+  }
+
+  enableProfiling(enabled: boolean = true): this {
+    this.profilerEnabled = enabled;
+    return this;
+  }
+
+  disableProfiling(): this {
+    this.profilerEnabled = false;
+    return this;
+  }
+
+  resetProfiling(): void {
+    this.profileStats = Object.create(null);
+  }
+
+  getProfilingReport(reset: boolean = false): { [key: string]: { totalMs: number; avgMs: number; count: number } } {
+    const report: { [key: string]: { totalMs: number; avgMs: number; count: number } } = {};
+    for (const key of Object.keys(this.profileStats)) {
+      const stat = this.profileStats[key];
+      report[key] = {
+        totalMs: stat.totalMs,
+        avgMs: stat.count > 0 ? stat.totalMs / stat.count : 0,
+        count: stat.count,
+      };
+    }
+    if (reset) this.resetProfiling();
+    return report;
+  }
+
+  private profileStart(): number {
+    if (!this.profilerEnabled) return 0;
+    if (typeof performance !== "undefined" && typeof performance.now === "function") {
+      return performance.now();
+    }
+    return Date.now();
+  }
+
+  private profileEnd(label: string, start: number): void {
+    if (!this.profilerEnabled) return;
+    const end = typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
+    const elapsed = end - start;
+    if (!this.profileStats[label]) {
+      this.profileStats[label] = { totalMs: 0, count: 0 };
+    }
+    this.profileStats[label].totalMs += elapsed;
+    this.profileStats[label].count += 1;
   }
 }

@@ -9,6 +9,7 @@ export type SequentialLayers = Layers[];
 export default class Sequential {
   layers: SequentialLayers;
   loss = 0;
+  protected isTrainingMode = true;
   constructor({ layers = [] }: { layers?: SequentialLayers } = {}) {
     this.layers = layers;
   }
@@ -73,10 +74,32 @@ export default class Sequential {
     }
   }
 
+  train(): this {
+    this.isTrainingMode = true;
+    for (const layer of this.layers) {
+      if (typeof (layer as any).setTrainingMode === "function") {
+        (layer as any).setTrainingMode(true);
+      }
+    }
+    return this;
+  }
+
+  eval(): this {
+    this.isTrainingMode = false;
+    for (const layer of this.layers) {
+      if (typeof (layer as any).setTrainingMode === "function") {
+        (layer as any).setTrainingMode(false);
+      }
+    }
+    return this;
+  }
+
   predict(x: Matrix): Matrix {
-    // predict() melakukan inference tanpa memodifikasi state training
-    // — identik dengan forward() di arsitektur ini
-    return this.forward(x);
+    const wasTraining = this.isTrainingMode;
+    this.eval();
+    const out = this.forward(x);
+    if (wasTraining) this.train();
+    return out;
   }
 
   fit(
@@ -85,6 +108,7 @@ export default class Sequential {
     epochs: number,
     cb: (err: number) => any = (_) => { },
   ) {
+    this.train();
     for (let i = 0; i < epochs; i++) {
       // Reset akumulasi loss di setiap epoch
       for (let layer of this.layers) {

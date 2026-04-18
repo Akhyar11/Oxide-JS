@@ -7,6 +7,7 @@ export default class Dropout {
   rate: number;
   mask: Matrix = mj.matrix([]);
   status: StatusLayer;
+  private training: boolean = false;
   
   inputShape: [number, number] = [0, 0];
   outputShape: [number, number] = [0, 0];
@@ -16,6 +17,7 @@ export default class Dropout {
   constructor({ rate = 0.5, status = "input" }: { rate?: number; status?: StatusLayer }) {
     this.rate = rate;
     this.status = status;
+    this.applyStatusTraining(status);
   }
 
   save() {
@@ -29,6 +31,7 @@ export default class Dropout {
   load({ rate, status }: { rate: number; status: StatusLayer }) {
     this.rate = rate;
     this.status = status;
+    this.applyStatusTraining(status);
   }
 
   forward(x: Matrix): Matrix {
@@ -37,7 +40,7 @@ export default class Dropout {
     
     // Hanya lakukan dropout JIKA statusnya adalah 'train'
     // Jika 'test' atau status lain, kembalikan input tanpa modifikasi
-    if (this.status !== "train" || this.rate === 0) {
+    if (!this.training || this.rate === 0) {
       return x;
     }
 
@@ -64,9 +67,23 @@ export default class Dropout {
   }
 
   backward(y: Matrix, err: Matrix): Matrix {
-    if (this.rate === 0) {
+    if (!this.training || this.rate === 0) {
       return err;
     }
     return mj.mul(err, this.mask);
+  }
+
+  setTrainingMode(training: boolean): void {
+    this.training = training;
+    this.status = training ? "train" : "test";
+  }
+
+  isTraining(): boolean {
+    return this.training;
+  }
+
+  private applyStatusTraining(status: StatusLayer): void {
+    if (status === "train") this.training = true;
+    else this.training = false;
   }
 }

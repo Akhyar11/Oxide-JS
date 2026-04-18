@@ -80,8 +80,10 @@ export default class Embedding {
   load(weight: matrix2d): void {
     this.weight._value = weight;
     this.weight._shape = [weight.length, weight[0]?.length ?? 0];
+    this.embeddingDim = this.weight._shape[0];
     this.vocabSize = this.weight._shape[1];
     this.params = this.vocabSize * this.embeddingDim;
+    this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, 1e-5);
   }
 
   compile({

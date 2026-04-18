@@ -290,6 +290,9 @@ export default class MultiHeadAttention {
     if (data.wo) {
       this.wo.load(data.wo.weight, data.wo.bias);
     }
+    this.optimizerQ = setOptimizer(this.optimizerName, this.q._shape, this.alpha);
+    this.optimizerK = setOptimizer(this.optimizerName, this.k._shape, this.alpha);
+    this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, this.alpha);
   }
 
   private ensureSequenceBuffersForBatch(totalCols: number) {
