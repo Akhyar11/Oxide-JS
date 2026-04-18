@@ -1,4 +1,4 @@
-import { buildChatPrompt, normalizeMathRecord, recordsToCorpus } from "../project/math-bot/data";
+import { buildChatPrompt, normalizeMathRecord, recordsToCorpus } from "../dataset/data";
 
 let passed = 0;
 let failed = 0;
