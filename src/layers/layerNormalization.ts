@@ -118,7 +118,7 @@ export default class LayerNormalization {
     const result = this.resultBuffer._data;
     const normalizedData = this.normalized._data;
     const means = this.mean._data;
-    const stdData = this.std._data;
+    const stds = this.std._data;
 
     const xData = x._data;
 
@@ -136,7 +136,7 @@ export default class LayerNormalization {
         const diff = xData[i * cols + j] - m;
         sumSq += diff * diff;
       }
-      stdData[j] = Math.sqrt(sumSq / rows + this.epsilon);
+      stds[j] = Math.sqrt(sumSq / rows + this.epsilon);
     }
 
     // Normalize
@@ -144,7 +144,7 @@ export default class LayerNormalization {
     const bData = this.beta._data;
 
     for (let j = 0; j < cols; j++) {
-      const s = stdData[j];
+      const s = stds[j];
       const m = means[j];
       for (let i = 0; i < rows; i++) {
         const idx = i * cols + j;

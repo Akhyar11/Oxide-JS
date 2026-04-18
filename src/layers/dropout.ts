@@ -7,7 +7,7 @@ export default class Dropout {
   rate: number;
   mask: Matrix = mj.matrix([]);
   status: StatusLayer;
-  private training: boolean = true;
+  private training: boolean = false;
   
   inputShape: [number, number] = [0, 0];
   outputShape: [number, number] = [0, 0];
@@ -17,7 +17,7 @@ export default class Dropout {
   constructor({ rate = 0.5, status = "input" }: { rate?: number; status?: StatusLayer }) {
     this.rate = rate;
     this.status = status;
-    this.training = status === "train";
+    this.applyStatusTraining(status);
   }
 
   save() {
@@ -31,7 +31,7 @@ export default class Dropout {
   load({ rate, status }: { rate: number; status: StatusLayer }) {
     this.rate = rate;
     this.status = status;
-    this.training = status === "train";
+    this.applyStatusTraining(status);
   }
 
   forward(x: Matrix): Matrix {
@@ -80,5 +80,10 @@ export default class Dropout {
 
   isTraining(): boolean {
     return this.training;
+  }
+
+  private applyStatusTraining(status: StatusLayer): void {
+    if (status === "train") this.training = true;
+    else this.training = false;
   }
 }
