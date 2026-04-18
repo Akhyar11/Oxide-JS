@@ -15,7 +15,7 @@ const batchSize = 64;
 const units = 64;
 const heads = 8;
 const alpha = 1e-5;
-const benchmark = "math_synthetic_v1";
+const benchmark = "math_synthetic_v1_1_0";
 
 function loadTokenizerSilently(vocabPath: string): BPETokenizer {
   const originalLog = console.log;
@@ -69,7 +69,7 @@ function fillBatch(samples: Sample[], startIndex: number, actualBatchSize: numbe
 }
 
 async function benchmarkMathSynthetic() {
-  const vocabPath = path.join(__dirname, "..", "project", "math-bot", "dataset", "math_vocab.json");
+  const vocabPath = path.join(__dirname, "..", "dataset", "math_vocab.json");
   const datasetPath = path.join(__dirname, "..", "dataset", "dataset_matematika_1000.json");
 
   if (!fs.existsSync(vocabPath)) {

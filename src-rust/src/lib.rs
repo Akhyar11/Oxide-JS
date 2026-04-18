@@ -550,160 +550,163 @@ pub fn clip_gradients_native(mut data: Float32Array, limit: f64) {
     }
 }
 
-fn mha_forward_block(
+fn mha_forward_head_into(
     q_data: &[f32],
     k_data: &[f32],
     v_data: &[f32],
     pad_mask: &[bool],
+    out_head: &mut [f32],
+    attention_head: &mut [f32],
     total_cols: usize,
     head_idx: usize,
-    sample_idx: usize,
     head_units: usize,
     seq_len: usize,
+    batch_size: usize,
     scale: f32,
-) -> (usize, Vec<f32>, Vec<f32>) {
-    let mut out_block = vec![0.0f32; head_units * seq_len];
-    let mut attn_block = vec![0.0f32; seq_len * seq_len];
-    let sample_offset = sample_idx * seq_len;
+) {
     let head_row_start = head_idx * head_units;
 
-    for q_pos in 0..seq_len {
-        let q_col = sample_offset + q_pos;
-        if pad_mask[q_col] {
-            continue;
-        }
+    for sample_idx in 0..batch_size {
+        let sample_offset = sample_idx * seq_len;
+        let attn_offset = sample_idx * seq_len * seq_len;
+        let attn_block = &mut attention_head[attn_offset..attn_offset + seq_len * seq_len];
 
-        let mut max_score = f32::NEG_INFINITY;
-        for k_pos in 0..seq_len {
-            let k_col = sample_offset + k_pos;
-            let idx = k_pos * seq_len + q_pos;
-            if pad_mask[k_col] || k_pos > q_pos {
-                attn_block[idx] = f32::NEG_INFINITY;
+        for q_pos in 0..seq_len {
+            let q_col = sample_offset + q_pos;
+            if pad_mask[q_col] {
                 continue;
             }
 
-            let mut score = 0.0f32;
+            let mut max_score = f32::NEG_INFINITY;
+            for k_pos in 0..seq_len {
+                let k_col = sample_offset + k_pos;
+                let idx = k_pos * seq_len + q_pos;
+                if pad_mask[k_col] || k_pos > q_pos {
+                    attn_block[idx] = f32::NEG_INFINITY;
+                    continue;
+                }
+
+                let mut score = 0.0f32;
+                for i in 0..head_units {
+                    let row = head_row_start + i;
+                    score += k_data[row * total_cols + k_col] * q_data[row * total_cols + q_col];
+                }
+                score *= scale;
+                attn_block[idx] = score;
+                if score > max_score {
+                    max_score = score;
+                }
+            }
+
+            if !max_score.is_finite() {
+                continue;
+            }
+
+            let mut sum_exp = 0.0f32;
+            for k_pos in 0..seq_len {
+                let idx = k_pos * seq_len + q_pos;
+                let score = attn_block[idx];
+                if !score.is_finite() {
+                    attn_block[idx] = 0.0;
+                    continue;
+                }
+                let exp_val = (score - max_score).exp();
+                attn_block[idx] = exp_val;
+                sum_exp += exp_val;
+            }
+
+            if sum_exp <= 0.0 || !sum_exp.is_finite() {
+                for k_pos in 0..seq_len {
+                    attn_block[k_pos * seq_len + q_pos] = 0.0;
+                }
+                continue;
+            }
+
+            let inv_sum = 1.0f32 / sum_exp;
+            for k_pos in 0..seq_len {
+                let idx = k_pos * seq_len + q_pos;
+                attn_block[idx] *= inv_sum;
+            }
+
             for i in 0..head_units {
                 let row = head_row_start + i;
-                score += k_data[row * total_cols + k_col] * q_data[row * total_cols + q_col];
+                let out_idx = i * total_cols + q_col;
+                let mut sum = 0.0f32;
+                for k_pos in 0..seq_len {
+                    let k_col = sample_offset + k_pos;
+                    sum += v_data[row * total_cols + k_col] * attn_block[k_pos * seq_len + q_pos];
+                }
+                out_head[out_idx] = sum;
             }
-            score *= scale;
-            attn_block[idx] = score;
-            if score > max_score {
-                max_score = score;
-            }
-        }
-
-        if !max_score.is_finite() {
-            continue;
-        }
-
-        let mut sum_exp = 0.0f32;
-        for k_pos in 0..seq_len {
-            let idx = k_pos * seq_len + q_pos;
-            let score = attn_block[idx];
-            if !score.is_finite() {
-                attn_block[idx] = 0.0;
-                continue;
-            }
-            let exp_val = (score - max_score).exp();
-            attn_block[idx] = exp_val;
-            sum_exp += exp_val;
-        }
-
-        if sum_exp <= 0.0 || !sum_exp.is_finite() {
-            for k_pos in 0..seq_len {
-                attn_block[k_pos * seq_len + q_pos] = 0.0;
-            }
-            continue;
-        }
-
-        let inv_sum = 1.0f32 / sum_exp;
-        for k_pos in 0..seq_len {
-            let idx = k_pos * seq_len + q_pos;
-            attn_block[idx] *= inv_sum;
-        }
-
-        for i in 0..head_units {
-            let row = head_row_start + i;
-            let out_idx = i * seq_len + q_pos;
-            let mut sum = 0.0f32;
-            for k_pos in 0..seq_len {
-                let k_col = sample_offset + k_pos;
-                sum += v_data[row * total_cols + k_col] * attn_block[k_pos * seq_len + q_pos];
-            }
-            out_block[out_idx] = sum;
         }
     }
-
-    (head_idx * 10_000_000 + sample_idx, out_block, attn_block)
 }
 
-fn mha_backward_block(
+fn mha_backward_head_into(
     q_data: &[f32],
     k_data: &[f32],
     v_data: &[f32],
-    attn_block: &[f32],
+    attention_head: &[f32],
     d_out_data: &[f32],
     pad_mask: &[bool],
+    d_q_head: &mut [f32],
+    d_k_head: &mut [f32],
+    d_v_head: &mut [f32],
     total_cols: usize,
     head_idx: usize,
-    sample_idx: usize,
     head_units: usize,
     seq_len: usize,
+    batch_size: usize,
     scale: f32,
-) -> (usize, Vec<f32>, Vec<f32>, Vec<f32>) {
-    let mut d_q_block = vec![0.0f32; head_units * seq_len];
-    let mut d_k_block = vec![0.0f32; head_units * seq_len];
-    let mut d_v_block = vec![0.0f32; head_units * seq_len];
-    let mut err_attention = vec![0.0f32; seq_len * seq_len];
-    let mut err_score = vec![0.0f32; seq_len * seq_len];
-
-    let sample_offset = sample_idx * seq_len;
+) {
     let head_row_start = head_idx * head_units;
+    let mut err_attention = vec![0.0f32; seq_len];
 
-    for q_pos in 0..seq_len {
-        let q_col = sample_offset + q_pos;
-        if pad_mask[q_col] {
-            continue;
-        }
+    for sample_idx in 0..batch_size {
+        let sample_offset = sample_idx * seq_len;
+        let attn_offset = sample_idx * seq_len * seq_len;
+        let attn_block = &attention_head[attn_offset..attn_offset + seq_len * seq_len];
 
-        for i in 0..head_units {
-            let row = head_row_start + i;
-            let d_out_val = d_out_data[row * total_cols + q_col];
+        for q_pos in 0..seq_len {
+            let q_col = sample_offset + q_pos;
+            if pad_mask[q_col] {
+                continue;
+            }
+
+            err_attention.fill(0.0);
+
+            for i in 0..head_units {
+                let row = head_row_start + i;
+                let d_out_val = d_out_data[row * total_cols + q_col];
+                for k_pos in 0..seq_len {
+                    let attn_idx = k_pos * seq_len + q_pos;
+                    let k_col = sample_offset + k_pos;
+                    d_v_head[i * total_cols + k_col] += d_out_val * attn_block[attn_idx];
+                    err_attention[k_pos] += v_data[row * total_cols + k_col] * d_out_val;
+                }
+            }
+
+            let mut dot = 0.0f32;
             for k_pos in 0..seq_len {
                 let attn_idx = k_pos * seq_len + q_pos;
-                d_v_block[i * seq_len + k_pos] += d_out_val * attn_block[attn_idx];
-                let k_col = sample_offset + k_pos;
-                err_attention[attn_idx] += v_data[row * total_cols + k_col] * d_out_val;
+                dot += attn_block[attn_idx] * err_attention[k_pos];
             }
-        }
 
-        let mut dot = 0.0f32;
-        for k_pos in 0..seq_len {
-            let attn_idx = k_pos * seq_len + q_pos;
-            dot += attn_block[attn_idx] * err_attention[attn_idx];
-        }
-
-        for k_pos in 0..seq_len {
-            let attn_idx = k_pos * seq_len + q_pos;
-            err_score[attn_idx] = attn_block[attn_idx] * (err_attention[attn_idx] - dot) * scale;
-        }
-
-        for i in 0..head_units {
-            let row = head_row_start + i;
-            let mut dq_sum = 0.0f32;
-            for k_pos in 0..seq_len {
-                let k_col = sample_offset + k_pos;
-                let score_grad = err_score[k_pos * seq_len + q_pos];
-                dq_sum += k_data[row * total_cols + k_col] * score_grad;
-                d_k_block[i * seq_len + k_pos] += q_data[row * total_cols + q_col] * score_grad;
+            for i in 0..head_units {
+                let row = head_row_start + i;
+                let q_val = q_data[row * total_cols + q_col];
+                let mut dq_sum = 0.0f32;
+                for k_pos in 0..seq_len {
+                    let k_col = sample_offset + k_pos;
+                    let attn_idx = k_pos * seq_len + q_pos;
+                    let score_grad = attn_block[attn_idx] * (err_attention[k_pos] - dot) * scale;
+                    dq_sum += k_data[row * total_cols + k_col] * score_grad;
+                    d_k_head[i * total_cols + k_col] += q_val * score_grad;
+                }
+                d_q_head[i * total_cols + q_col] = dq_sum;
             }
-            d_q_block[i * seq_len + q_pos] = dq_sum;
         }
     }
-
-    (head_idx * 10_000_000 + sample_idx, d_q_block, d_k_block, d_v_block)
 }
 
 #[napi]
@@ -738,47 +741,31 @@ pub fn multi_head_attention_forward_native_into(
     let k_slice = &*k_data;
     let v_slice = &*v_data;
 
-    let blocks: Vec<(usize, usize)> = (0..h)
-        .flat_map(|head_idx| (0..bs).map(move |sample_idx| (head_idx, sample_idx)))
-        .collect();
+    let out_slice = &mut *out_data;
+    let attention_slice = &mut *attention_data;
+    debug_assert_eq!(out_slice.len(), h * hu * total_cols);
+    debug_assert_eq!(attention_slice.len(), h * bs * sl * sl);
 
-    let results: Vec<(usize, Vec<f32>, Vec<f32>)> = blocks
-        .into_par_iter()
-        .map(|(head_idx, sample_idx)| {
-            mha_forward_block(
+    out_slice
+        .par_chunks_mut(hu * total_cols)
+        .zip(attention_slice.par_chunks_mut(bs * sl * sl))
+        .enumerate()
+        .for_each(|(head_idx, (out_head, attention_head))| {
+            mha_forward_head_into(
                 q_slice,
                 k_slice,
                 v_slice,
                 &pad_mask,
+                out_head,
+                attention_head,
                 total_cols,
                 head_idx,
-                sample_idx,
                 hu,
                 sl,
+                bs,
                 scale_f32,
-            )
-        })
-        .collect();
-
-    for (block_id, out_block, attn_block) in results {
-        let head_idx = block_id / 10_000_000;
-        let sample_idx = block_id % 10_000_000;
-        let sample_offset = sample_idx * sl;
-        let head_row_start = head_idx * hu;
-
-        for i in 0..hu {
-            let row = head_row_start + i;
-            let src_offset = i * sl;
-            for q_pos in 0..sl {
-                out_data[row * total_cols + sample_offset + q_pos] = out_block[src_offset + q_pos];
-            }
-        }
-
-        let attn_offset = (head_idx * bs + sample_idx) * sl * sl;
-        for i in 0..attn_block.len() {
-            attention_data[attn_offset + i] = attn_block[i];
-        }
-    }
+            );
+        });
 }
 
 #[napi]
@@ -817,47 +804,37 @@ pub fn multi_head_attention_backward_native_into(
     let d_out_slice = &*d_out_data;
     let attn_slice = &*attention_data;
 
-    let blocks: Vec<(usize, usize)> = (0..h)
-        .flat_map(|head_idx| (0..bs).map(move |sample_idx| (head_idx, sample_idx)))
-        .collect();
+    let d_q_slice = &mut *d_q_out;
+    let d_k_slice = &mut *d_k_out;
+    let d_v_slice = &mut *d_v_out;
+    debug_assert_eq!(d_q_slice.len(), h * hu * total_cols);
+    debug_assert_eq!(d_k_slice.len(), h * hu * total_cols);
+    debug_assert_eq!(d_v_slice.len(), h * hu * total_cols);
+    debug_assert_eq!(attn_slice.len(), h * bs * sl * sl);
 
-    let results: Vec<(usize, Vec<f32>, Vec<f32>, Vec<f32>)> = blocks
-        .into_par_iter()
-        .map(|(head_idx, sample_idx)| {
-            let attn_offset = (head_idx * bs + sample_idx) * sl * sl;
-            let attn_block = &attn_slice[attn_offset..attn_offset + sl * sl];
-            mha_backward_block(
+    d_q_slice
+        .par_chunks_mut(hu * total_cols)
+        .zip(d_k_slice.par_chunks_mut(hu * total_cols))
+        .zip(d_v_slice.par_chunks_mut(hu * total_cols))
+        .zip(attn_slice.par_chunks(bs * sl * sl))
+        .enumerate()
+        .for_each(|(head_idx, (((d_q_head, d_k_head), d_v_head), attention_head))| {
+            mha_backward_head_into(
                 q_slice,
                 k_slice,
                 v_slice,
-                attn_block,
+                attention_head,
                 d_out_slice,
                 &pad_mask,
+                d_q_head,
+                d_k_head,
+                d_v_head,
                 total_cols,
                 head_idx,
-                sample_idx,
                 hu,
                 sl,
+                bs,
                 scale_f32,
-            )
-        })
-        .collect();
-
-    for (block_id, d_q_block, d_k_block, d_v_block) in results {
-        let head_idx = block_id / 10_000_000;
-        let sample_idx = block_id % 10_000_000;
-        let sample_offset = sample_idx * sl;
-        let head_row_start = head_idx * hu;
-
-        for i in 0..hu {
-            let row = head_row_start + i;
-            let src_offset = i * sl;
-            for pos in 0..sl {
-                let dst_idx = row * total_cols + sample_offset + pos;
-                d_q_out[dst_idx] = d_q_block[src_offset + pos];
-                d_k_out[dst_idx] = d_k_block[src_offset + pos];
-                d_v_out[dst_idx] = d_v_block[src_offset + pos];
-            }
-        }
-    }
+            );
+        });
 }

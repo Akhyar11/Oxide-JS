@@ -59,6 +59,7 @@ Catatan:
 | Versi | Tanggal | Commit | Ringkasan |
 | --- | --- | --- | --- |
 | [v1.0.0](./v1.0.0.md) | 2026-04-17 | `47e7734` | Baseline awal synthetic benchmark untuk versi sekarang |
+| [v1.1.0](./v1.1.0.md) | 2026-04-18 | `b2ff012` | Snapshot benchmark versi sekarang dengan aset vocab `dataset/math_vocab.json` |
 
 ## Cara Menambah Versi Baru
 

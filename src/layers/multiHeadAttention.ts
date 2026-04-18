@@ -154,9 +154,6 @@ export default class MultiHeadAttention {
 
     const scale = 1 / Math.sqrt(this.headUnits);
 
-    this.concatenated._data.fill(0);
-    this.attentionData.fill(0);
-
     if (isNativeAvailable()) {
       multiHeadAttentionForwardNative(
         this.Q._data,
@@ -172,6 +169,8 @@ export default class MultiHeadAttention {
         this.attentionData
       );
     } else {
+      this.concatenated._data.fill(0);
+      this.attentionData.fill(0);
       MultiHeadAttention.forwardFallback(
         this.Q._data,
         this.K._data,
@@ -198,10 +197,6 @@ export default class MultiHeadAttention {
     const batchSize = Math.floor(totalCols / seqLen);
     const scale = 1 / Math.sqrt(this.headUnits);
 
-    this.dQAll._data.fill(0);
-    this.dKAll._data.fill(0);
-    this.dVAll._data.fill(0);
-
     if (isNativeAvailable()) {
       multiHeadAttentionBackwardNative(
         this.Q._data,
@@ -220,6 +215,9 @@ export default class MultiHeadAttention {
         this.dVAll._data
       );
     } else {
+      this.dQAll._data.fill(0);
+      this.dKAll._data.fill(0);
+      this.dVAll._data.fill(0);
       MultiHeadAttention.backwardFallback(
         this.Q._data,
         this.K._data,
