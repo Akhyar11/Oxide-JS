@@ -3,3 +3,5 @@
 /project
 /dataset/*
 !/dataset/dataset_matematika_1000.json
+!/dataset/math_vocab.json
+!/dataset/data.ts

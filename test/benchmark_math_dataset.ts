@@ -3,7 +3,7 @@ import * as path from "path";
 import { BPETokenizer } from "../src/tokenizer";
 import { Transformers } from "../src/models";
 import mj from "../src/math";
-import { loadMathTrainingCorpus } from "../project/math-bot/data";
+import { loadMathTrainingCorpus } from "../dataset/data";
 
 type Sample = {
   x: number[];
@@ -59,7 +59,7 @@ function fillBatch(samples: Sample[], startIndex: number, actualBatchSize: numbe
 
 async function benchmarkMathDataset() {
   const datasetPath = path.join(__dirname, "..", "dataset", "dataset_matematika_1000.json");
-  const vocabPath = path.join(__dirname, "..", "project", "math-bot", "dataset", "math_vocab.json");
+  const vocabPath = path.join(__dirname, "..", "dataset", "math_vocab.json");
 
   const corpus = loadMathTrainingCorpus(datasetPath).slice(0, 256);
   const tokenizer = BPETokenizer.load(vocabPath);
