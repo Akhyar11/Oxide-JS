@@ -622,9 +622,10 @@ fn mha_forward_head_into(
                 continue;
             }
 
+            let inv_sum = 1.0f32 / sum_exp;
             for k_pos in 0..seq_len {
                 let idx = k_pos * seq_len + q_pos;
-                attn_block[idx] /= sum_exp;
+                attn_block[idx] *= inv_sum;
             }
 
             for i in 0..head_units {
