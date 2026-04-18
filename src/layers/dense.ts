@@ -60,7 +60,6 @@ export default class Dense {
   private errBiasBuffer: Matrix;
   private errActivationBuffer: Matrix;
   private prevLayerErrBuffer: Matrix;
-  private oldWeightBuffer: Matrix;
 
   constructor({
     units,
@@ -85,7 +84,6 @@ export default class Dense {
     this.errBiasBuffer = mj.zeros([outputUnits, 1]);
     this.errActivationBuffer = mj.zeros([outputUnits, 1]);
     this.prevLayerErrBuffer = mj.zeros([units, 1]);
-    this.oldWeightBuffer = mj.zeros([outputUnits, units]);
     this.activation = setActivation(activation);
     this.activationName = activation;
     this.optimizerName = optimizer;
@@ -125,7 +123,6 @@ export default class Dense {
     this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
     this.errActivationBuffer = mj.zeros([this.outputUnits, 1]);
     this.prevLayerErrBuffer = mj.zeros([this.units, 1]);
-    this.oldWeightBuffer = mj.zeros([this.outputUnits, this.units]);
     this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, 1e-5);
     this.optimizerBias = setOptimizer(this.optimizerName, this.bias._shape, 1e-5);
   }
@@ -218,23 +215,21 @@ export default class Dense {
     mj.clipGradients(gradWeight, 1.0);
     mj.clipGradients(gradBias, 1.0);
 
-    // 3. Dapatkan update dari optimizer
-    const updateWeight = this.optimizerWeight.calculate(gradWeight, this.alpha);
-    const updateBias = this.optimizerBias.calculate(gradBias, this.alpha);
-
-    // 4. Simpan bobot lama untuk propagasi gradien ke layer sebelumnya
-    this.oldWeightBuffer.copyFrom(this.weight);
-
-    // 4. Update In-Place!
-    this.weight.subInPlace(updateWeight);
-    this.bias.subInPlace(updateBias);
-
-    // 5. Hitung gradien ke layer sebelumnya - OPTIMIZED WITH BUFFER
+    // 3. Hitung gradien ke layer sebelumnya dengan bobot sebelum update
     // [units, outputUnits] * [outputUnits, seqLen] -> [units, seqLen]
     if (this.prevLayerErrBuffer._shape[0] !== this.units || this.prevLayerErrBuffer._shape[1] !== seqLen) {
         this.prevLayerErrBuffer = mj.zeros([this.units, seqLen]);
     }
-    return mj.dotProduct(this.oldWeightBuffer, errActivation, this.prevLayerErrBuffer, true, false);
+    const prevErr = mj.dotProduct(this.weight, errActivation, this.prevLayerErrBuffer, true, false);
+
+    // 4. Dapatkan update dari optimizer
+    const updateWeight = this.optimizerWeight.calculate(gradWeight, this.alpha);
+    const updateBias = this.optimizerBias.calculate(gradBias, this.alpha);
+
+    // 5. Update In-Place!
+    this.weight.subInPlace(updateWeight);
+    this.bias.subInPlace(updateBias);
+    return prevErr;
   }
 
   /** @deprecated Use mj.clipGradients instead */
@@ -280,7 +275,6 @@ export default class Dense {
     // 4. Re-allocate buffers
     this.z = mj.zeros([newOutputUnits, 1]);
     this.errWeightBuffer = mj.zeros([newOutputUnits, this.units]);
-    this.oldWeightBuffer = mj.zeros([newOutputUnits, this.units]);
 
     // 5. Reset optimizer for new shape
     this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, 1e-5);

@@ -134,9 +134,9 @@ export default class Transformers extends Sequential {
     let h = xPe;
     
     // Residual 1: Norm -> Attention -> Dropout -> Add
-    const layerNormForwardStart = this.profileStart();
+    const layerNorm1ForwardStart = this.profileStart();
     const xLn1 = this.ln1.forward(h);
-    this.profileEnd("layer norm forward", layerNormForwardStart);
+    this.profileEnd("layer norm forward", layerNorm1ForwardStart);
     this.mha.setPadMask(this.padMaskBuffer);
     const mhaForwardStart = this.profileStart();
     const xMhaOut = this.mha.forward(xLn1);
@@ -145,9 +145,9 @@ export default class Transformers extends Sequential {
     const res1 = mj.add(h, xDrop1Out);
     
     // Residual 2: Norm -> FFN -> Dropout -> Add
-    const layerNormForwardStart2 = this.profileStart();
+    const layerNorm2ForwardStart = this.profileStart();
     const xLn2 = this.ln2.forward(res1);
-    this.profileEnd("layer norm forward", layerNormForwardStart2);
+    this.profileEnd("layer norm forward", layerNorm2ForwardStart);
     const ffnForwardStart = this.profileStart();
     const xFfn1Out = this.ffn1.forward(xLn2);
     const xDropFfnOut = this.dropFfn.forward(xFfn1Out);
@@ -217,9 +217,9 @@ export default class Transformers extends Sequential {
     const errDropFfn = this.dropFfn.backward(this.emptyErr, errFfn2);
     const errFfn1 = this.ffn1.backward(this.emptyErr, errDropFfn);
     this.profileEnd("FFN backward", ffnBackwardStart);
-    const layerNormBackwardStart = this.profileStart();
+    const layerNorm2BackwardStart = this.profileStart();
     const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
-    this.profileEnd("layer norm backward", layerNormBackwardStart);
+    this.profileEnd("layer norm backward", layerNorm2BackwardStart);
     
     const res1Err = mj.add(res2Err, errLn2);
     
@@ -227,9 +227,9 @@ export default class Transformers extends Sequential {
     const mhaBackwardStart = this.profileStart();
     const errMha = this.mha.backward(this.emptyErr, errDrop1);
     this.profileEnd("MHA backward", mhaBackwardStart);
-    const layerNormBackwardStart2 = this.profileStart();
+    const layerNorm1BackwardStart = this.profileStart();
     const errLn1 = this.ln1.backward(this.emptyErr, errMha);
-    this.profileEnd("layer norm backward", layerNormBackwardStart2);
+    this.profileEnd("layer norm backward", layerNorm1BackwardStart);
     
     const peErr = mj.add(res1Err, errLn1);
     

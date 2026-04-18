@@ -17,7 +17,7 @@ export default class Dropout {
   constructor({ rate = 0.5, status = "input" }: { rate?: number; status?: StatusLayer }) {
     this.rate = rate;
     this.status = status;
-    this.training = status !== "test";
+    this.training = status === "train";
   }
 
   save() {
@@ -31,7 +31,7 @@ export default class Dropout {
   load({ rate, status }: { rate: number; status: StatusLayer }) {
     this.rate = rate;
     this.status = status;
-    this.training = status !== "test";
+    this.training = status === "train";
   }
 
   forward(x: Matrix): Matrix {
