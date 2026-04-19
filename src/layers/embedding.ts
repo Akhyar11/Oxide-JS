@@ -128,12 +128,12 @@ export default class Embedding {
       this.outputBuffer = mj.zeros([this.embeddingDim, seqLen]);
     }
     const outputData = this.outputBuffer._data;
-    outputData.fill(0);
 
     if (isNativeAvailable()) {
       embeddingForwardNative(this.inputIndices, this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);
       return this.outputBuffer;
     }
+    outputData.fill(0);
 
     const weightData = this.weight._data;
     const weightCols = this.weight._shape[1];

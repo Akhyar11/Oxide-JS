@@ -9,13 +9,16 @@
     "test": "npx ts-node test/test.ts",
     "test:mha-rust": "npx ts-node test/mha_rust_regression.ts",
     "test:mha-rust:perf": "npx ts-node test/mha_rust_perf.ts",
+    "test:layernorm-rust": "npx ts-node test/layernorm_rust_correctness.ts && npx ts-node test/layernorm_rust_regression.ts",
+    "test:layernorm-rust:perf": "npx ts-node test/layernorm_rust_perf.ts",
     "test:perf": "npx ts-node test/perf_math.ts",
     "test:math-bot": "npx ts-node test/math_bot_dataset.ts",
     "train:math-bot": "npx ts-node project/math-bot/main.ts",
     "chat:math-bot": "npx ts-node project/math-bot/chat.ts",
     "start": "clear && tsc && time node build/main.js",
     "build:rust": "napi build --platform --release --cargo-cwd src-rust && mv *.node ml-native.node",
-    "build:rust:debug": "napi build --platform --cargo-cwd src-rust && mv *.node ml-native.node"
+    "build:rust:debug": "napi build --platform --cargo-cwd src-rust && mv *.node ml-native.node",
+    "benchmark:synthetic-patch": "node --expose-gc -r ts-node/register test/benchmark/synthetic_patch_benchmark.ts"
   },
   "keywords": [],
   "author": "",

@@ -12,7 +12,7 @@
 
 import mj from "../src/math";
 import { Dense } from "../src/layers";
-import { Sequential } from "../src/models";
+import { Sequential, Transformers } from "../src/models";
 
 let passed = 0;
 let failed = 0;
@@ -42,10 +42,24 @@ const b = mj.matrix([[5, 6], [7, 8]]);
 // add
 const addResult = mj.add(a, b);
 assert(addResult._value[0][0] === 6 && addResult._value[1][1] === 12, "add matrix");
+const addOut = mj.zeros([2, 2]);
+const addIntoResult = mj.addInto(a, b, addOut);
+assert(addIntoResult === addOut, "addInto return output buffer");
+assert(addOut._value[0][0] === 6 && addOut._value[1][1] === 12, "addInto matrix correctness");
+const addOutReuseRef = addOut._data;
+const addOutReuse = mj.add(a, b, addOut);
+assert(addOutReuse === addOut && addOut._data === addOutReuseRef, "add(..., out) reuse output buffer");
 
 // sub
 const subResult = mj.sub(b, a);
 assert(subResult._value[0][0] === 4 && subResult._value[1][1] === 4, "sub matrix");
+const subOut = mj.zeros([2, 2]);
+const subIntoResult = mj.subInto(b, a, subOut);
+assert(subIntoResult === subOut, "subInto return output buffer");
+assert(subOut._value[0][0] === 4 && subOut._value[1][1] === 4, "subInto matrix correctness");
+const subOutReuseRef = subOut._data;
+const subOutReuse = mj.sub(b, a, subOut);
+assert(subOutReuse === subOut && subOut._data === subOutReuseRef, "sub(..., out) reuse output buffer");
 
 // mul (element-wise)
 const mulResult = mj.mul(a, b);
@@ -103,6 +117,13 @@ assertClose(logResult._value[0][1], 1.0, 1e-9, "log(e)=1");
 const logZero = mj.logm(mj.matrix([[0]]));
 assert(!isNaN(logZero._value[0][0]) && isFinite(logZero._value[0][0]), "logm guard: log(0) tidak NaN");
 
+const addLegacy = mj.add(a, b);
+const addOptimized = mj.add(a, b, mj.zeros([2, 2]));
+assert(addLegacy._value[0][1] === addOptimized._value[0][1] && addLegacy._value[1][0] === addOptimized._value[1][0], "add legacy vs add with out konsisten");
+const subLegacy = mj.sub(b, a);
+const subOptimized = mj.sub(b, a, mj.zeros([2, 2]));
+assert(subLegacy._value[0][1] === subOptimized._value[0][1] && subLegacy._value[1][0] === subOptimized._value[1][0], "sub legacy vs sub with out konsisten");
+
 // ============================================================
 // 2. FORWARD 1 EPOCH
 // ============================================================
@@ -120,6 +141,35 @@ assert(h._shape[0] === 3 && h._shape[1] === 1, "hidden layer output shape [3,1]"
 const out = outputLayer.forward(h);
 assert(out._shape[0] === 1 && out._shape[1] === 1, "output layer shape [1,1]");
 assert(out._value[0][0] >= 0 && out._value[0][0] <= 1, "sigmoid output dalam [0,1]");
+
+// ============================================================
+// 2B. TRANSFORMER RESIDUAL/ERROR PATH
+// ============================================================
+console.log("\n=== 2B. Transformer Residual Path ===");
+
+const transformer = new Transformers({
+  units: 4,
+  seqLen: 3,
+  vocabSize: 16,
+  heads: 2,
+  dropoutRate: 0,
+  alpha: 0.01,
+  padTokenId: 0,
+});
+const transformerInput = mj.matrix([[1, 2], [3, 0], [4, 5]]);
+const transformerTarget = mj.matrix([[4, 3]]);
+const transformerOut = transformer.forward(transformerInput);
+assert(transformerOut._shape[0] === 16 && transformerOut._shape[1] === 2, "transformer forward output shape benar");
+let transformerFinite = true;
+for (let i = 0; i < transformerOut._data.length; i++) {
+  if (!Number.isFinite(transformerOut._data[i])) {
+    transformerFinite = false;
+    break;
+  }
+}
+assert(transformerFinite, "transformer forward output finite");
+transformer.backward(transformerTarget);
+assert(Number.isFinite(transformer.loss), "transformer backward loss finite");
 
 // ============================================================
 // 3. BACKWARD + CONVERGENCE TEST

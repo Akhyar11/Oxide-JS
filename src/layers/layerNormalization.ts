@@ -171,10 +171,6 @@ export default class LayerNormalization {
     const dBeta = this.dBetaBuffer._data;
     const dx = this.dxBuffer._data;
 
-    dGamma.fill(0);
-    dBeta.fill(0);
-    dx.fill(0);
-
     const errData = err._data;
     const normData = this.normalized._data;
     const gData = this.gamma._data;

@@ -109,6 +109,12 @@ export default class Transformers extends Sequential {
     const [seqLen, batchSize] = x._shape;
     const units = this.embedding.embeddingDim;
     const totalTokens = seqLen * batchSize;
+    if (this.xRes1._shape[0] !== units || this.xRes1._shape[1] !== totalTokens) {
+      this.xRes1 = mj.zeros([units, totalTokens]);
+    }
+    if (this.xRes2._shape[0] !== units || this.xRes2._shape[1] !== totalTokens) {
+      this.xRes2 = mj.zeros([units, totalTokens]);
+    }
 
     const padMaskStart = this.profileStart();
     if (this.padMaskBuffer.length !== totalTokens) {
@@ -142,7 +148,7 @@ export default class Transformers extends Sequential {
     const xMhaOut = this.mha.forward(xLn1);
     this.profileEnd("MHA forward", mhaForwardStart);
     const xDrop1Out = this.drop1.forward(xMhaOut);
-    const res1 = mj.add(h, xDrop1Out);
+    const res1 = mj.addInto(h, xDrop1Out, this.xRes1);
     
     // Residual 2: Norm -> FFN -> Dropout -> Add
     const layerNorm2ForwardStart = this.profileStart();
@@ -154,7 +160,7 @@ export default class Transformers extends Sequential {
     const xFfn2Out = this.ffn2.forward(xDropFfnOut);
     const xDrop2Out = this.drop2.forward(xFfn2Out);
     this.profileEnd("FFN forward", ffnForwardStart);
-    const res2 = mj.add(res1, xDrop2Out);
+    const res2 = mj.addInto(res1, xDrop2Out, this.xRes2);
 
     // 4. Extract Last Token Embeddings for Output
     // We only want the embedding of the LAST token for each sample in the batch
@@ -190,6 +196,9 @@ export default class Transformers extends Sequential {
     const seqLen = this.pe.maxSeqLen;
     const units = this.embedding.embeddingDim;
     const totalTokens = seqLen * batchSize;
+    if (this.errRes1Buf._shape[0] !== units || this.errRes1Buf._shape[1] !== totalTokens) {
+      this.errRes1Buf = mj.zeros([units, totalTokens]);
+    }
 
     // 2. Map Dense Error back to the full sequence length matrix
     const mapDenseErrStart = this.profileStart();
@@ -221,7 +230,7 @@ export default class Transformers extends Sequential {
     const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
     this.profileEnd("layer norm backward", layerNorm2BackwardStart);
     
-    const res1Err = mj.add(res2Err, errLn2);
+    const res1Err = mj.addInto(res2Err, errLn2, this.errRes1Buf);
     
     const errDrop1 = this.drop1.backward(this.emptyErr, res1Err);
     const mhaBackwardStart = this.profileStart();
@@ -231,7 +240,8 @@ export default class Transformers extends Sequential {
     const errLn1 = this.ln1.backward(this.emptyErr, errMha);
     this.profileEnd("layer norm backward", layerNorm1BackwardStart);
     
-    const peErr = mj.add(res1Err, errLn1);
+    // Reuse errRes2Buf: res2Err sudah tidak dipakai setelah res1Err selesai dihitung.
+    const peErr = mj.addInto(res1Err, errLn1, this.errRes2Buf);
     
     // 4. PE & Embedding Backward
     const embeddingBackwardStart = this.profileStart();

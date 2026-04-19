@@ -1,5 +1,5 @@
 import absm from "./absm";
-import add from "./add";
+import add, { addInto } from "./add";
 import concat from "./concat";
 import div from "./div";
 import dotDiv from "./dotDiv";
@@ -17,7 +17,7 @@ import mul from "./mul";
 import ones from "./ones";
 import random from "./random";
 import reshape from "./reshape";
-import sub from "./sub";
+import sub, { subInto } from "./sub";
 import transpose from "./transpose";
 import zeros from "./zeros";
 import convolution from "./convolution";
@@ -31,6 +31,7 @@ import clipGradients from "./clipGradients";
 const mj = {
   absm,
   add,
+  addInto,
   concat,
   div,
   dotDiv,
@@ -49,6 +50,7 @@ const mj = {
   random,
   reshape,
   sub,
+  subInto,
   transpose,
   zeros,
   convolution,

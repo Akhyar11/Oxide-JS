@@ -5,30 +5,46 @@ import { isNativeAvailable, subNative } from "./rust_backend";
 /**
  * Pengurangan a dan b — DIOPTIMASI
  */
-export default function sub(a: MatrixCollection, b: MatrixCollection): Matrix {
+export default function sub(a: MatrixCollection, b: MatrixCollection, out?: Matrix): Matrix {
   if (typeof a === "number") {
     const bm = b as Matrix;
-    const result = new Float32Array(bm._data.length);
+    const result = out ? out._data : new Float32Array(bm._data.length);
+    if (out && (out._shape[0] !== bm._shape[0] || out._shape[1] !== bm._shape[1])) {
+      throw new Error(`Output matrix shape mismatch: expected [${bm._shape[0]}x${bm._shape[1]}], got [${out._shape[0]}x${out._shape[1]}]`);
+    }
     for (let i = 0; i < bm._data.length; i++) result[i] = a - bm._data[i];
-    return Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
+    return out || Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
   }
   if (typeof b === "number") {
-    const result = new Float32Array(a._data.length);
-    for (let i = 0; i < a._data.length; i++) result[i] = a._data[i] - b;
-    return Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
+    const am = a as Matrix;
+    const result = out ? out._data : new Float32Array(am._data.length);
+    if (out && (out._shape[0] !== am._shape[0] || out._shape[1] !== am._shape[1])) {
+      throw new Error(`Output matrix shape mismatch: expected [${am._shape[0]}x${am._shape[1]}], got [${out._shape[0]}x${out._shape[1]}]`);
+    }
+    for (let i = 0; i < am._data.length; i++) result[i] = am._data[i] - b;
+    return out || Matrix.fromFlat(result, [am._shape[0], am._shape[1]]);
   }
-  if (a._shape[0] !== b._shape[0] || a._shape[1] !== b._shape[1]) {
+  const am = a as Matrix;
+  const bm = b as Matrix;
+  if (am._shape[0] !== bm._shape[0] || am._shape[1] !== bm._shape[1]) {
     throw new Error(`bentuk dari a harus sama dengan matrix ${a._shape} != ${b._shape}`);
   }
+  if (out && (out._shape[0] !== am._shape[0] || out._shape[1] !== am._shape[1])) {
+    throw new Error(`Output matrix shape mismatch: expected [${am._shape[0]}x${am._shape[1]}], got [${out._shape[0]}x${out._shape[1]}]`);
+  }
+
+  const resultData = out ? out._data : new Float32Array(am._data.length);
 
   // USE NATIVE IF AVAILABLE
   if (isNativeAvailable()) {
-    const resultData = new Float32Array(a._data.length);
-    subNative(a._data, b._data, resultData);
-    return Matrix.fromFlat(resultData, [a._shape[0], a._shape[1]]);
+    subNative(am._data, bm._data, resultData);
+    return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
   }
 
-  const result = new Float32Array(a._data.length);
-  for (let i = 0; i < a._data.length; i++) result[i] = a._data[i] - b._data[i];
-  return Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
+  for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] - bm._data[i];
+  return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+}
+
+export function subInto(a: Matrix, b: Matrix, out: Matrix): Matrix {
+  return sub(a, b, out);
 }
