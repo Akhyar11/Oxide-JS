@@ -289,6 +289,8 @@ export default class MultiHeadAttention {
   private ensureSequenceBuffersForBatch(totalCols: number) {
     const batchSize = Math.floor(totalCols / this.seqLen);
     const expectedAttentionLen = this.heads * batchSize * this.seqLen * this.seqLen;
+    // `attentionData.length` dipakai sebagai cache validity signal karena buffer ini
+    // bergantung langsung pada kombinasi [heads, batchSize, seqLen].
     if (this.Q._shape[1] === totalCols && this.attentionData.length === expectedAttentionLen) {
       return;
     }
