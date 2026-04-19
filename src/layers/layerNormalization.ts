@@ -85,14 +85,9 @@ export default class LayerNormalization {
     this.input = x;
     this.inputShape = [rows, cols];
     this.outputShape = [rows, cols];
+    this.ensureForwardBuffers(rows, cols);
 
     if (isNativeAvailable()) {
-      if (this.resultBuffer._shape[0] !== rows || this.resultBuffer._shape[1] !== cols) {
-        this.resultBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
-        this.normalized = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
-        this.mean = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
-        this.std = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
-      }
       layerNormNative(
         x._data,
         this.gamma._data,
@@ -106,13 +101,6 @@ export default class LayerNormalization {
         this.std._data
       );
       return this.resultBuffer;
-    }
-
-    if (this.resultBuffer._shape[0] !== rows || this.resultBuffer._shape[1] !== cols) {
-      this.resultBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
-      this.normalized = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
-      this.mean = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
-      this.std = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
     }
 
     const result = this.resultBuffer._data;
@@ -244,6 +232,16 @@ export default class LayerNormalization {
       if (data[i] > limit) data[i] = limit;
       else if (data[i] < -limit) data[i] = -limit;
     }
+  }
+
+  private ensureForwardBuffers(rows: number, cols: number): void {
+    if (this.resultBuffer._shape[0] === rows && this.resultBuffer._shape[1] === cols) {
+      return;
+    }
+    this.resultBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+    this.normalized = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+    this.mean = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
+    this.std = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
   }
 
   compile({ alpha, optimizer, error }: { alpha?: number; optimizer?: Optimzier; error?: Cost }) {

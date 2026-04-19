@@ -38,20 +38,13 @@ export default class Transformers extends Sequential {
   private drop2: Dropout;
   private dense: Dense;
 
-  private xInput: Matrix = mj.matrix([]);
-  private xEmb: Matrix = mj.matrix([]);
-  private xPe: Matrix = mj.matrix([]);
-  
-  private xLn1: Matrix = mj.matrix([]);
   private xRes1: Matrix;
-  private xLn2: Matrix = mj.matrix([]);
   private xRes2: Matrix;
 
   private errRes1Buf: Matrix;
   private errRes2Buf: Matrix;
   private lastTokenBuffer: Matrix;
   private emptyErr: Matrix = mj.matrix([[]]);
-  private lastTokenIndex: number = 0;
   private padMaskBuffer: boolean[] = [];
   private profilerEnabled: boolean = false;
   private profileStats: { [key: string]: { totalMs: number; count: number } } = Object.create(null);
@@ -137,7 +130,7 @@ export default class Transformers extends Sequential {
     const xPe = this.pe.forward(xEmb);
 
     // 3. Block Forward
-    let h = xPe;
+    const h = xPe;
     
     // Residual 1: Norm -> Attention -> Dropout -> Add
     const layerNorm1ForwardStart = this.profileStart();

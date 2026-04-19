@@ -61,6 +61,23 @@ const subOutReuseRef = subOut._data;
 const subOutReuse = mj.sub(b, a, subOut);
 assert(subOutReuse === subOut && subOut._data === subOutReuseRef, "sub(..., out) reuse output buffer");
 
+// addInto/subInto alias guard (out tidak boleh alias ke input matrix)
+let addAliasGuardThrew = false;
+try {
+  mj.addInto(a, b, a);
+} catch (_) {
+  addAliasGuardThrew = true;
+}
+assert(addAliasGuardThrew, "addInto reject aliasing out===a");
+
+let subAliasGuardThrew = false;
+try {
+  mj.subInto(b, a, b);
+} catch (_) {
+  subAliasGuardThrew = true;
+}
+assert(subAliasGuardThrew, "subInto reject aliasing out===a");
+
 // mul (element-wise)
 const mulResult = mj.mul(a, b);
 assert(mulResult._value[0][0] === 5 && mulResult._value[0][1] === 12, "mul element-wise");
