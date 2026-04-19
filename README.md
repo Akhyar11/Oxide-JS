@@ -3,7 +3,7 @@
 Library machine learning custom berbasis TypeScript dengan backend Rust (N-API) untuk akselerasi operasi numerik kritikal.
 
 ## What this project is
-ML-V1 adalah library low-level sampai mid-level untuk eksperimen dan pengembangan model ML secara manual: `Matrix`, math ops, layer, model, tokenizer BPE, dan pipeline worker-thread untuk workload Transformer.
+ML-V1 adalah library low-level sampai mid-level untuk eksperimen dan pengembangan model ML secara manual: `Matrix`, math ops, layer, model, dan tokenizer BPE.
 
 ## Why this project exists
 - Menyediakan kontrol penuh atas detail training loop, shape, dan update parameter.
@@ -17,7 +17,6 @@ ML-V1 adalah library low-level sampai mid-level untuk eksperimen dan pengembanga
 - Model: `Sequential`, `Transformers`, `DimentionalityReduction`.
 - Tokenizer BPE (`train`, `update`, `encode`, `decode`, `padSequence`, `save/load`).
 - Native Rust fallback-aware (otomatis ke JS jika native tidak tersedia).
-- Pipeline paralel berbasis worker threads (`src/pipeline/transformer-pipeline.ts`).
 
 ## Architecture overview
 1. `src/matrix`: struktur data matrix.
@@ -34,7 +33,7 @@ src/
   activation/  cost/  optimizer/
   matrix/      math/
   layers/      models/
-  tokenizer/   pipeline/
+  tokenizer/
   utils/
 src-rust/
   src/lib.rs
@@ -178,7 +177,6 @@ console.log("loss", model.loss);
 - Native Rust mempercepat dot-product, activation, layernorm, embedding, attention, optimizer hotpath.
 - `Matrix` menggunakan `Float32Array` untuk mengurangi overhead alokasi.
 - Beberapa layer menggunakan pre-allocated buffer untuk menekan GC.
-- Pipeline worker-thread tersedia untuk workload transformer batch.
 
 ## Best practices
 - Gunakan `softmaxCrossEntropy` untuk klasifikasi sparse token.
@@ -214,7 +212,7 @@ Catatan status saat audit dokumentasi ini:
 - Stabilkan API entry point publik (saat ini impor utama melalui `src/*`).
 - Tambah test deterministic untuk numerik floating.
 - Rapikan script yang merujuk folder proyek yang belum ada.
-- Tambah dokumentasi formal untuk pipeline worker dan dataset recipe.
+- Tambah dokumentasi dataset recipe dan workflow benchmark.
 
 ## License / support / credits
 - License: `ISC` (mengacu `package.json`).

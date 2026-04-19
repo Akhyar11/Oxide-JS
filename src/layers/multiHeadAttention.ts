@@ -59,13 +59,6 @@ export default class MultiHeadAttention {
   private oldKBuffer: Matrix;
   private oldVBuffer: Matrix;
 
-  private qHeadViews: Matrix[] = [];
-  private kHeadViews: Matrix[] = [];
-  private vHeadViews: Matrix[] = [];
-  private outHeadViews: Matrix[] = [];
-  private dQHeadViews: Matrix[] = [];
-  private dKHeadViews: Matrix[] = [];
-  private dVHeadViews: Matrix[] = [];
   private attentionData: Float32Array = new Float32Array(0);
 
   constructor({ units, heads, seqLen, alpha = 0.1, status = "input" }: MultiHeadAttentionLayer) {
@@ -294,7 +287,11 @@ export default class MultiHeadAttention {
   }
 
   private ensureSequenceBuffersForBatch(totalCols: number) {
-    if (this.Q._shape[1] === totalCols && this.qHeadViews.length === this.heads) {
+    const batchSize = Math.floor(totalCols / this.seqLen);
+    const expectedAttentionLen = this.heads * batchSize * this.seqLen * this.seqLen;
+    // `attentionData.length` dipakai sebagai cache validity signal karena buffer ini
+    // bergantung langsung pada kombinasi [heads, batchSize, seqLen].
+    if (this.Q._shape[1] === totalCols && this.attentionData.length === expectedAttentionLen) {
       return;
     }
 
@@ -312,25 +309,7 @@ export default class MultiHeadAttention {
     this.dKAll = mj.zeros([this.units, totalCols]);
     this.dVAll = mj.zeros([this.units, totalCols]);
 
-    this.qHeadViews = this.createHeadViews(this.Q, totalCols);
-    this.kHeadViews = this.createHeadViews(this.K, totalCols);
-    this.vHeadViews = this.createHeadViews(this.V, totalCols);
-    this.outHeadViews = this.createHeadViews(this.concatenated, totalCols);
-    this.dQHeadViews = this.createHeadViews(this.dQAll, totalCols);
-    this.dKHeadViews = this.createHeadViews(this.dKAll, totalCols);
-    this.dVHeadViews = this.createHeadViews(this.dVAll, totalCols);
-    const batchSize = Math.floor(totalCols / this.seqLen);
     this.attentionData = new Float32Array(this.heads * batchSize * this.seqLen * this.seqLen);
-  }
-
-  private createHeadViews(matrix: Matrix, seqLen: number): Matrix[] {
-    const views: Matrix[] = new Array(this.heads);
-    const headSpan = this.headUnits * seqLen;
-    for (let i = 0; i < this.heads; i++) {
-      const start = i * headSpan;
-      views[i] = Matrix.fromFlat(matrix._data.subarray(start, start + headSpan), [this.headUnits, seqLen]);
-    }
-    return views;
   }
 
   private loadLegacyHeads(headsData: Array<{ q: number[][]; k: number[][]; v: number[][] }>) {
@@ -385,40 +364,6 @@ export default class MultiHeadAttention {
     return mask;
   }
 
-  private static applyMasks(
-    scoreData: Float32Array,
-    rows: number,
-    cols: number,
-    padMask: boolean[]
-  ): void {
-    const maskedValue = -1e9;
-    for (let query = 0; query < cols; query++) {
-      if (padMask[query]) {
-        for (let key = 0; key < rows; key++) {
-          scoreData[key * cols + query] = maskedValue;
-        }
-        scoreData[query * cols + query] = 0;
-        continue;
-      }
-
-      for (let key = 0; key < rows; key++) {
-        if (padMask[key] || key > query) {
-          scoreData[key * cols + query] = maskedValue;
-        }
-      }
-    }
-  }
-
-  private static zeroMaskedColumnsInPlace(matrix: Matrix, padMask: boolean[]): void {
-    const [rows, cols] = matrix._shape;
-    const out = matrix._data;
-    for (let j = 0; j < cols; j++) {
-      if (!padMask[j]) continue;
-      for (let i = 0; i < rows; i++) {
-        out[i * cols + j] = 0;
-      }
-    }
-  }
 
   private static forwardFallback(
     qData: Float32Array,

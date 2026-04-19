@@ -288,6 +288,35 @@ console.log("\n=== 5. Multiple buffer reuse cycles ===");
 }
 
 // ============================================================
+// SECTION 5B: aliasing guard for addInto/subInto
+// ============================================================
+console.log("\n=== 5B. addInto/subInto aliasing guard ===");
+
+{
+  const a = mj.matrix([[1, 2], [3, 4]]);
+  const b = mj.matrix([[5, 6], [7, 8]]);
+  let threw = false;
+  try {
+    mj.addInto(a, b, a);
+  } catch (_) {
+    threw = true;
+  }
+  assert(threw, "addInto throws when out aliases input a");
+}
+
+{
+  const a = mj.matrix([[9, 8], [7, 6]]);
+  const b = mj.matrix([[1, 2], [3, 4]]);
+  let threw = false;
+  try {
+    mj.subInto(a, b, b);
+  } catch (_) {
+    threw = true;
+  }
+  assert(threw, "subInto throws when out aliases input b");
+}
+
+// ============================================================
 // SECTION 6: Value consistency - legacy vs out path
 // ============================================================
 console.log("\n=== 6. Legacy vs out path value consistency ===");
