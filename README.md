@@ -89,9 +89,23 @@ model.compile({ alpha: 0.01, optimizer: "adam", error: "mse" });
 const X = [mj.matrix([[0], [0]]), mj.matrix([[0], [1]]), mj.matrix([[1], [0]]), mj.matrix([[1], [1]])];
 const Y = [mj.matrix([[0]]), mj.matrix([[1]]), mj.matrix([[1]]), mj.matrix([[0]])];
 
-model.fit(X, Y, 200, (loss) => console.log("loss", loss));
+const result = model.fit(X, Y, 200, {
+  batchSize: 4,
+  validationSplit: 0.25,
+  earlyStoppingPatience: 10,
+  verbose: true,
+  onEpochEnd: (epoch, loss, valLoss) => {
+    console.log(`epoch=${epoch} loss=${loss} valLoss=${valLoss}`);
+  },
+});
+console.log("best", result.bestEpoch, result.bestLoss);
 const pred = model.predict(mj.matrix([[1], [0]]));
 pred.print();
+```
+
+Backward compatibility tetap tersedia:
+```ts
+model.fit(X, Y, 200, (loss) => console.log("loss", loss));
 ```
 
 ## Core concepts

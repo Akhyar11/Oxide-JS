@@ -18,7 +18,9 @@
   - `add(layer)`
   - `compile({ alpha, optimizer, error })`
   - `forward(x)`, `backward(y)`
-  - `fit(X, y, epochs, cb)`
+  - `fit(X, y, epochs, config?)` dengan `batchSize`, `validationSplit`, `earlyStoppingPatience`, `shuffle`, `verbose`, `onEpochEnd`, `monitorMetric`, `minDelta`, `mode`
+  - return value `FitResult` berisi `history`, `bestEpoch`, `bestLoss`, `stoppedEarly`, `stoppingEpoch?`
+  - backward-compatible: `fit(X, y, epochs, cb)`
   - `predict(x)`, `train()`, `eval()`
   - `save(path)`, `load(path)`, `summary()`
 - `Transformers`

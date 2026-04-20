@@ -1,8 +1,9 @@
 import { readFileSync, writeFileSync } from "fs";
-import { Layers, Matrix } from "../@types/type";
-import { setLayers } from "../utils";
+import { Cost, Layers, Matrix } from "../@types/type";
+import { setLayers, setLoss, splitTrainValidation, shuffleInPlace, formatLoss, formatProgressBar } from "../utils";
 import { CompileDenseLayers, Dense, Convolution } from "../layers";
 import mj from "../math";
+import { FitConfig, FitResult } from "../@types/fitConfig";
 
 export type SequentialLayers = Layers[];
 
@@ -106,24 +107,191 @@ export default class Sequential {
     X: Matrix[],
     y: Matrix[],
     epochs: number,
-    cb: (err: number) => any = (_) => { },
-  ) {
+    config?: FitConfig
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    y: Matrix[],
+    epochs: number,
+    cb?: (loss: number) => any
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    y: Matrix[],
+    epochs: number,
+    configOrCb: FitConfig | ((loss: number) => any) = {}
+  ): FitResult {
+    if (!Array.isArray(X) || !Array.isArray(y) || X.length === 0 || X.length !== y.length) {
+      throw new Error("X dan y harus memiliki jumlah sample yang sama dan tidak kosong");
+    }
+    if (!Number.isFinite(epochs) || epochs < 1) {
+      throw new Error("epochs harus >= 1");
+    }
+
+    const legacyCallback = typeof configOrCb === "function" ? configOrCb : undefined;
+    const config = typeof configOrCb === "function" ? {} : configOrCb;
+    const {
+      batchSize = Math.max(1, Math.floor(X.length / 10)),
+      validationSplit = 0,
+      earlyStoppingPatience = Infinity,
+      shuffle = true,
+      verbose = false,
+      onEpochEnd = () => { },
+      monitorMetric = validationSplit > 0 ? "valLoss" : "loss",
+      minDelta = 0,
+      mode = "min",
+    } = config;
+
+    if (!Number.isInteger(batchSize) || batchSize < 1) {
+      throw new Error("batchSize harus >= 1");
+    }
+    if (validationSplit < 0 || validationSplit >= 1) {
+      throw new Error("validationSplit harus antara 0 dan 1");
+    }
+    if (earlyStoppingPatience < 0) {
+      throw new Error("earlyStoppingPatience harus >= 0");
+    }
+
+    const [trainX, valX] = splitTrainValidation(X, validationSplit);
+    const [trainY, valY] = splitTrainValidation(y, validationSplit);
+
+    if (trainX.length === 0) {
+      throw new Error("Data train kosong setelah validationSplit");
+    }
+
+    const history: FitResult["history"] = {
+      loss: [],
+      ...(validationSplit > 0 ? { valLoss: [] } : {}),
+    };
+
+    let bestLoss = mode === "min" ? Infinity : -Infinity;
+    let bestEpoch = 0;
+    let noImprovementCount = 0;
+    let stoppedEarly = false;
+    let stoppingEpoch: number | undefined;
+
+    const trainIndices = Array.from({ length: trainX.length }, (_, i) => i);
     this.train();
-    for (let i = 0; i < epochs; i++) {
-      // Reset akumulasi loss di setiap epoch
-      for (let layer of this.layers) {
+
+    for (let epoch = 0; epoch < epochs; epoch++) {
+      for (const layer of this.layers) {
         if (typeof (layer as any).resetLoss === "function") {
           (layer as any).resetLoss();
         }
       }
-      for (let j in X) {
-        this.forward(X[j]);
-        this.backward(y[j]);
+
+      if (shuffle) {
+        shuffleInPlace(trainIndices);
       }
-      cb(this.loss);
-      if (this.loss < 0.01) {
-        return 0;
+
+      let epochLoss = 0;
+      let batchCount = 0;
+
+      for (let start = 0; start < trainX.length; start += batchSize) {
+        const end = Math.min(start + batchSize, trainX.length);
+        const currentBatchSize = end - start;
+        let batchLoss = 0;
+
+        for (let j = start; j < end; j++) {
+          const idx = trainIndices[j];
+          const pred = this.forward(trainX[idx]);
+          const sampleLoss = this.computeSampleLoss(trainY[idx], pred);
+          this.backward(trainY[idx]);
+          batchLoss += sampleLoss;
+        }
+
+        epochLoss += batchLoss / currentBatchSize;
+        batchCount++;
+      }
+
+      epochLoss /= Math.max(1, batchCount);
+      this.loss = epochLoss;
+      history.loss.push(epochLoss);
+
+      let valLoss: number | undefined;
+      if (validationSplit > 0 && valX.length > 0) {
+        this.eval();
+        let totalValLoss = 0;
+        for (let i = 0; i < valX.length; i++) {
+          const pred = this.forward(valX[i]);
+          totalValLoss += this.computeSampleLoss(valY[i], pred);
+        }
+        valLoss = totalValLoss / valX.length;
+        (history.valLoss as number[]).push(valLoss);
+        this.train();
+      }
+
+      const metricValue = monitorMetric === "valLoss" && valLoss !== undefined ? valLoss : epochLoss;
+      const isImprovement = mode === "min"
+        ? metricValue < bestLoss - minDelta
+        : metricValue > bestLoss + minDelta;
+
+      if (isImprovement) {
+        bestLoss = metricValue;
+        bestEpoch = epoch;
+        noImprovementCount = 0;
+      } else {
+        noImprovementCount++;
+      }
+
+      if (verbose) {
+        const progress = formatProgressBar(epoch + 1, epochs);
+        const base = `Epoch ${epoch + 1}/${epochs} ${progress} | Loss: ${formatLoss(epochLoss)}`;
+        const withVal = valLoss !== undefined ? `${base} | Val Loss: ${formatLoss(valLoss)}` : base;
+        console.log(withVal);
+      }
+
+      legacyCallback?.(epochLoss);
+      onEpochEnd(epoch, epochLoss, valLoss);
+
+      if (noImprovementCount >= earlyStoppingPatience) {
+        stoppedEarly = true;
+        stoppingEpoch = epoch;
+        if (verbose) {
+          console.log(`Early stopping di epoch ${epoch + 1}.`);
+        }
+        break;
       }
     }
+
+    this.eval();
+    return {
+      history,
+      bestEpoch,
+      bestLoss,
+      stoppedEarly,
+      stoppingEpoch,
+    };
+  }
+
+  protected resolveLossName(): Cost {
+    let outputLayer: any = this.layers[this.layers.length - 1] as any;
+    for (let i = this.layers.length - 1; i >= 0; i--) {
+      if ((this.layers[i] as any).status === "output") {
+        outputLayer = this.layers[i] as any;
+        break;
+      }
+    }
+    if (!outputLayer || typeof outputLayer.save !== "function") return "mse";
+    const saved = outputLayer.save?.();
+    const lossName = saved?.loss;
+    if (
+      lossName === "mse" ||
+      lossName === "crossEntropy" ||
+      lossName === "binaryCrossEntropy" ||
+      lossName === "softmaxCrossEntropy"
+    ) {
+      return lossName;
+    }
+    return "mse";
+  }
+
+  protected computeSampleLoss(yTrue: Matrix, yPred: Matrix): number {
+    const isSparseTarget = yTrue._shape[0] === 1 && yPred._shape[0] > 1;
+    const lossName = this.resolveLossName();
+    const selectedLoss: Cost = isSparseTarget && lossName === "mse" ? "softmaxCrossEntropy" : lossName;
+    const lossFn = setLoss(selectedLoss);
+    const [loss] = lossFn(yTrue, yPred);
+    return loss;
   }
 }

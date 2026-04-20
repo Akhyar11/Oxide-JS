@@ -3,6 +3,7 @@ import mj from "../math";
 import Matrix from "../matrix";
 import Sequential from "./sequential";
 import { MultiHeadAttention, Dense, PositionalEncoding, LayerNormalization, Embedding, Dropout } from "../layers";
+import { FitConfig, FitResult } from "../@types/fitConfig";
 
 interface TransformersConfig {
   units: number;          // d_model (embedding size)
@@ -279,22 +280,25 @@ export default class Transformers extends Sequential {
     this.vocabSize = newVocabSize; // SINKRONKAN
   }
 
-  fit(X: Matrix[], y: Matrix[], epochs: number, cb: (loss: number) => any = (_) => { }) {
-    this.train();
-    for (let i = 0; i < epochs; i++) {
-      this.dense.resetLoss();
-      let epochLoss = 0;
-
-      for (let j = 0; j < X.length; j++) {
-        this.forward(X[j]);
-        this.backward(y[j]);
-        epochLoss = this.dense.loss;
-      }
-
-      this.loss = epochLoss;
-      cb(this.loss);
-      if (this.loss < 0.01) return 0;
-    }
+  fit(
+    X: Matrix[],
+    y: Matrix[],
+    epochs: number,
+    config?: FitConfig
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    y: Matrix[],
+    epochs: number,
+    cb?: (loss: number) => any
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    y: Matrix[],
+    epochs: number,
+    configOrCb: FitConfig | ((loss: number) => any) = {}
+  ): FitResult {
+    return super.fit(X, y, epochs, configOrCb as any);
   }
 
   enableProfiling(enabled: boolean = true): this {
