@@ -25,14 +25,11 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
     throw new Error(`bentuk dari a harus sama dengan matrix ${a._shape} != ${b._shape}`);
   }
 
-  // USE NATIVE IF AVAILABLE
+  // USE NATIVE IF AVAILABLE — delegate zero-check to the single-pass fallback loop to avoid
+  // iterating the arrays twice. Native follows IEEE 754 (returns Inf/NaN on /0).
   if (isNativeAvailable() && shouldUseNativeElementwise(a._data.length)) {
-    const bData = b._data;
-    for (let i = 0; i < bData.length; i++) {
-      if (bData[i] === 0) throw new Error(`Pembagian dengan nol pada indeks [${i}]`);
-    }
     const resultData = new Float32Array(a._data.length);
-    divNative(a._data, bData, resultData);
+    divNative(a._data, b._data, resultData);
     return Matrix.fromFlat(resultData, [a._shape[0], a._shape[1]]);
   }
 

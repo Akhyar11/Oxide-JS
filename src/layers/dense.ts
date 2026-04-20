@@ -71,6 +71,15 @@ export default class Dense {
     alpha = 0.1,
     loss = "mse",
   }: DenseLayers) {
+    // Guard: combining softmax activation with softmaxCrossEntropy loss applies softmax twice,
+    // which produces incorrect gradients. Users should set activation='linear' when using
+    // softmaxCrossEntropy loss.
+    if (activation === "softmax" && loss === "softmaxCrossEntropy") {
+      throw new Error(
+        "Dense: activation='softmax' combined with loss='softmaxCrossEntropy' applies softmax twice. " +
+        "Use activation='linear' with loss='softmaxCrossEntropy'."
+      );
+    }
     this.units = units;
     this.outputUnits = outputUnits;
     this.inputShape = [units, 1];
@@ -92,15 +101,6 @@ export default class Dense {
     this.optimizerName = optimizer;
     this.lossName = loss;
     this.status = status;
-    // Guard: combining softmax activation with softmaxCrossEntropy loss applies softmax twice,
-    // which produces incorrect gradients. Users should set activation='linear' when using
-    // softmaxCrossEntropy loss.
-    if (activation === "softmax" && loss === "softmaxCrossEntropy") {
-      throw new Error(
-        "Dense: activation='softmax' combined with loss='softmaxCrossEntropy' applies softmax twice. " +
-        "Use activation='linear' with loss='softmaxCrossEntropy'."
-      );
-    }
     this.optimizerWeight = setOptimizer(optimizer, this.weight._shape, 1e-5);
     this.optimizerBias = setOptimizer(optimizer, this.bias._shape, 1e-5);
     this.lossFunc = setLoss(loss);
