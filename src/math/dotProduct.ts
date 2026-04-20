@@ -31,6 +31,12 @@ export default function dotProduct(
     throw new Error(`Dimensi matrix tidak cocok untuk dot product: [${aRows}x${aCols}] * [${bRows}x${bCols}]`);
   }
 
+  if (out) {
+    if (out._shape[0] !== aRows || out._shape[1] !== bCols) {
+      throw new Error(`Output matrix shape mismatch: expected [${aRows}x${bCols}], got [${out._shape[0]}x${out._shape[1]}]`);
+    }
+  }
+
   // Dispatch adaptif: untuk beban kecil, loop JS sering lebih murah daripada overhead call native.
   if (isNativeAvailable() && shouldUseNativeDotProduct(aRows, aCols, bCols)) {
     const resultOut = out || Matrix.fromFlat(new Float32Array(aRows * bCols), [aRows, bCols]);
@@ -46,12 +52,6 @@ export default function dotProduct(
       resultOut._data
     );
     return resultOut;
-  }
-
-  if (out) {
-    if (out._shape[0] !== aRows || out._shape[1] !== bCols) {
-      throw new Error(`Output matrix shape mismatch: expected [${aRows}x${bCols}], got [${out._shape[0]}x${out._shape[1]}]`);
-    }
   }
 
   const resultData = out ? out._data : new Float32Array(aRows * bCols);

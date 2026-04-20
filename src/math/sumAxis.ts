@@ -12,6 +12,12 @@ export default function sumAxis(a: Matrix, axis: number, out?: Matrix): Matrix {
   const outShape: [number, number] = axis === 1 ? [rows, 1] : [1, cols];
   const result = out || Matrix.fromFlat(new Float32Array(outShape[0] * outShape[1]), outShape);
 
+  if (out) {
+    if (out._shape[0] !== outShape[0] || out._shape[1] !== outShape[1]) {
+      throw new Error(`sumAxis output shape mismatch: expected [${outShape[0]}x${outShape[1]}], got [${out._shape[0]}x${out._shape[1]}]`);
+    }
+  }
+
   if (isNativeAvailable() && shouldUseNativeElementwise(rows * cols)) {
     sumAxisNative(a._data, rows, cols, axis, result._data);
   } else {

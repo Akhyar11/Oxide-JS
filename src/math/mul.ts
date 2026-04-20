@@ -25,6 +25,12 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
     throw new Error(`bentuk dari a harus sama dengan matrix ${am._shape} != ${bm._shape}`);
   }
 
+  if (out) {
+    if (out._shape[0] !== am._shape[0] || out._shape[1] !== am._shape[1]) {
+      throw new Error(`Output matrix shape mismatch: expected [${am._shape[0]}x${am._shape[1]}], got [${out._shape[0]}x${out._shape[1]}]`);
+    }
+  }
+
   const resultData = out ? out._data : new Float32Array(am._data.length);
 
   // USE NATIVE IF AVAILABLE

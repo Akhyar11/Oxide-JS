@@ -216,6 +216,9 @@ export default class Matrix {
     if (typeof other === "number") {
       for (let i = 0; i < this._data.length; i++) this._data[i] += other;
     } else {
+      if (this._data.length !== other._data.length) {
+        throw new Error(`addInPlace: length mismatch ${this._data.length} !== ${other._data.length}`);
+      }
       if (isNativeAvailable()) {
         addInPlaceNative(this._data as any, other._data as any);
       } else {
@@ -231,6 +234,9 @@ export default class Matrix {
     if (typeof other === "number") {
       for (let i = 0; i < this._data.length; i++) this._data[i] -= other;
     } else {
+      if (this._data.length !== other._data.length) {
+        throw new Error(`subInPlace: length mismatch ${this._data.length} !== ${other._data.length}`);
+      }
       if (isNativeAvailable()) {
         subInPlaceNative(this._data as any, other._data as any);
       } else {
@@ -246,6 +252,9 @@ export default class Matrix {
     if (typeof other === "number") {
       for (let i = 0; i < this._data.length; i++) this._data[i] *= other;
     } else {
+      if (this._data.length !== other._data.length) {
+        throw new Error(`mulInPlace: length mismatch ${this._data.length} !== ${other._data.length}`);
+      }
       if (isNativeAvailable()) {
         mulInPlaceNative(this._data as any, other._data as any);
       } else {

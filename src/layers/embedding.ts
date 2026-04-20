@@ -188,8 +188,12 @@ export default class Embedding {
 
     // Gradien dari inputnya index (x) tidak dapat diturunkan ulang ke depannya, 
     // Jadi dikembalikan dummy array zeros agar tidak crash. (Menggunakan buffer)
-    if (!this.errOutputBuffer || this.errOutputBuffer._shape[0] !== seqLen) {
-      this.errOutputBuffer = mj.zeros([seqLen, 1]);
+    // Shape matches the original input shape so downstream layers don't get a mismatch.
+    const [inputRows, inputCols] = this.inputShape;
+    if (!this.errOutputBuffer ||
+        this.errOutputBuffer._shape[0] !== inputRows ||
+        this.errOutputBuffer._shape[1] !== inputCols) {
+      this.errOutputBuffer = mj.zeros([inputRows, inputCols]);
     } else {
       this.errOutputBuffer._data.fill(0);
     }

@@ -140,7 +140,10 @@ export default class MultiHeadAttention {
   forward(x: Matrix): Matrix {
     const totalCols = x._shape[1];
     const seqLen = this.seqLen;
-    const batchSize = Math.floor(totalCols / seqLen);
+    if (totalCols % seqLen !== 0) {
+      throw new Error(`MultiHeadAttention.forward: totalCols (${totalCols}) is not divisible by seqLen (${seqLen})`);
+    }
+    const batchSize = totalCols / seqLen;
     
     this.ensureSequenceBuffersForBatch(totalCols);
 
@@ -197,7 +200,10 @@ export default class MultiHeadAttention {
     const dCat = this.wo.backward(y, err);
     const totalCols = dCat._shape[1];
     const seqLen = this.seqLen;
-    const batchSize = Math.floor(totalCols / seqLen);
+    if (totalCols % seqLen !== 0) {
+      throw new Error(`MultiHeadAttention.backward: totalCols (${totalCols}) is not divisible by seqLen (${seqLen})`);
+    }
+    const batchSize = totalCols / seqLen;
     const scale = 1 / Math.sqrt(this.headUnits);
 
     if (isNativeAvailable()) {

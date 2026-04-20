@@ -147,6 +147,10 @@ export default class LayerNormalization {
 
   backward(_y: Matrix, err: Matrix): Matrix {
     const [rows, cols] = err._shape;
+    const [fwdRows, fwdCols] = this.inputShape;
+    if (rows !== fwdRows || cols !== fwdCols) {
+      throw new Error(`LayerNormalization.backward: err shape [${rows}x${cols}] does not match forward input shape [${fwdRows}x${fwdCols}]`);
+    }
     if (this.dGammaBuffer._shape[0] !== this.units) {
       this.dGammaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
       this.dBetaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
