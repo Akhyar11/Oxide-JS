@@ -6,11 +6,25 @@
 - Untuk sparse target token, gunakan target `[1, 1]` berisi token id.
 
 ## Batching
-`Sequential.fit`/`Transformers.fit` saat ini menerima array sample:
+`Sequential.fit`/`Transformers.fit` menerima array sample:
 - `X: Matrix[]`
 - `y: Matrix[]`
 
-Batch manual dapat dilakukan dengan loop luar pada chunk data.
+Batching dapat dikonfigurasi langsung:
+```ts
+const result = model.fit(X, y, 100, {
+  batchSize: 32,
+  validationSplit: 0.2,
+  earlyStoppingPatience: 8,
+  shuffle: true,
+  verbose: true,
+  onEpochEnd: (epoch, loss, valLoss) => {
+    console.log(epoch, loss, valLoss);
+  },
+});
+```
+
+`result.history.loss` berisi train loss per epoch, dan `result.history.valLoss` tersedia jika `validationSplit > 0`.
 
 ## Compile
 ```ts
@@ -29,7 +43,8 @@ console.log(epochLoss / X.length);
 ```
 
 ## Monitoring loss
-- Gunakan callback pada `fit`.
+- Gunakan `onEpochEnd` pada config `fit`.
+- API callback lama tetap didukung: `fit(X, y, epochs, (loss) => {})`.
 - Untuk detail internal transformer, aktifkan profiling:
 ```ts
 model.enableProfiling(true);
