@@ -1,0 +1,744 @@
+# Referensi API Lengkap: ML-V1
+
+Halaman ini berisi dokumentasi teknis menyeluruh untuk seluruh komponen di dalam library **ML-V1**. Dokumentasi ini disusun secara bertahap, diawali dengan komponen inti seperti **`Matrix`**.
+
+---
+
+## 1. Struktur Data Core: Kelas `Matrix` (`src/matrix`)
+
+Kelas `Matrix` adalah tulang punggung dari seluruh operasi numerik. Menggunakan **`Float32Array`** untuk penyimpanan data guna memastikan efisiensi memori dan kecepatan akses maksimal.
+
+### A. Properti Utama
+- **`_data: Float32Array`**: Buffer data mendatar (flat). Akses elemen $(i, j)$ dihitung secara internal dengan indeks `i * cols + j`.
+- **`_shape: [rows, cols]`**: Dimensi matriks (misal: `[2, 3]` untuk 2 baris dan 3 kolom).
+
+### B. Inisialisasi & Kreasi
+
+#### `constructor({ array: number[][] })`
+Membuat matriks dari array 2D standar.
+```ts
+const m = new Matrix({ 
+  array: [
+    [1, 2], 
+    [3, 4]
+  ] 
+});
+// Hasil Internal: _data = [1, 2, 3, 4], _shape = [2, 2]
+```
+
+#### `static fromFlat(data, shape)`
+Membuat matriks langsung dari data datar. Lebih cepat karena tidak ada proses konversi (looping) dari array bertingkat.
+```ts
+const rawData = new Float32Array([10, 20, 30, 40]);
+const m = Matrix.fromFlat(rawData, [2, 2]);
+// Matriks:
+// [[10, 20],
+//  [30, 40]]
+```
+
+### C. Akses & Modifikasi Elemen
+
+#### `get(i, j)` & `set(i, j, val)`
+Akses dan ubah elemen pada posisi spesifik secara cepat.
+```ts
+const m = new Matrix({ array: [[1, 2], [3, 4]] });
+
+console.log(m.get(0, 1)); // Output: 2 (Baris 0, Kolom 1)
+
+m.set(1, 0, 99); 
+// Matriks sekarang:
+// [[1,  2],
+//  [99, 4]]
+```
+
+#### `getCol(index)` & `setCol(index, data)`
+Manipulasi seluruh kolom data menggunakan typed array.
+```ts
+const m = new Matrix({ array: [[1, 2], [3, 4]] });
+
+const col1 = m.getCol(1); 
+// col1 = Float32Array([2, 4])
+
+m.setCol(0, new Float32Array([10, 30]));
+// Matriks sekarang:
+// [[10, 2],
+//  [30, 4]]
+```
+
+### D. Operasi Element-wise (Berbasis Salinan Baru)
+
+#### `add(a)`, `sub(a)`, `mul(a)`, `div(a)`
+Operasi aritmatika dasar yang menghasilkan **matriks baru** (tidak mengubah matriks asli).
+```ts
+const a = new Matrix({ array: [[1, 2], [3, 4]] });
+
+// 1. Dengan Skalar
+const b = a.add(10); 
+// b: [[11, 12], [13, 14]]
+
+// 2. Dengan Matriks (Element-wise)
+const c = a.mul(a); 
+// c: [[1, 4], [9, 16]] (Hadamard product)
+```
+
+### E. Operasi In-Place (Optimasi Maksimal)
+
+Mengubah data langsung pada buffer asli `_data`. Sangat hemat memori karena tidak mengalokasikan matriks baru. Diakselerasi otomatis jika backend Rust tersedia.
+
+#### `addInPlace(other)`, `subInPlace(other)`, `mulInPlace(other)`
+```ts
+const m = new Matrix({ array: [[1, 2], [3, 4]] });
+m.addInPlace(5); 
+
+// m BERUBAH menjadi:
+// [[6, 7],
+//  [8, 9]]
+```
+
+### F. Transformasi & Utilitas
+
+#### `reshape(shape)` & `flatten()`
+Mengubah interpretasi dimensi tanpa mengubah urutan data di memori.
+```ts
+const m = new Matrix({ array: [[1, 2], [3, 4]] }); // [2, 2]
+
+m.reshape([1, 4]); 
+// m sekarang: [[1, 2, 3, 4]] (1 Baris, 4 Kolom)
+
+m.flatten(); 
+// m sekarang: [[1, 2, 3, 4]] (Vektor mendatar)
+```
+
+#### `clone()` & `map(func)`
+```ts
+const original = new Matrix({ array: [[1, 2], [3, 4]] });
+
+// Clone literal
+const copy = original.clone(); 
+
+// Transformasi kustom per elemen
+original.map(v => v * 2);
+// original: [[2, 4], [6, 8]]
+```
+
+#### `print()`
+Menampilkan struktur matriks dalam format tabel di konsol untuk mempermudah debugging.
+```ts
+m.print(); 
+// ┌─────────┬────┬────┐
+// │ (index) │ 0  │ 1  │
+// ├─────────┼────┼────┤
+// │    0    │ 2  │ 4  │
+// │    1    │ 6  │ 8  │
+// └─────────┴────┴────┘
+```
+
+---
+
+## 2. Modul Matematika (`src/math`)
+
+Modul `math` (sering dialiaskan sebagai `mj`) adalah kumpulan fungsi murni untuk pemrosesan tensor/matriks. Hampir semua fungsi mendukung operandi berupa `Matrix` atau `number` (skalar).
+
+---
+
+### A. Operasi Utama & Aljabar Linier
+
+#### `mj.dotProduct(a, b, out?, transA?, transB?)`
+Fungsi paling kritikal dalam machine learning untuk perkalian matriks (Matrix Multiplication). Operasi ini diakselerasi secara otomatis oleh backend Rust untuk beban kerja besar.
+
+> [!IMPORTANT]
+> **Aturan Dimensi**: Untuk operasi `(M x K) * (K x N)`, hasil akhirnya selalu berukuran `(M x N)`. Jumlah kolom matriks pertama harus sama dengan jumlah baris matriks kedua.
+
+##### 1. Penggunaan Dasar
+```ts
+const a = mj.matrix([
+  [1, 2], 
+  [3, 4]
+]); // [2x2]
+
+const b = mj.matrix([
+  [5, 6], 
+  [7, 8]
+]); // [2x2]
+
+const res = mj.dotProduct(a, b);
+// a * b = 
+// [[(1*5 + 2*7), (1*6 + 2*8)],
+//  [(3*5 + 4*7), (3*6 + 4*8)]]
+// res: [[19, 22], [43, 50]]
+```
+
+##### 2. On-the-fly Transposition (Fitur Lanjutan)
+Anda dapat melakukan perkalian terhadap matriks transpose tanpa perlu melakukan operasi transpose fisik yang memakan memori.
+- `transA = true`: Menganggap matriks `a` sebagai `a.transpose()`.
+- `transB = true`: Menganggap matriks `b` sebagai `b.transpose()`.
+
+```ts
+// Contoh: A * B^T
+// A [2x3], B [2x3] -> B dimanipulasi jadi [3x2] secara on-the-fly
+const res = mj.dotProduct(a, b, undefined, false, true); 
+```
+
+##### 3. Optimasi dengan Parameter `out`
+Untuk performa tinggi di dalam loop training, gunakan matriks yang sudah dialokasikan sebelumnya.
+```ts
+const output = mj.zeros([2, 2]);
+mj.dotProduct(a, b, output); // Hasil langsung ditulis ke 'output'
+```
+
+#### `mj.transpose(a: Matrix)`
+Menghasilkan matriks baru dengan menukar baris dan kolom.
+```ts
+const t = mj.transpose(mj.matrix([[1, 2], [3, 4]]));
+// t: [[1, 3], [2, 4]]
+```
+
+#### `mj.concat(a, b): Matrix`
+Menggabungkan dua matriks/vektor. Saat ini dioptimasi untuk penggabungan vektor baris (shape `[1, N]`).
+```ts
+const a = mj.matrix([[1, 2]]);
+const b = mj.matrix([[3, 4]]);
+const res = mj.concat(a, b); // res: [[1, 2, 3, 4]]
+```
+
+#### `mj.addBias(a, bias): void`
+Menambahkan vektor bias secara in-place ke matriks melalui teknik *broadcasting* (menambahkan vektor yang sama ke setiap kolom).
+```ts
+const input = mj.matrix([[1, 2], [3, 4]]); // [2x2]
+const bias = mj.matrix([[10], [20]]);      // [2x1] vektor kolom
+mj.addBias(input, bias);
+// input: [[11, 12], [23, 24]]
+```
+
+#### `mj.norm(a): number`
+Menghitung L2 Norm atau panjang Euclidean dari matriks (akar dari jumlah kuadrat seluruh elemen).
+```ts
+const length = mj.norm(weights);
+```
+
+---
+
+### B. Aritmatika & Fungsi Element-wise
+
+Fungsi ini memproses setiap elemen secara independen dan mendukung parameter `out` opsional untuk optimasi memori.
+
+| Fungsi | Deskripsi | Contoh |
+| :--- | :--- | :--- |
+| `add`, `sub` | Penjumlahan & Pengurangan | `mj.add(m, 10)` |
+| `mul`, `div` | Perkalian & Pembagian | `mj.mul(m1, m2)` |
+| `absm(a)` | Nilai absolut per elemen | `mj.absm(m)` |
+| `expm(a)` | Eksponensial (`e^x`) | `mj.expm(m)` |
+| `logm(a)` | Logaritma natural (`ln`) | `mj.logm(m)` |
+| `map(a, f)` | Fungsi kustom per elemen | `mj.map(m, x => x * x)` |
+
+```ts
+const res = mj.add(a, b, outputBuffer); // Menghindari alokasi baru
+```
+
+---
+
+### C. Operasi Reduksi (Menghasilkan Satu Angka)
+
+Fungsi-fungsi ini merangkum seluruh isi matriks menjadi satu nilai tunggal. Sangat berguna untuk kalkulasi loss, metrik performa, atau agregasi data.
+
+#### `mj.mean(a)`
+Menghitung nilai rata-rata dari seluruh elemen di dalam matriks.
+```ts
+const a = mj.matrix([[2, 4], [6, 8]]);
+const avg = mj.mean(a); // (2+4+6+8) / 4 = 5
+```
+
+#### `mj.dotSum(a)`
+Menghitung total penjumlahan ($\sum$) dari seluruh elemen.
+```ts
+const a = mj.matrix([[1, 2], [3, 4]]);
+const total = mj.dotSum(a); // 1+2+3+4 = 10
+```
+
+#### `mj.dotMul(a)`
+Menghitung total perkalian ($\prod$) dari seluruh elemen.
+```ts
+const a = mj.matrix([[1, 2], [3, 4]]);
+const total = mj.dotMul(a); // 1*2*3*4 = 24
+```
+
+#### `mj.dotSub(a)`
+Menghitung hasil pengurangan beruntun seluruh elemen (dimulai dari 0).
+```ts
+const a = mj.matrix([[1, 2], [3, 4]]);
+const res = mj.dotSub(a); // 0 - 1 - 2 - 3 - 4 = -10
+```
+
+#### `mj.dotDiv(a)`
+Menghitung hasil pembagian beruntun seluruh elemen (dimulai dari 1).
+```ts
+const a = mj.matrix([[2, 5]]);
+const res = mj.dotDiv(a); // 1 / 2 / 5 = 0.1
+```
+
+---
+
+### D. Statistik & Reduksi Axis
+
+#### `mj.sumAxis(a, axis, out?)`
+Menjumlahkan nilai sepanjang arah tertentu.
+- **`axis 1`**: Menjumlahkan baris (Hasil: Matriks Kolom `[rows x 1]`).
+- **`axis 0`**: Menjumlahkan kolom (Hasil: Matriks Baris `[1 x cols]`).
+
+```ts
+const a = mj.matrix([[1, 2], [3, 4]]);
+const sumRows = mj.sumAxis(a, 1); // [[3], [7]]
+```
+
+---
+
+### E. Generator & Inisialisasi Matriks
+
+Fungsi-fungsi ini digunakan untuk menciptakan matriks baru dengan nilai awal tertentu sesuai kebutuhan arsitektur model. Seluruh fungsi dalam kategori ini menerima satu parameter utama berupa **`shape: [rows, cols]`**.
+
+#### `mj.zeros([rows, cols])`
+Membuat matriks yang seluruh elemennya bernilai **0**. Sangat efisien karena menggunakan inisialisasi default `Float32Array`.
+```ts
+const z = mj.zeros([2, 3]);
+// Result:
+// [[0, 0, 0],
+//  [0, 0, 0]]
+```
+
+#### `mj.ones([rows, cols])`
+Membuat matriks yang seluruh elemennya bernilai **1**.
+```ts
+const o = mj.ones([2, 2]);
+// Result:
+// [[1, 1],
+//  [1, 1]]
+```
+
+#### `mj.random([rows, cols])`
+Membuat matriks dengan nilai acak seragam antara **0** hingga **1**.
+```ts
+const r = mj.random([3, 1]); // Vektor kolom acak
+```
+
+#### `mj.xavier([rows, cols])`
+Inisialisasi Xavier (Glorot) yang menjaga varians aktivasi tetap konstan di seluruh layer. Sangat direkomendasikan untuk layer yang menggunakan fungsi aktivasi **Sigmoid** atau **Tanh**.
+```ts
+const w = mj.xavier([128, 64]);
+```
+
+#### `mj.he([rows, cols])`
+Inisialisasi He (Kaiming) yang dioptimalkan untuk layer dengan fungsi aktivasi **ReLU**. Inisialisasi ini mencegah masalah *vanishing gradients* pada jaringan yang sangat dalam.
+```ts
+const w = mj.he([64, 10]);
+```
+
+---
+
+### F. Operasi Khusus (Deep Learning)
+
+#### `mj.convolution(a, kernel)`
+Operasi konvolusi 2D mendasar untuk ekstraksi fitur spasial. Filter (kernel) akan bergeser di atas input untuk menghasilkan jalur aktivasi baru.
+```ts
+const input = mj.matrix([
+  [1, 1, 1, 0, 0],
+  [0, 1, 1, 1, 0],
+  [0, 0, 1, 1, 1],
+  [0, 0, 1, 1, 0],
+  [0, 1, 1, 0, 0]
+]);
+
+const kernel = mj.matrix([
+  [1, 0, 1],
+  [0, 1, 0],
+  [1, 0, 1]
+]);
+
+const features = mj.convolution(input, kernel);
+// Hasil Calculation (3x3):
+// [[4, 3, 4],
+//  [2, 4, 3],
+//  [2, 3, 4]]
+```
+
+#### `mj.clipGradients(a, limit)`
+Membatasi nilai absolut dalam matriks secara **in-place** agar berada dalam rentang `[-limit, limit]`. Ini sangat penting untuk mencegah masalah *Exploding Gradients* di mana nilai gradient menjadi terlalu besar dan merusak stabilitas training.
+```ts
+const grads = mj.matrix([
+  [0.5,  5.0], // 5.0 melebihi limit
+  [-10.2, 0.1] // -10.2 lebih kecil dari -limit
+]);
+
+mj.clipGradients(grads, 1.0);
+
+// grads sekarang BERUBAH menjadi:
+// [[0.5,  1.0],
+//  [-1.0, 0.1]]
+```
+
+#### `mj.reshape(a, shape)` & `mj.flatten(a)`
+Standalone function untuk manipulasi bentuk matriks tanpa alokasi baru.
+```ts
+const a = mj.matrix([[1, 2], [3, 4]]); // [2, 2]
+
+const reshaped = mj.reshape(a, [1, 4]);
+// reshaped: [[1, 2, 3, 4]]
+
+const flat = mj.flatten(a);
+// flat: [[1, 2, 3, 4]]
+```
+
+---
+
+## 3. Fungsi Aktivasi (`src/activation`)
+
+Fungsi aktivasi memperkenalkan non-linearitas ke dalam jaringan saraf, memungkinkan model untuk mempelajari pola yang kompleks. Dalam ML-V1, hampir semua fungsi aktivasi mengembalikan tuple **`[Matrix, Matrix]`**:
+1.  **Hasil Aktivasi (Forward)**: Output yang diteruskan ke layer berikutnya.
+2.  **Gradien/Turunan (Backward)**: Digunakan untuk menghitung koreksi error saat backpropagation.
+
+---
+
+### A. Sigmoid
+Mengubah nilai input menjadi rentang **(0, 1)**. Sangat umum digunakan pada layer output untuk klasifikasi biner.
+
+```ts
+import { sigmoid } from "./src/activation";
+
+const input = mj.matrix([[-1, 0, 2]]);
+const [out, grad] = sigmoid(input);
+
+// out (Hasil Aktivasi):
+// [[0.268, 0.5, 0.880]]
+
+// grad (Turunan/Derivative):
+// [[0.196, 0.25, 0.105]]
+```
+
+---
+
+### B. ReLU (Rectified Linear Unit)
+Fungsi aktivasi paling populer. Mengubah semua nilai negatif menjadi **0** dan membiarkan nilai positif tetap.
+
+```ts
+import { relu } from "./src/activation";
+
+const input = mj.matrix([[ -1.5, 0.5, 2.0 ]]);
+const [out, grad] = relu(input);
+
+// out (Hanya nilai positif yang lolos):
+// [[ 0, 0.5, 2.0 ]]
+
+// grad (1 jika input > 0, selain itu 0):
+// [[ 0, 1, 1 ]]
+```
+
+---
+
+### C. Tanh (Hyperbolic Tangent)
+Mirip dengan sigmoid tetapi rentang outputnya adalah **(-1, 1)**. Seringkali memberikan performa lebih baik pada hidden layers dibanding sigmoid.
+
+```ts
+import { tanh } from "./src/activation";
+
+const input = mj.matrix([[ -1, 0, 1 ]]);
+const [out, grad] = tanh(input);
+
+// out (Dipetakan ke rentang -1 s/d 1):
+// [[ -0.761, 0, 0.761 ]]
+
+// grad (1 - out^2):
+// [[ 0.419, 1, 0.419 ]]
+```
+
+---
+
+### D. Softmax (Multi-Class Output)
+Menghasilkan distribusi probabilitas di mana total seluruh elemen adalah **1.0**.
+
+#### `softmax(a, row = false)`
+- **`row = true`**: Menghitung probabilitas per baris (Standard batch).
+- **`row = false`**: Menghitung probabilitas per kolom.
+
+```ts
+import { softmax } from "./src/activation";
+
+const logits = mj.matrix([[ 1, 2, 3 ]]);
+const [probs, dSoftmax] = softmax(logits, true);
+
+// probs (Total elemen adalah 1.0):
+// [[ 0.09, 0.24, 0.66 ]]
+```
+
+---
+
+### E. Leaky ReLU (lRelu)
+Varian ReLU yang memberikan sedikit nilai (leak) pada input negatif (multiplier $10^{-5}$) untuk mencegah masalah "neuron mati".
+
+```ts
+import { lRelu } from "./src/activation";
+
+const input = mj.matrix([[ -1, 1 ]]);
+const [out, grad] = lRelu(input);
+
+// out:
+// [[ -0.00001, 1 ]]
+```
+
+---
+
+### F. Linear (Identity)
+Biasanya digunakan pada layer output untuk tugas **Regresi**.
+
+```ts
+import linear from "./src/activation"; // Default export
+
+const [out, grad] = linear(inputMatrix);
+// out: identik dengan input
+// grad: berisi angka 1 (karena turunan x adalah 1)
+```
+
+---
+
+> [!TIP]
+> Saat melakukan *Manual Training Loop*, pastikan Anda menyimpan matriks `grad` (elemen kedua dari tuple) untuk digunakan saat menghitung pembaruan bobot (Update Weights).
+
+---
+
+## 4. Layers & Models (`src/layers` & `src/models`)
+
+Bagian ini mendokumentasikan blok pembangun utama untuk menyusun jaringan saraf tiruan, mulai dari model kontainer hingga berbagai tipe layer spesifik.
+
+---
+
+### A. Model Kontainer: `Sequential`
+
+`Sequential` adalah model pembungkus yang memungkinkan Anda menumpuk layer secara berurutan.
+
+#### `constructor()`
+Membuat instance model baru.
+```ts
+import { Sequential } from "./src/models";
+const model = new Sequential();
+```
+
+#### `add(layer)`
+Menambahkan layer ke dalam urutan eksekusi.
+```ts
+model.add(new Dense({ units: 4, outputUnits: 2 }));
+```
+
+#### `forward(input)` & `predict(input)`
+Menjalankan data melalui seluruh layer. `predict` secara otomatis menonaktifkan mode pelatihan (seperti Dropout).
+```ts
+const output = model.predict(inputMatrix);
+```
+
+#### `fit(X, y, epochs, callback?)`
+Melatih model secara otomatis menggunakan pasangan data input dan target.
+```ts
+model.fit(trainData, labels, 100, (loss) => {
+  console.log(`Current Loss: ${loss}`);
+});
+```
+
+---
+
+### B. Dense Layer (Fully Connected)
+
+Layer standar di mana setiap input terhubung ke setiap output.
+
+#### `constructor(config)`
+- **`units`**: Jumlah neuron input.
+- **`outputUnits`**: Jumlah neuron output.
+- **`activation`**: Nama fungsi aktivasi (misal: `"relu"`, `"sigmoid"`).
+- **`optimizer`**: Algoritma optimasi (misal: `"sgd"`, `"adam"`).
+
+```ts
+import { Dense } from "./src/layers";
+
+const layer = new Dense({
+  units: 128,
+  outputUnits: 64,
+  activation: "relu",
+  optimizer: "adam"
+});
+```
+
+---
+
+### C. Embedding Layer
+
+Digunakan untuk mengubah indeks kata (integer) menjadi vektor padat (*dense vector*). Sangat penting untuk tugas NLP.
+
+#### `constructor(config)`
+- **`vocabSize`**: Ukuran total kamus kata.
+- **`embeddingDim`**: Dimensi vektor untuk setiap kata.
+
+```ts
+import { Embedding } from "./src/layers";
+
+const embed = new Embedding({
+  vocabSize: 5000,
+  embeddingDim: 128
+});
+```
+
+---
+
+### D. Multi-Head Attention
+
+Inti dari arsitektur Transformer yang memungkinkan model fokus pada bagian input yang berbeda secara bersamaan.
+
+#### `constructor(config)`
+- **`units`**: Dimensi internal (harus habis dibagi jumlah `heads`).
+- **`heads`**: Jumlah mekanisme atensi paralel.
+- **`seqLen`**: Panjang urutan input maksimal.
+
+```ts
+import { MultiHeadAttention } from "./src/layers";
+
+const attention = new MultiHeadAttention({
+  units: 512,
+  heads: 8,
+  seqLen: 128
+});
+```
+
+---
+
+### E. Layer Utilitas Lainnya
+
+- **`Flatten`**: Meratakan matriks menjadi satu dimensi.
+- **`Dropout`**: Menonaktifkan neuron secara acak untuk mencegah overfitting.
+- **`LayerNormalization`**: Menstabilkan distribusi nilai di dalam jaringan.
+- **`Convolution`**: Operasi filter 2D untuk data spasial.
+
+---
+
+## 5. Preprocessing & Tokenizer (`src/tokenizer`)
+
+Sebelum teks dapat diproses oleh model machine learning, ia harus diubah menjadi angka. ML-V1 menggunakan algoritma **BPE (Byte Pair Encoding)** yang sangat efisien dalam menangani kosakata besar dan kata-kata baru (*Out-of-Vocabulary*).
+
+---
+
+### A. BPETokenizer
+
+`BPETokenizer` bekerja dengan memecah kata-kata langka menjadi subword (potongan kata) dan mempertahankan kata-kata populer sebagai satu token utuh.
+
+#### `constructor(config)`
+- **`vocabSize`**: Ukuran kosakata target (misal: `5000`).
+- **`minFrequency`**: Jumlah minimal kemunculan pasangan karakter untuk digabung (default: `2`).
+
+```ts
+import { BPETokenizer } from "./src/tokenizer";
+
+const tokenizer = new BPETokenizer({
+  vocabSize: 1000,
+  minFrequency: 2
+});
+```
+
+#### `train(texts: string[])`
+Melatih tokenizer agar mengenali pola kata dari sekumpulan teks (corpus).
+```ts
+const corpus = ["saya makan nasi", "kamu makan roti"];
+tokenizer.train(corpus);
+```
+
+#### `encode(text)` & `decode(ids)`
+Mengonversi teks ke angka dan sebaliknya.
+```ts
+const ids = tokenizer.encode("saya makan"); 
+// ids: [12, 45, 67]
+
+const text = tokenizer.decode(ids);
+// text: "saya makan"
+```
+
+#### `encodeWithSpecial(text)`
+Menambahkan token otomatis **BOS** (Beginning of Sequence) di awal dan **EOS** (End of Sequence) di akhir. Sangat berguna untuk model generatif/Transformers.
+
+#### `padSequence(ids, maxLength)`
+Menambahkan token **PAD** agar semua urutan memiliki panjang yang sama untuk diproses dalam batch.
+```ts
+const padded = tokenizer.padSequence([1, 2], 5);
+// padded: [1, 2, 0, 0, 0] (asumsikan PAD_ID = 0)
+```
+
+---
+
+### B. Penyimpanan & Pemuatan
+
+Tokenizer dapat disimpan ke dalam file `.json` agar tidak perlu dilatih ulang setiap kali aplikasi dijalankan.
+
+```ts
+// Simpan ke file
+tokenizer.save("./model/vocab.json");
+
+// Muat kembali
+const loadedTokenizer = BPETokenizer.load("./model/vocab.json");
+```
+
+---
+
+> [!CAUTION]
+> Pastikan ukuran `vocabSize` pada layer **Embedding** identik dengan `vocabSize` yang dikembalikan oleh `tokenizer.getVocabSize()`. Ketidakcocokan akan menyebabkan error *index out of bounds*.
+
+---
+
+## 6. Algoritma Optimasi (`src/optimizer`)
+
+Optimizer bertanggung jawab untuk memperbarui bobot (weights) dan bias model berdasarkan gradien yang dihitung selama backpropagation.
+
+---
+
+### A. Tipe Optimizer Tersedia
+
+Anda dapat memilih tipe optimizer melalui string literal saat menginisialisasi layer atau model.
+
+| Nama | Deskripsi | Rekomendasi |
+| :--- | :--- | :--- |
+| **`"sgd"`** | Stochastic Gradient Descent sederhana. | Model sangat sederhana atau debugging. |
+| **`"momentum"`**| SGD dengan memori arah (*velocity*). | Konvergensi lebih halus dibanding SGD. |
+| **`"adam"`** | Adaptive Moment Estimation. | **Default Terbaik** untuk hampir semua kasus. |
+| **`"adaGrad"`** | Melakukan adaptasi learning rate per parameter. | Bagus untuk data yang jarang (*sparse*). |
+| **`"nag"`** | Nesterov Accelerated Gradient. | Lebih akurat dibanding momentum standar. |
+
+---
+
+### B. Adam (Adaptive Moment Estimation)
+
+Optimizer paling populer karena menggabungkan keuntungan dari Momentum dan RMSProp.
+
+#### Karakteristik:
+- **Akselerasi Native**: Dioptimasi menggunakan backend Rust untuk pembaruan parameter yang sangat cepat.
+- **Kestabilan**: Memiliki mekanisme *bias correction* untuk langkah-langkah awal training.
+
+```ts
+// Contoh konfigurasi dalam Dense layer
+const layer = new Dense({
+  optimizer: "adam",
+  alpha: 0.001 // Learning Rate
+});
+```
+
+---
+
+### C. Mekanisme Kerja
+
+Setiap optimizer dalam ML-V1 mengimplementasikan metode `calculate(grad, alpha)` yang mengembalikan matriks **Update** yang kemudian akan dikurangi dari bobot asli secara *in-place*.
+
+```ts
+// Logika update internal yang dilakukan layer
+const update = optimizer.calculate(gradWeight, alpha);
+weight.subInPlace(update);
+```
+
+---
+
+### Penutup
+Anda sekarang memiliki referensi lengkap untuk seluruh API inti **ML-V1**. Gunakan panduan ini bersama dengan [01-overview.md](./01-overview.md) dan [03-tutorial.md](./03-tutorial.md) untuk membangun aplikasi AI yang kuat dan efisien.
+
+---
+
+> [!TIP]
+> Untuk operasi intensif dalam training loop, selalu utamakan penggunaan **`get()`**, **`set()`**, dan metode **`InPlace`** untuk menghindari *bottleneck* performa.

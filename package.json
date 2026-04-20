@@ -17,8 +17,8 @@
     "train:math-bot": "npx ts-node project/math-bot/main.ts",
     "chat:math-bot": "npx ts-node project/math-bot/chat.ts",
     "start": "clear && tsc && time node build/main.js",
-    "build:rust": "napi build --platform --release --cargo-cwd src-rust && mv *.node ml-native.node",
-    "build:rust:debug": "napi build --platform --cargo-cwd src-rust && mv *.node ml-native.node",
+    "build:rust": "napi build --platform --release --cargo-cwd src-rust",
+    "build:rust:debug": "napi build --platform --cargo-cwd src-rust",
     "benchmark:synthetic-patch": "node --expose-gc -r ts-node/register test/benchmark/synthetic_patch_benchmark.ts"
   },
   "keywords": [],
