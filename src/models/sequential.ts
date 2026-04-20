@@ -190,23 +190,48 @@ export default class Sequential {
       for (let start = 0; start < trainX.length; start += batchSize) {
         const end = Math.min(start + batchSize, trainX.length);
         const currentBatchSize = end - start;
-        let batchLoss = 0;
 
-        for (let j = start; j < end; j++) {
-          const idx = trainIndices[j];
-          const pred = this.forward(trainX[idx]);
-          const sampleLoss = this.computeSampleLoss(trainY[idx], pred);
-          this.backward(trainY[idx]);
-          batchLoss += sampleLoss;
+        let currentBatchX: Matrix;
+        let currentBatchY: Matrix;
+
+        if (currentBatchSize === 1) {
+          const idx = trainIndices[start];
+          currentBatchX = trainX[idx];
+          currentBatchY = trainY[idx];
+        } else {
+          // Buat batch matrix [rows, currentBatchSize]
+          const [rowsX] = trainX[0]._shape;
+          const [rowsY] = trainY[0]._shape;
+          currentBatchX = mj.zeros([rowsX, currentBatchSize]);
+          currentBatchY = mj.zeros([rowsY, currentBatchSize]);
+
+          for (let j = 0; j < currentBatchSize; j++) {
+            const idx = trainIndices[start + j];
+            currentBatchX.setCol(j, trainX[idx]._data);
+            currentBatchY.setCol(j, trainY[idx]._data);
+          }
         }
 
-        epochLoss += batchLoss / currentBatchSize;
+        const pred = this.forward(currentBatchX);
+        const batchLossValue = this.computeSampleLoss(currentBatchY, pred);
+        this.backward(currentBatchY);
+
+        epochLoss += batchLossValue;
         batchCount++;
+
+        if (verbose) {
+          const progress = formatProgressBar(end, trainX.length);
+          process.stdout.write(
+            `\rEpoch ${epoch + 1}/${epochs} ${progress} | Loss: ${formatLoss(batchLossValue)}`
+          );
+        }
       }
 
       epochLoss /= Math.max(1, batchCount);
       this.loss = epochLoss;
       history.loss.push(epochLoss);
+
+      if (verbose) console.log(); // New line after batch loop
 
       let valLoss: number | undefined;
       if (validationSplit > 0 && valX.length > 0) {
