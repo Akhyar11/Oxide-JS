@@ -172,6 +172,7 @@ export default class Sequential {
     let valLoss: number | undefined;
 
     if (validationSplit > 0 && valX.length > 0) {
+      if (verbose) process.stdout.write("Calculating initial validation loss...");
       this.eval();
       let totalValLoss = 0;
       for (let i = 0; i < valX.length; i++) {
@@ -179,6 +180,7 @@ export default class Sequential {
         totalValLoss += this.computeSampleLoss(valY[i], pred);
       }
       valLoss = totalValLoss / valX.length;
+      if (verbose) process.stdout.write(" Done.\n");
     }
 
     const trainIndices = Array.from({ length: trainX.length }, (_, i) => i);
@@ -186,6 +188,15 @@ export default class Sequential {
 
     for (let epoch = 0; epoch < epochs; epoch++) {
       const epochStartTime = Date.now();
+
+      if (verbose) {
+        const progress = formatProgressBar(0, trainX.length);
+        const valStr = validationSplit > 0 ? ` | Val Loss: ${valLoss !== undefined ? formatLoss(valLoss) : "...."}` : "";
+        process.stdout.write(
+          `\rEpoch ${epoch + 1}/${epochs} ${progress} | Loss: ....${valStr} | 0.0 samples/s | ETA: --:--`
+        );
+      }
+
       for (const layer of this.layers) {
         if (typeof (layer as any).resetLoss === "function") {
           (layer as any).resetLoss();
