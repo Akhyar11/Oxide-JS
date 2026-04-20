@@ -5,6 +5,7 @@
 
 export declare function dotProduct(aData: Float32Array, aShape: Array<number>, bData: Float32Array, bShape: Array<number>, transA: boolean, transB: boolean): Float32Array
 export declare function dotProductInto(aData: Float32Array, aShape: Array<number>, bData: Float32Array, bShape: Array<number>, outData: Float32Array, transA: boolean, transB: boolean): void
+export declare function dotProductIntoDims(aData: Float32Array, aRows: number, aCols: number, bData: Float32Array, bRows: number, bCols: number, outData: Float32Array, transA: boolean, transB: boolean): void
 export declare function addMatricesInto(a: Float32Array, b: Float32Array, out: Float32Array): void
 export declare function subMatricesInto(a: Float32Array, b: Float32Array, out: Float32Array): void
 export declare function mulMatricesInto(a: Float32Array, b: Float32Array, out: Float32Array): void
