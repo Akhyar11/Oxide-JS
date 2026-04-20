@@ -191,11 +191,14 @@ console.log("loss", model.loss);
 - **Loss NaN/Inf**: kecilkan `alpha`, cek target format, cek token out-of-range pada embedding.
 - **Script `project/math-bot/*` gagal**: folder tersebut tidak ada di snapshot repo saat ini.
 
-## Documentation pointer
-Dokumentasi lengkap ada di:
-- `docs/v1.1.0(open-source-production-docs)/overview.md`
-- `docs/v1.1.0(open-source-production-docs)/quickstart.md`
-- `docs/v1.1.0(open-source-production-docs)/api-reference.md`
+## 📖 Panduan Lengkap (Guide-Line)
+
+Untuk memahami library ini secara mendalam, silakan baca panduan resmi kami:
+
+1.  **[Overview & Filosofi](docs/GUIDE-LINE/01-overview.md)**: Pengenalan dasar dan arsitektur sistem.
+2.  **[Instalasi & Setup](docs/GUIDE-LINE/02-installation.md)**: Cara menginstal dan mengaktifkan akselerasi Rust Native.
+3.  **[Tutorial Praktis](docs/GUIDE-LINE/03-tutorial.md)**: Langkah demi langkah membangun bot logika dan bot generatif (GPT-style).
+4.  **[Referensi API Lengkap](docs/GUIDE-LINE/04-api-functions.md)**: Dokumentasi teknis Matrix, Math, Layers, dan Tokenizer.
 
 ## Development / contribution
 ```bash
