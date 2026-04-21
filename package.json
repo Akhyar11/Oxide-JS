@@ -1,22 +1,16 @@
 {
   "name": "ml-v2",
-  "version": "1.1.0",
+  "version": "1.1.6",
   "napi": {
     "name": "ml-native"
   },
   "main": "index.js",
   "scripts": {
-    "test": "npx ts-node test/test.ts",
-    "test:mha-rust": "npx ts-node test/mha_rust_regression.ts",
-    "test:mha-rust:perf": "npx ts-node test/mha_rust_perf.ts",
-    "test:layernorm-rust": "npx ts-node test/layernorm_rust_correctness.ts && npx ts-node test/layernorm_rust_regression.ts",
-    "test:layernorm-rust:perf": "npx ts-node test/layernorm_rust_perf.ts",
-    "test:perf": "npx ts-node test/perf_math.ts",
-    "benchmark:adaptive-dispatch": "node -r ts-node/register test/benchmark/adaptive_dispatch_benchmark.ts",
+    "test": "node -r ts-node/register test/benchmark/synthetic_baseline_benchmark.ts",
+    "benchmark:synthetic-baseline": "node -r ts-node/register test/benchmark/synthetic_baseline_benchmark.ts",
     "start": "clear && tsc && time node build/main.js",
     "build:rust": "napi build --platform --release --cargo-cwd src-rust",
-    "build:rust:debug": "napi build --platform --cargo-cwd src-rust",
-    "benchmark:synthetic-patch": "node --expose-gc -r ts-node/register test/benchmark/synthetic_patch_benchmark.ts"
+    "build:rust:debug": "napi build --platform --cargo-cwd src-rust"
   },
   "keywords": [],
   "author": "",

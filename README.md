@@ -10,6 +10,19 @@ ML-V1 adalah library low-level sampai mid-level untuk eksperimen dan pengembanga
 - Menjadi playground riset arsitektur custom tanpa dependency framework ML besar.
 - Menggabungkan kemudahan TypeScript dengan performa Rust untuk hot paths.
 
+## Versioning
+Versi aktif proyek saat ini adalah `1.1.6`.
+
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.1.6`.
+
+- Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
+- Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
+- Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
+
+Contoh:
+- `1.1.6`: rilis mayor `1`, fitur set kedua (`1`), dengan 6 patch/perbaikan internal (`6`).
+- `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.
+
 ## Key features
 - `Matrix` berbasis `Float32Array` (flat contiguous memory).
 - Operasi math inti (`dotProduct`, `add`, `sumAxis`, `clipGradients`, dst).

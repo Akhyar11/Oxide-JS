@@ -1,85 +1,140 @@
-import { Activation, Convolution, Dense } from "../layers";
+import { Layers } from "../@types/type";
+import {
+  Activation,
+  Convolution,
+  Dense,
+  Dropout,
+  Embedding,
+  Flatten,
+  LayerNormalization,
+  MultiHeadAttention,
+  PositionalEncoding,
+  SelfAttention,
+} from "../layers";
 import { SequentialLayers } from "../models/sequential";
 
-export default function setLayers(data: any) {
+export type LayerFactory = (data: any) => Layers;
+
+export const layerRegistry: Record<string, LayerFactory> = Object.create(null);
+
+export function registerLayer(name: string, factory: LayerFactory): void {
+  layerRegistry[name] = factory;
+}
+
+registerLayer("dense layer", (data) => {
+  const dense = new Dense({
+    units: data.units,
+    outputUnits: data.outputUnits,
+    activation: data.activation,
+    optimizer: data.optimizer,
+    status: data.status,
+    loss: data.loss,
+    clipGradient: data.clipGradient,
+  });
+  dense.load(data.weight, data.bias, data.clipGradient);
+  return dense;
+});
+
+registerLayer("activation layer", (data) => {
+  const activation = new Activation({
+    activation: data.activation,
+    status: data.status,
+    loss: data.loss,
+  });
+  activation.load(data);
+  return activation;
+});
+
+registerLayer("convolution layer", (data) => {
+  const convolution = new Convolution({
+    kernelSize: data.kernelSize,
+    inputShape: data.inputShape,
+    activation: data.activation,
+    loss: data.loss,
+    optimizer: data.optimizer,
+    status: data.status,
+    clipGradient: data.clipGradient,
+  });
+  convolution.load(data.kernel, data.bias, data.clipGradient);
+  return convolution;
+});
+
+registerLayer("embedding layer", (data) => {
+  const embedding = new Embedding({
+    vocabSize: data.vocabSize,
+    embeddingDim: data.embeddingDim,
+    alpha: data.alpha,
+    optimizer: data.optimizer,
+    status: data.status,
+    padTokenId: data.padTokenId ?? null,
+  });
+  embedding.load(data.weight);
+  return embedding;
+});
+
+registerLayer("positional encoding", (data) => {
+  return new PositionalEncoding({
+    dModel: data.dModel,
+    maxSeqLen: data.maxSeqLen,
+    status: data.status,
+  });
+});
+
+registerLayer("layer normalization", (data) => {
+  const layerNormalization = new LayerNormalization({
+    units: data.units,
+    status: data.status,
+    clipGradient: data.clipGradient,
+  });
+  layerNormalization.load(data.gamma, data.beta, data.clipGradient);
+  return layerNormalization;
+});
+
+registerLayer("self attention layer", (data) => {
+  const selfAttention = new SelfAttention({
+    units: data.units,
+    alpha: data.alpha,
+    status: data.status,
+    clipGradient: data.clipGradient,
+  });
+  selfAttention.load(data.q, data.k, data.v, data.clipGradient);
+  return selfAttention;
+});
+
+registerLayer("multi head attention layer", (data) => {
+  const multiHeadAttention = new MultiHeadAttention({
+    units: data.units,
+    heads: data.heads,
+    seqLen: data.seqLen,
+    alpha: data.alpha,
+    status: data.status,
+    clipGradient: data.clipGradient,
+  });
+  multiHeadAttention.load(data);
+  return multiHeadAttention;
+});
+
+registerLayer("dropout layer", (data) => {
+  const dropout = new Dropout({
+    rate: data.rate,
+    status: data.status,
+  });
+  dropout.load(data);
+  return dropout;
+});
+
+registerLayer("flatten", (data) => new Flatten(data.status));
+registerLayer("flatten layer", (data) => new Flatten(data.status));
+
+export default function setLayers(data: any): SequentialLayers {
   const layers: SequentialLayers = [];
-  for (let layer of data) {
-    if (layer.name === "dense layer") {
-      const dense = new Dense({
-        units: layer.units,
-        outputUnits: layer.outputUnits,
-        activation: layer.activation,
-        optimizer: layer.optimizer,
-        status: layer.status,
-        loss: layer.loss,
-        clipGradient: layer.clipGradient,
-      });
-      dense.load(layer.weight, layer.bias, layer.clipGradient);
-      layers.push(dense);
-    } else if (layer.name === "activation layer") {
-      const activation = new Activation({
-        activation: layer.activation,
-        status: layer.status,
-        loss: layer.loss,
-      });
-      layers.push(activation);
-    } else if (layer.name === "convolution layer") {
-      const convolution = new Convolution({
-        kernelSize: layer.kernelSize,
-        inputShape: layer.inputShape,
-        activation: layer.activation,
-        loss: layer.loss,
-        optimizer: layer.optimizer,
-        status: layer.status,
-        clipGradient: layer.clipGradient,
-      });
-      convolution.load(layer.kernel, layer.bias, layer.clipGradient);
-      layers.push(convolution);
-    } else if (layer.name === "embedding layer") {
-      const { Embedding } = require("../layers");
-      const embedding = new Embedding({
-        vocabSize: layer.vocabSize,
-        embeddingDim: layer.embeddingDim,
-        alpha: layer.alpha,
-        optimizer: layer.optimizer,
-        status: layer.status,
-        padTokenId: layer.padTokenId ?? null,
-      });
-      embedding.load(layer.weight);
-      layers.push(embedding);
-    } else if (layer.name === "positional encoding") {
-      const { PositionalEncoding } = require("../layers");
-      const pe = new PositionalEncoding({
-        dModel: layer.dModel,
-        maxSeqLen: layer.maxSeqLen,
-        status: layer.status,
-      });
-      layers.push(pe);
-    } else if (layer.name === "layer normalization") {
-      const { LayerNormalization } = require("../layers");
-      const ln = new LayerNormalization({
-        units: layer.units,
-        status: layer.status,
-        clipGradient: layer.clipGradient,
-      });
-      ln.load(layer.gamma, layer.beta, layer.clipGradient);
-      layers.push(ln);
-    } else if (layer.name === "self attention layer") {
-      const { SelfAttention } = require("../layers");
-      const attn = new SelfAttention({
-        units: layer.units,
-        alpha: layer.alpha,
-        status: layer.status,
-        clipGradient: layer.clipGradient,
-      });
-      attn.load(layer.q, layer.k, layer.v, layer.clipGradient);
-      layers.push(attn);
-    } else if (layer.name === "flatten") {
-      const { Flatten } = require("../layers");
-      layers.push(new Flatten());
-    } else {
+  for (const layer of data) {
+    const factory = layerRegistry[layer.name];
+    if (!factory) {
       console.warn(`[setLayers] Layer tidak dikenal dan dilewati: '${layer.name}'`);
+      continue;
     }
+    layers.push(factory(layer));
   }
 
   return layers;

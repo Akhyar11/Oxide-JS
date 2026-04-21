@@ -69,7 +69,7 @@ ML-V1 memprioritaskan performa melalui:
 ---
 
 > [!NOTE]
-> Proyek ini sedang dalam pengembangan aktif (v1.1.0). Pastikan untuk selalu memeriksa kompatibilitas antara versi library dan backend native yang digunakan.
+> Proyek ini sedang dalam pengembangan aktif (v1.1.6). Pastikan untuk selalu memeriksa kompatibilitas antara versi library dan backend native yang digunakan.
 
 **Langkah Berikutnya:**
 Lanjutkan ke bagian [Instalasi](02-installation.md) untuk mulai menyiapkan lingkungan pengembangan Anda.
