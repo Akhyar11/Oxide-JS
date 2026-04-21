@@ -14,6 +14,7 @@ import Adam from "../optimizer/adam";
 import Momentum from "../optimizer/momentum";
 import NAG from "../optimizer/nag";
 import SGD from "../optimizer/sgd";
+export type { FitConfig, FitResult } from "./fitConfig";
 
 export type vector = number[];
 export type matrix2d = number[][];

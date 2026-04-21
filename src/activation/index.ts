@@ -153,6 +153,9 @@ export function softmax(a: Matrix, row = false): [Matrix, Matrix] {
  */
 export function softmaxBackwardInto(s: Matrix, g: Matrix, out: Matrix, row = false): Matrix {
   const [rows, cols] = s._shape;
+  if (g._shape[0] !== rows || g._shape[1] !== cols) {
+    throw new Error(`softmaxBackwardInto: shape mismatch between s [${rows}x${cols}] and g [${g._shape[0]}x${g._shape[1]}]`);
+  }
   ensureSoftmaxShape(out, rows, cols);
 
   if (isNativeAvailable()) {

@@ -12,8 +12,9 @@ export default function setLayers(data: any) {
         optimizer: layer.optimizer,
         status: layer.status,
         loss: layer.loss,
+        clipGradient: layer.clipGradient,
       });
-      dense.load(layer.weight, layer.bias);
+      dense.load(layer.weight, layer.bias, layer.clipGradient);
       layers.push(dense);
     } else if (layer.name === "activation layer") {
       const activation = new Activation({
@@ -30,8 +31,9 @@ export default function setLayers(data: any) {
         loss: layer.loss,
         optimizer: layer.optimizer,
         status: layer.status,
+        clipGradient: layer.clipGradient,
       });
-      convolution.load(layer.kernel, layer.bias);
+      convolution.load(layer.kernel, layer.bias, layer.clipGradient);
       layers.push(convolution);
     } else if (layer.name === "embedding layer") {
       const { Embedding } = require("../layers");
@@ -58,8 +60,9 @@ export default function setLayers(data: any) {
       const ln = new LayerNormalization({
         units: layer.units,
         status: layer.status,
+        clipGradient: layer.clipGradient,
       });
-      ln.load(layer.gamma, layer.beta);
+      ln.load(layer.gamma, layer.beta, layer.clipGradient);
       layers.push(ln);
     } else if (layer.name === "self attention layer") {
       const { SelfAttention } = require("../layers");
@@ -67,8 +70,9 @@ export default function setLayers(data: any) {
         units: layer.units,
         alpha: layer.alpha,
         status: layer.status,
+        clipGradient: layer.clipGradient,
       });
-      attn.load(layer.q, layer.k, layer.v);
+      attn.load(layer.q, layer.k, layer.v, layer.clipGradient);
       layers.push(attn);
     } else if (layer.name === "flatten") {
       const { Flatten } = require("../layers");

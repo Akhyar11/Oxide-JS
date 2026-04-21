@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import Sequential, { SequentialLayers } from "./sequential";
 import { Matrix } from "../@types/type";
 import { setLayers } from "../utils";
+import { FitConfig, FitResult } from "../@types/fitConfig";
 
 export default class DimentionalityReduction extends Sequential {
   layersEncode: SequentialLayers = [];
@@ -56,5 +57,44 @@ export default class DimentionalityReduction extends Sequential {
       input = layer.forward(input);
     }
     return input;
+  }
+
+  fit(
+    X: Matrix[],
+    y: Matrix[],
+    epochs: number,
+    config?: FitConfig
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    y: Matrix[],
+    epochs: number,
+    cb?: (loss: number) => any
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    epochs: number,
+    config?: FitConfig
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    epochs: number,
+    cb?: (loss: number) => any
+  ): FitResult;
+  fit(
+    X: Matrix[],
+    yOrEpoch: Matrix[] | number,
+    epochsOrConfig?: number | FitConfig | ((loss: number) => any),
+    configOrCb: FitConfig | ((loss: number) => any) = {}
+  ): FitResult {
+    if (typeof yOrEpoch === "number") {
+      const epochs = yOrEpoch;
+      const cfg = (epochsOrConfig ?? {}) as FitConfig | ((loss: number) => any);
+      return super.fit(X, X, epochs, cfg as any);
+    }
+
+    const y = yOrEpoch;
+    const epochs = epochsOrConfig as number;
+    return super.fit(X, y, epochs, configOrCb as any);
   }
 }

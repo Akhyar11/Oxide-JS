@@ -13,6 +13,7 @@ interface SelfAttentionLayer {
   alpha?: number;
   loss?: Cost;
   status?: StatusLayer;
+  clipGradient?: number | boolean;
 }
 
 export default class SelfAttention {
@@ -28,6 +29,7 @@ export default class SelfAttention {
   alpha: number;
   loss: number = 0;
   status: StatusLayer = "input";
+  clipGradient: number | boolean = 5.0;
   private lossFunc: Function;
   private input: Matrix = mj.matrix([]);
   private output: Matrix = mj.matrix([]);
@@ -54,6 +56,7 @@ export default class SelfAttention {
     alpha = 0.1,
     loss = "mse",
     status = "input",
+    clipGradient = 5.0,
   }: SelfAttentionLayer) {
     this.units = units;
     this.outputUnits = outputUnits ?? units;
@@ -67,6 +70,7 @@ export default class SelfAttention {
     this.lossFunc = setLoss(loss);
     this.status = status;
     this.alpha = alpha;
+    this.clipGradient = clipGradient;
 
     // Initialize optimizers
     this.optimizerQ = setOptimizer(this.optimizerName, this.q._shape, alpha);
@@ -74,7 +78,7 @@ export default class SelfAttention {
     this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, alpha);
   }
 
-  compile({ alpha, optimizer }: { alpha?: number; optimizer?: Optimzier }) {
+  compile({ alpha, optimizer, clipGradient }: { alpha?: number; optimizer?: Optimzier; clipGradient?: number | boolean }) {
     if (alpha !== undefined) this.alpha = alpha;
     if (optimizer !== undefined) {
       this.optimizerName = optimizer;
@@ -82,6 +86,7 @@ export default class SelfAttention {
       this.optimizerK = setOptimizer(optimizer, this.k._shape, this.alpha);
       this.optimizerV = setOptimizer(optimizer, this.v._shape, this.alpha);
     }
+    if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
   save() {
@@ -90,19 +95,21 @@ export default class SelfAttention {
       status: this.status,
       units: this.units,
       alpha: this.alpha,
+      clipGradient: this.clipGradient,
       q: this.q._value,
       k: this.k._value,
       v: this.v._value,
     };
   }
 
-  load(q: number[][], k: number[][], v: number[][]): void {
+  load(q: number[][], k: number[][], v: number[][], clipGradient?: number | boolean): void {
     this.q._value = q;
     this.q._shape = [q.length, q[0]?.length ?? 0];
     this.k._value = k;
     this.k._shape = [k.length, k[0]?.length ?? 0];
     this.v._value = v;
     this.v._shape = [v.length, v[0]?.length ?? 0];
+    if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
   forward(x: Matrix): Matrix {
@@ -189,9 +196,12 @@ export default class SelfAttention {
     const oldV = this.oldVBuffer;
 
     // [New] Gradient Clipping
-    this.clipGradients(gradQ, 5.0);
-    this.clipGradients(gradK, 5.0);
-    this.clipGradients(gradV, 5.0);
+    if (this.clipGradient !== false) {
+      const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
+      this.clipGradients(gradQ, limit);
+      this.clipGradients(gradK, limit);
+      this.clipGradients(gradV, limit);
+    }
 
     // Update bobot In-Place!
     this.q.subInPlace(this.optimizerQ.calculate(gradQ, this.alpha));

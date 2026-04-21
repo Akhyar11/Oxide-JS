@@ -22,12 +22,14 @@ interface DenseLayers {
   activation?: ActivationType;
   optimizer?: Optimzier;
   status?: StatusLayer;
+  clipGradient?: number | boolean;
 }
 
 export interface CompileDenseLayers {
   alpha?: number;
   optimizer?: Optimzier;
   error?: Cost;
+  clipGradient?: number | boolean;
 }
 
 export default class Dense {
@@ -40,6 +42,7 @@ export default class Dense {
   inputShape: [number, number];
   outputShape: [number, number];
   status: StatusLayer;
+  clipGradient: number | boolean;
   bias: Matrix;
   weight: Matrix;
   private sumLoss: number = 0;
@@ -54,7 +57,7 @@ export default class Dense {
   private result: Matrix;
   private lossFunc: Function;
   private activation: (a: Matrix) => [Matrix, Matrix];
-  
+
   // Pre-allocated buffers for speed (REUSE)
   private z: Matrix;
   private errWeightBuffer: Matrix;
@@ -70,16 +73,26 @@ export default class Dense {
     status = "input",
     alpha = 0.1,
     loss = "mse",
+    clipGradient = 5.0,
   }: DenseLayers) {
+    // Guard: combining softmax activation with softmaxCrossEntropy loss applies softmax twice,
+    // which produces incorrect gradients. Users should set activation='linear' when using
+    // softmaxCrossEntropy loss.
+    if (activation === "softmax" && loss === "softmaxCrossEntropy") {
+      throw new Error(
+        "Dense: activation='softmax' combined with loss='softmaxCrossEntropy' applies softmax twice. " +
+        "Use activation='linear' with loss='softmaxCrossEntropy'."
+      );
+    }
     this.units = units;
     this.outputUnits = outputUnits;
     this.inputShape = [units, 1];
     this.outputShape = [outputUnits, 1];
-    
+
     // Gunakan Xavier initialization untuk stabilitas lebih baik
     this.weight = mj.xavier([outputUnits, units]);
     this.bias = mj.zeros([outputUnits, 1]);
-    
+
     this.z = mj.zeros([outputUnits, 1]); // Buffer for dotProduct + bias
     this.result = mj.zeros([outputUnits, 1]); // Buffer hasil aktivasi
     this.dInput = mj.zeros([outputUnits, 1]); // Buffer grad aktivasi
@@ -96,6 +109,7 @@ export default class Dense {
     this.optimizerBias = setOptimizer(optimizer, this.bias._shape, 1e-5);
     this.lossFunc = setLoss(loss);
     this.alpha = alpha;
+    this.clipGradient = clipGradient;
     this.params = outputUnits * units + outputUnits;
   }
 
@@ -108,12 +122,13 @@ export default class Dense {
       activation: this.activationName,
       optimizer: this.optimizerName,
       loss: this.lossName,
+      clipGradient: this.clipGradient,
       weight: this.weight._value,
       bias: this.bias._value,
     };
   }
 
-  load(weight: matrix2d, bias: matrix2d): void {
+  load(weight: matrix2d, bias: matrix2d, clipGradient?: number | boolean): void {
     this.weight._value = weight;
     this.weight._shape = [weight.length, weight[0]?.length ?? 0];
     this.bias._value = bias;
@@ -121,6 +136,9 @@ export default class Dense {
     this.units = this.weight._shape[1];
     this.outputUnits = this.weight._shape[0];
     this.params = this.outputUnits * this.units + this.outputUnits;
+    if (clipGradient !== undefined) {
+        this.clipGradient = clipGradient;
+    }
     this.z = mj.zeros([this.outputUnits, 1]);
     this.result = mj.zeros([this.outputUnits, 1]);
     this.dInput = mj.zeros([this.outputUnits, 1]);
@@ -136,31 +154,33 @@ export default class Dense {
     alpha,
     optimizer,
     error,
+    clipGradient,
   }: CompileDenseLayers): void {
     if (alpha !== undefined) this.alpha = alpha;
-    
+
     if (optimizer !== undefined) {
       this.optimizerWeight = setOptimizer(optimizer, this.weight._shape, 1e-5);
       this.optimizerBias = setOptimizer(optimizer, this.bias._shape, 1e-5);
       this.optimizerName = optimizer;
     }
-    
+
     if (error !== undefined) {
       this.lossFunc = setLoss(error);
       this.lossName = error;
     }
+    if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
   forward(x: Matrix): Matrix {
     const [, seqLen] = x._shape;
     this.input = x;
-    
+
     this.ensureForwardBuffers(seqLen);
-    
+
     // 1. MatMul weight * input -> simpan di this.z 
     // [outputUnits, units] * [units, seqLen] -> [outputUnits, seqLen]
     mj.dotProduct(this.weight, this.input, this.z);
-    
+
     // 2. Tambahkan bias secara broadcast (per kolom) - OPTIMIZED WITH NATIVE
     mj.addBias(this.z, this.bias);
 
@@ -257,10 +277,10 @@ export default class Dense {
       // Paksa gunakan SoftmaxCrossEntropy untuk kasus klasifikasi sparse.
       const isSparseTarget = y._shape[0] === 1 && this.result._shape[0] > 1;
       if (isSparseTarget && this.lossName === "mse") {
-          const SoftmaxCrossEntropy = require("../cost/softmaxCrossEntropy").default;
-          [lossValue, e] = SoftmaxCrossEntropy(y, this.result);
+        const SoftmaxCrossEntropy = require("../cost/softmaxCrossEntropy").default;
+        [lossValue, e] = SoftmaxCrossEntropy(y, this.result);
       } else {
-          [lossValue, e] = this.lossFunc(y, this.result);
+        [lossValue, e] = this.lossFunc(y, this.result);
       }
       this.index++;
       this.sumLoss += lossValue;
@@ -282,21 +302,24 @@ export default class Dense {
     // 1. Hitung gradien weight
     // [outputUnits, seqLen] * [seqLen, units] -> [outputUnits, units]
     const gradWeight = mj.dotProduct(errActivation, this.input, this.errWeightBuffer, false, true);
-    
+
     // 2. Hitung gradien bias (Sum sepanjang sequence/kolom) - OPTIMIZED WITH NATIVE
     if (this.errBiasBuffer._shape[0] !== this.outputUnits) {
-        this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
+      this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
     }
     const gradBias = mj.sumAxis(errActivation, 1, this.errBiasBuffer);
 
     // [New] Gradient Clipping: Batasi nilai gradien agar tidak meledak - OPTIMIZED WITH NATIVE
-    mj.clipGradients(gradWeight, 1.0);
-    mj.clipGradients(gradBias, 1.0);
+    if (this.clipGradient !== false) {
+      const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
+      mj.clipGradients(gradWeight, limit);
+      mj.clipGradients(gradBias, limit);
+    }
 
     // 3. Hitung gradien ke layer sebelumnya dengan bobot sebelum update
     // [units, outputUnits] * [outputUnits, seqLen] -> [units, seqLen]
     if (this.prevLayerErrBuffer._shape[0] !== this.units || this.prevLayerErrBuffer._shape[1] !== seqLen) {
-        this.prevLayerErrBuffer = mj.zeros([this.units, seqLen]);
+      this.prevLayerErrBuffer = mj.zeros([this.units, seqLen]);
     }
     const prevErr = mj.dotProduct(this.weight, errActivation, this.prevLayerErrBuffer, true, false);
 
@@ -330,9 +353,9 @@ export default class Dense {
     const newWeightData = newWeight._data;
 
     for (let i = 0; i < this.outputUnits; i++) {
-        for (let j = 0; j < this.units; j++) {
-            newWeightData[i * this.units + j] = oldWeightData[i * this.units + j];
-        }
+      for (let j = 0; j < this.units; j++) {
+        newWeightData[i * this.units + j] = oldWeightData[i * this.units + j];
+      }
     }
 
     // 2. Resize bias [newOutputUnits, 1]
@@ -340,7 +363,7 @@ export default class Dense {
     const oldBiasData = this.bias._data;
     const newBiasData = newBias._data;
     for (let i = 0; i < this.outputUnits; i++) {
-        newBiasData[i] = oldBiasData[i];
+      newBiasData[i] = oldBiasData[i];
     }
 
     // 3. Update state

@@ -13,10 +13,10 @@ import { isNativeAvailable, dotProductNative, shouldUseNativeDotProduct } from "
  * @returns Matrix
  */
 export default function dotProduct(
-  a: Matrix, 
-  b: Matrix, 
-  out?: Matrix, 
-  transA: boolean = false, 
+  a: Matrix,
+  b: Matrix,
+  out?: Matrix,
+  transA: boolean = false,
   transB: boolean = false
 ): Matrix {
   const aRowsOrig = a._shape[0], aColsOrig = a._shape[1];
@@ -29,6 +29,12 @@ export default function dotProduct(
 
   if (aCols !== bRows) {
     throw new Error(`Dimensi matrix tidak cocok untuk dot product: [${aRows}x${aCols}] * [${bRows}x${bCols}]`);
+  }
+
+  if (out) {
+    if (out._shape[0] !== aRows || out._shape[1] !== bCols) {
+      throw new Error(`Output matrix shape mismatch: expected [${aRows}x${bCols}], got [${out._shape[0]}x${out._shape[1]}]`);
+    }
   }
 
   // Dispatch adaptif: untuk beban kecil, loop JS sering lebih murah daripada overhead call native.
@@ -48,12 +54,6 @@ export default function dotProduct(
     return resultOut;
   }
 
-  if (out) {
-    if (out._shape[0] !== aRows || out._shape[1] !== bCols) {
-      throw new Error(`Output matrix shape mismatch: expected [${aRows}x${bCols}], got [${out._shape[0]}x${out._shape[1]}]`);
-    }
-  }
-
   const resultData = out ? out._data : new Float32Array(aRows * bCols);
   const aData = a._data;
   const bData = b._data;
@@ -66,12 +66,12 @@ export default function dotProduct(
       for (let k = 0; k < aCols; k++) {
         const aik = transA ? aData[k * aRows + i] : aData[i * aCols + k];
         if (aik === 0) continue;
-        
+
         const kOffset = k * bCols;
         let j = 0;
         const jBound = bCols - 8;
         for (; j <= jBound; j += 8) {
-          resultData[rOffset + j]     += aik * bData[kOffset + j];
+          resultData[rOffset + j] += aik * bData[kOffset + j];
           resultData[rOffset + j + 1] += aik * bData[kOffset + j + 1];
           resultData[rOffset + j + 2] += aik * bData[kOffset + j + 2];
           resultData[rOffset + j + 3] += aik * bData[kOffset + j + 3];
@@ -85,58 +85,49 @@ export default function dotProduct(
         }
       }
     }
-  } 
+  }
   // Kasus 2: A * B^T (atau A^T * B^T) - Gunakan i-j-k untuk cache friendliness pada A dan B
   else {
     for (let i = 0; i < aRows; i++) {
       const rOffset = i * bCols;
       for (let j = 0; j < bCols; j++) {
         let sum = 0;
-        const bOffset = j * aCols; // Karena B ditranspose, baris j di B' adalah baris j di B asli (jika transB saja)
-                                   // Tunggu, jika transB, baris j di B' adalah kolom j di B asli.
-                                   // Tapi k adalah dimensi yang dikontraksi.
-                                   // B' [bRows x bCols] = [bRowsOrig_setelah_transpose x bColsOrig_setelah_transpose]
-                                   // K adalah aCols.
-                                   
-        // Jika transB, baris j dari B' adalah baris j dari B (sebenarnya kolom j ditranspose jadi baris)
-        // Indeks asli B adalah [k, j]? Tidak.
-        // Jika B asli [K x N], maka B^T adalah [N x K].
-        // Jadi B'[j, k] = B[k, j].
-        
+        const bOffset = j * aCols;
+
         // Loop k
         let k = 0;
         const kBound = aCols - 8;
         for (; k <= kBound; k += 8) {
           const aik0 = transA ? aData[k * aRows + i] : aData[i * aCols + k];
-          const bjk0 = bData[j * aCols + k]; 
+          const bjk0 = bData[j * aCols + k];
           sum += aik0 * bjk0;
 
-          const aik1 = transA ? aData[(k+1) * aRows + i] : aData[i * aCols + (k+1)];
-          const bjk1 = bData[j * aCols + (k+1)];
+          const aik1 = transA ? aData[(k + 1) * aRows + i] : aData[i * aCols + (k + 1)];
+          const bjk1 = bData[j * aCols + (k + 1)];
           sum += aik1 * bjk1;
 
-          const aik2 = transA ? aData[(k+2) * aRows + i] : aData[i * aCols + (k+2)];
-          const bjk2 = bData[j * aCols + (k+2)];
+          const aik2 = transA ? aData[(k + 2) * aRows + i] : aData[i * aCols + (k + 2)];
+          const bjk2 = bData[j * aCols + (k + 2)];
           sum += aik2 * bjk2;
 
-          const aik3 = transA ? aData[(k+3) * aRows + i] : aData[i * aCols + (k+3)];
-          const bjk3 = bData[j * aCols + (k+3)];
+          const aik3 = transA ? aData[(k + 3) * aRows + i] : aData[i * aCols + (k + 3)];
+          const bjk3 = bData[j * aCols + (k + 3)];
           sum += aik3 * bjk3;
 
-          const aik4 = transA ? aData[(k+4) * aRows + i] : aData[i * aCols + (k+4)];
-          const bjk4 = bData[j * aCols + (k+4)];
+          const aik4 = transA ? aData[(k + 4) * aRows + i] : aData[i * aCols + (k + 4)];
+          const bjk4 = bData[j * aCols + (k + 4)];
           sum += aik4 * bjk4;
 
-          const aik5 = transA ? aData[(k+5) * aRows + i] : aData[i * aCols + (k+5)];
-          const bjk5 = bData[j * aCols + (k+5)];
+          const aik5 = transA ? aData[(k + 5) * aRows + i] : aData[i * aCols + (k + 5)];
+          const bjk5 = bData[j * aCols + (k + 5)];
           sum += aik5 * bjk5;
 
-          const aik6 = transA ? aData[(k+6) * aRows + i] : aData[i * aCols + (k+6)];
-          const bjk6 = bData[j * aCols + (k+6)];
+          const aik6 = transA ? aData[(k + 6) * aRows + i] : aData[i * aCols + (k + 6)];
+          const bjk6 = bData[j * aCols + (k + 6)];
           sum += aik6 * bjk6;
 
-          const aik7 = transA ? aData[(k+7) * aRows + i] : aData[i * aCols + (k+7)];
-          const bjk7 = bData[j * aCols + (k+7)];
+          const aik7 = transA ? aData[(k + 7) * aRows + i] : aData[i * aCols + (k + 7)];
+          const bjk7 = bData[j * aCols + (k + 7)];
           sum += aik7 * bjk7;
         }
         for (; k < aCols; k++) {

@@ -22,6 +22,7 @@ interface ConvolutionLayers {
   activation?: ActivationType;
   optimizer?: Optimzier;
   loss?: Cost;
+  clipGradient?: number | boolean;
 }
 
 export default class Convolution {
@@ -34,6 +35,7 @@ export default class Convolution {
   lossName: Cost;
   loss: number = 0;
   alpha = 0.1;
+  clipGradient: number | boolean = true;
   params: number;
   inputShape: [number, number];
   outputShape: [number, number];
@@ -54,6 +56,7 @@ export default class Convolution {
     activation = "linear",
     optimizer = "sgd",
     loss = "mse",
+    clipGradient = 5.0,
   }: ConvolutionLayers) {
     this.kernel = mj.random(kernelSize);
     this.bias = mj.zeros([
@@ -70,6 +73,7 @@ export default class Convolution {
     this.status = status;
     this.optimizerName = optimizer;
     this.lossName = loss;
+    this.clipGradient = clipGradient;
     this.activation = setActivation(this.activationName);
     this.lossFunc = setLoss(this.lossName);
     this.optimizerKernel = setOptimizer(this.optimizerName, kernelSize, 1e-5);
@@ -95,21 +99,24 @@ export default class Convolution {
       loss: this.lossName,
       kernel: this.kernel._value,
       bias: this.bias._value,
+      clipGradient: this.clipGradient,
     };
     return data;
   }
 
-  load(kernel: matrix2d, bias: matrix2d): void {
+  load(kernel: matrix2d, bias: matrix2d, clipGradient?: number | boolean): void {
     this.kernel._value = kernel;
     this.kernel._shape = [kernel.length, kernel[0]?.length ?? 0];
     this.bias._value = bias;
     this.bias._shape = [bias.length, bias[0]?.length ?? 0];
+    if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
   compile({
     alpha = 0.1,
     optimizer = "sgd",
     error = "mse",
+    clipGradient,
   }: CompileDenseLayers): void {
     this.alpha = alpha;
     this.optimizerKernel = setOptimizer(optimizer, this.kernel._shape, 1e-5);
@@ -117,6 +124,7 @@ export default class Convolution {
     this.lossFunc = setLoss(error);
     this.optimizerName = optimizer;
     this.lossName = error;
+    if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
   private calculateErrInput(err: Matrix, input: Matrix) {
@@ -183,6 +191,13 @@ export default class Convolution {
     }
 
     const errActivation = mj.mul(e, this.dResult);
+    
+    // [New] Gradient Clipping
+    if (this.clipGradient !== false) {
+      const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
+      mj.clipGradients(errActivation, limit);
+    }
+
     const errKernel = mj.convolution(this.input, errActivation);
     const optimizerKernel = this.optimizerKernel.calculate(
       errKernel,

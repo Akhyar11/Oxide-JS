@@ -532,17 +532,112 @@ Menjalankan data melalui seluruh layer. `predict` secara otomatis menonaktifkan 
 const output = model.predict(inputMatrix);
 ```
 
-#### `fit(X, y, epochs, callback?)`
-Melatih model secara otomatis menggunakan pasangan data input dan target.
+#### `compile({ alpha, optimizer, clipGradient })`
+Mengonfigurasi parameter pembelajaran secara global untuk seluruh layer dalam model.
+- **`alpha`**: Learning rate.
+- **`optimizer`**: Nama optimizer (misal: `"adam"`).
+- **`clipGradient`**: Batas clipping gradien kustom (number atau boolean).
+
+#### `fit(X, y, epochs, config?): FitResult`
+Melatih model secara otomatis menggunakan pasangan data input dan target. Mendukung batching, validation split, early stopping, shuffle, verbose logging, dan callback per epoch.
+
+##### Signature yang didukung
+
+```ts
+// 1. API baru berbasis config (recommended)
+const result = model.fit(X, y, epochs, config?: FitConfig): FitResult;
+
+// 2. Legacy callback (backward compatible)
+model.fit(X, y, epochs, (loss: number) => void): FitResult;
+```
+
+##### Parameter `FitConfig`
+
+| Opsi | Tipe | Default | Deskripsi |
+| :--- | :--- | :--- | :--- |
+| `batchSize` | `number` | `max(1, floor(N/10))` | Jumlah sample per mini-batch |
+| `validationSplit` | `number` | `0` | Proporsi data untuk validasi (0–1, eksklusif) |
+| `earlyStoppingPatience` | `number` | `Infinity` | Epoch tanpa improvement sebelum training berhenti |
+| `shuffle` | `boolean` | `true` | Acak urutan training setiap epoch |
+| `verbose` | `boolean` | `false` | Cetak progress loss ke konsol tiap epoch |
+| `onEpochEnd` | `(epoch, loss, valLoss?) => void` | `() => {}` | Callback setelah setiap epoch selesai |
+| `monitorMetric` | `"loss" \| "valLoss"` | `"valLoss"` jika ada validasi, else `"loss"` | Metrik yang dipantau untuk early stopping |
+| `minDelta` | `number` | `0` | Minimum perubahan yang dianggap sebagai improvement |
+| `mode` | `"min" \| "max"` | `"min"` | `"min"` = berhenti jika tidak turun, `"max"` = berhenti jika tidak naik |
+
+##### Return Value `FitResult`
+
+```ts
+interface FitResult {
+  history: {
+    loss: number[];      // Training loss per epoch
+    valLoss?: number[];  // Validation loss per epoch (ada jika validationSplit > 0)
+  };
+  bestEpoch: number;       // Indeks epoch dengan loss terbaik (0-indexed)
+  bestLoss: number;        // Nilai loss terbaik yang tercatat
+  stoppedEarly: boolean;   // true jika early stopping aktif
+  stoppingEpoch?: number;  // Epoch tempat early stopping terjadi
+}
+```
+
+##### Contoh Penggunaan
+
+###### API Baru (Recommended)
+```ts
+const result = model.fit(trainData, labels, 100, {
+  batchSize: 16,
+  validationSplit: 0.2,
+  earlyStoppingPatience: 10,
+  verbose: true,
+  onEpochEnd: (epoch, loss, valLoss) => {
+    console.log(`Epoch ${epoch}: loss=${loss.toFixed(4)}, valLoss=${valLoss?.toFixed(4)}`);
+  },
+});
+
+console.log(`Best epoch: ${result.bestEpoch}, Best loss: ${result.bestLoss}`);
+console.log("Training history:", result.history.loss);
+```
+
+###### Legacy Callback (Tetap Didukung)
 ```ts
 model.fit(trainData, labels, 100, (loss) => {
   console.log(`Current Loss: ${loss}`);
 });
 ```
 
+> ```ts
+> const result = autoencoderModel.fit(X, epochs, { batchSize: 8 });
+> ```
+
 ---
 
-### B. Dense Layer (Fully Connected)
+### B. Transformers Model
+
+Model arsitektur Transformer yang lengkap (berbasis arsitektur `Sequential`).
+
+#### `constructor(config)`
+- **`units`**: Dimensi model (`d_model`).
+- **`seqLen`**: Panjang urutan input.
+- **`vocabSize`**: Ukuran kosakata.
+- **`heads`**: Jumlah attention heads (default: 8).
+- **`dropoutRate`**: Tingkat dropout (default: 0.1).
+- **`alpha`**: Learning rate (default: 0.01).
+- **`clipGradient`**: Batas clipping gradien global untuk seluruh sub-layer (default: 5.0).
+
+```ts
+import { Transformers } from "./src/models";
+
+const model = new Transformers({
+  units: 128,
+  seqLen: 50,
+  vocabSize: 5000,
+  clipGradient: 1.5
+});
+```
+
+---
+
+### C. Dense Layer (Fully Connected)
 
 Layer standar di mana setiap input terhubung ke setiap output.
 
@@ -551,6 +646,7 @@ Layer standar di mana setiap input terhubung ke setiap output.
 - **`outputUnits`**: Jumlah neuron output.
 - **`activation`**: Nama fungsi aktivasi (misal: `"relu"`, `"sigmoid"`).
 - **`optimizer`**: Algoritma optimasi (misal: `"sgd"`, `"adam"`).
+- **`clipGradient`**: Batas clipping gradien khusus untuk layer ini (default: 5.0).
 
 ```ts
 import { Dense } from "./src/layers";
@@ -565,7 +661,7 @@ const layer = new Dense({
 
 ---
 
-### C. Embedding Layer
+### D. Embedding Layer
 
 Digunakan untuk mengubah indeks kata (integer) menjadi vektor padat (*dense vector*). Sangat penting untuk tugas NLP.
 
@@ -584,7 +680,7 @@ const embed = new Embedding({
 
 ---
 
-### D. Multi-Head Attention
+### E. Multi-Head Attention
 
 Inti dari arsitektur Transformer yang memungkinkan model fokus pada bagian input yang berbeda secara bersamaan.
 
@@ -592,6 +688,7 @@ Inti dari arsitektur Transformer yang memungkinkan model fokus pada bagian input
 - **`units`**: Dimensi internal (harus habis dibagi jumlah `heads`).
 - **`heads`**: Jumlah mekanisme atensi paralel.
 - **`seqLen`**: Panjang urutan input maksimal.
+- **`clipGradient`**: Batas clipping gradien (default: 5.0).
 
 ```ts
 import { MultiHeadAttention } from "./src/layers";
@@ -605,12 +702,13 @@ const attention = new MultiHeadAttention({
 
 ---
 
-### E. Layer Utilitas Lainnya
+### F. Layer Utilitas Lainnya
 
-- **`Flatten`**: Meratakan matriks menjadi satu dimensi.
-- **`Dropout`**: Menonaktifkan neuron secara acak untuk mencegah overfitting.
-- **`LayerNormalization`**: Menstabilkan distribusi nilai di dalam jaringan.
-- **`Convolution`**: Operasi filter 2D untuk data spasial.
+- **`Flatten`**: Meratakan matriks menjadi satu dimensi (biasanya sebelum Dense layer).
+- **`Dropout({ rate })`**: Menonaktifkan neuron secara acak untuk mencegah overfitting.
+- **`LayerNormalization({ units, clipGradient })`**: Menstabilkan distribusi nilai di dalam jaringan.
+- **`Convolution({ kernelSize, inputShape, activation, clipGradient })`**: Operasi filter 2D untuk data spasial (Gambar).
+- **`SelfAttention({ units, alpha, clipGradient })`**: Mekanisme atensi dasar untuk satu input.
 
 ---
 

@@ -8,7 +8,7 @@ export default class Dropout {
   mask: Matrix = mj.matrix([]);
   status: StatusLayer;
   private training: boolean = false;
-  
+
   inputShape: [number, number] = [0, 0];
   outputShape: [number, number] = [0, 0];
   params: number = 0;
@@ -37,7 +37,7 @@ export default class Dropout {
   forward(x: Matrix): Matrix {
     this.inputShape = [x._shape[0], x._shape[1]];
     this.outputShape = [x._shape[0], x._shape[1]];
-    
+
     // Hanya lakukan dropout JIKA statusnya adalah 'train'
     // Jika 'test' atau status lain, kembalikan input tanpa modifikasi
     if (!this.training || this.rate === 0) {

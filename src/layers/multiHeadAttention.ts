@@ -11,6 +11,7 @@ interface MultiHeadAttentionLayer {
   seqLen: number;
   alpha?: number;
   status?: StatusLayer;
+  clipGradient?: number | boolean;
 }
 
 export default class MultiHeadAttention {
@@ -21,6 +22,7 @@ export default class MultiHeadAttention {
   seqLen: number;
   alpha: number;
   status: StatusLayer;
+  clipGradient: number | boolean;
 
   q: Matrix;
   k: Matrix;
@@ -65,12 +67,13 @@ export default class MultiHeadAttention {
   private errAttentionScratch: Float32Array;
   private errScoreScratch: Float32Array;
 
-  constructor({ units, heads, seqLen, alpha = 0.1, status = "input" }: MultiHeadAttentionLayer) {
+  constructor({ units, heads, seqLen, alpha = 0.1, status = "input", clipGradient = 5.0 }: MultiHeadAttentionLayer) {
     this.units = units;
     this.heads = heads;
     this.seqLen = seqLen;
     this.alpha = alpha;
     this.status = status;
+    this.clipGradient = clipGradient;
 
     this.inputShape = [units, seqLen];
     this.outputShape = [units, seqLen];
@@ -89,6 +92,7 @@ export default class MultiHeadAttention {
       outputUnits: this.units,
       activation: "linear",
       alpha,
+      clipGradient,
     });
 
     this.optimizerQ = setOptimizer(this.optimizerName, this.q._shape, alpha);
@@ -120,7 +124,7 @@ export default class MultiHeadAttention {
     this.ensureSequenceBuffersForBatch(seqLen);
   }
 
-  compile({ alpha, optimizer, error }: { alpha?: number; optimizer?: Optimzier; error?: Cost }) {
+  compile({ alpha, optimizer, error, clipGradient }: { alpha?: number; optimizer?: Optimzier; error?: Cost; clipGradient?: number | boolean }) {
     if (alpha !== undefined) this.alpha = alpha;
     if (optimizer !== undefined) {
       this.optimizerName = optimizer;
@@ -140,8 +144,11 @@ export default class MultiHeadAttention {
   forward(x: Matrix): Matrix {
     const totalCols = x._shape[1];
     const seqLen = this.seqLen;
-    const batchSize = Math.floor(totalCols / seqLen);
-    
+    if (totalCols % seqLen !== 0) {
+      throw new Error(`MultiHeadAttention.forward: totalCols (${totalCols}) is not divisible by seqLen (${seqLen})`);
+    }
+    const batchSize = totalCols / seqLen;
+
     this.ensureSequenceBuffersForBatch(totalCols);
 
     this.input = x;
@@ -197,7 +204,10 @@ export default class MultiHeadAttention {
     const dCat = this.wo.backward(y, err);
     const totalCols = dCat._shape[1];
     const seqLen = this.seqLen;
-    const batchSize = Math.floor(totalCols / seqLen);
+    if (totalCols % seqLen !== 0) {
+      throw new Error(`MultiHeadAttention.backward: totalCols (${totalCols}) is not divisible by seqLen (${seqLen})`);
+    }
+    const batchSize = totalCols / seqLen;
     const scale = 1 / Math.sqrt(this.headUnits);
 
     if (isNativeAvailable()) {
@@ -242,9 +252,12 @@ export default class MultiHeadAttention {
     const gradK = mj.dotProduct(this.dKAll, this.input, this.gradKBuffer, false, true);
     const gradV = mj.dotProduct(this.dVAll, this.input, this.gradVBuffer, false, true);
 
-    this.clipGradients(gradQ, 1.0);
-    this.clipGradients(gradK, 1.0);
-    this.clipGradients(gradV, 1.0);
+    if (this.clipGradient !== false) {
+      const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
+      this.clipGradients(gradQ, limit);
+      this.clipGradients(gradK, limit);
+      this.clipGradients(gradV, limit);
+    }
 
     this.oldQBuffer.copyFrom(this.q);
     this.oldKBuffer.copyFrom(this.k);
@@ -271,6 +284,7 @@ export default class MultiHeadAttention {
       heads: this.heads,
       seqLen: this.seqLen,
       alpha: this.alpha,
+      clipGradient: this.clipGradient,
       q: this.q._value,
       k: this.k._value,
       v: this.v._value,
@@ -288,8 +302,9 @@ export default class MultiHeadAttention {
     }
 
     if (data.wo) {
-      this.wo.load(data.wo.weight, data.wo.bias);
+      this.wo.load(data.wo.weight, data.wo.bias, data.wo.clipGradient);
     }
+    if (data.clipGradient !== undefined) this.clipGradient = data.clipGradient;
     this.optimizerQ = setOptimizer(this.optimizerName, this.q._shape, this.alpha);
     this.optimizerK = setOptimizer(this.optimizerName, this.k._shape, this.alpha);
     this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, this.alpha);

@@ -81,13 +81,13 @@ export default class PositionalEncoding {
     this.outputShape = [this.dModel, actualSeqLen];
 
     const cols = actualSeqLen;
-    
+
     if (!this.resultBuffer || this.resultBuffer._shape[0] !== this.dModel || this.resultBuffer._shape[1] !== actualSeqLen) {
       this.resultBuffer = mj.zeros([this.dModel, actualSeqLen]);
     }
     const result = this.resultBuffer._data;
     result.fill(0);
-    
+
     const xData = x._data;
     const peData = this.peTable._data;
     const peCols = this.peTable._shape[1];

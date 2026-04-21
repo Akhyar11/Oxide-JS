@@ -7,6 +7,9 @@ import { isNativeAvailable, clipGradientsNative, shouldUseNativeElementwise } fr
  * @param limit Batas maksimum/minimum (abs)
  */
 export default function clipGradients(a: Matrix, limit: number): void {
+  if (!Number.isFinite(limit) || limit < 0) {
+    throw new Error(`clipGradients: limit must be a finite non-negative number, got ${limit}`);
+  }
   if (isNativeAvailable() && shouldUseNativeElementwise(a._data.length)) {
     clipGradientsNative(a._data, limit);
   } else {

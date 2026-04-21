@@ -70,7 +70,7 @@ export default class BPETokenizer {
     // === STEP 2: Tokenisasi awal — pecah setiap kata jadi karakter ===
     // Pre-tokenize: split berdasarkan spasi, tambahkan word boundary marker
     // "saya makan" → ["▁s", "a", "y", "a", " ", "▁m", "a", "k", "a", "n"]
-    
+
     // Hitung frekuensi setiap kata
     const wordFreq: Map<string, number> = new Map();
     for (const text of texts) {
@@ -134,7 +134,7 @@ export default class BPETokenizer {
 
     for (const [word, freq] of wordFreq) {
       let symbols = [...word];
-      
+
       // 1. Pastikan karakter dasar ada di vocab
       for (const char of symbols) {
         if (!this.vocab.has(char)) {
@@ -150,7 +150,7 @@ export default class BPETokenizer {
         const merged = left + right;
         symbols = this.applyMerge(symbols, left, right, merged);
       }
-      
+
       // Hal pertama yang perlu di cek dari korpus baru: apakah ada kombinasi > 3 token?
       // Jika ada, masukkan ke token alokasi (placeholder) atau buat ID baru.
       // UPDATE: Hanya lakukan ini untuk kata (alfabet), simbol kombinasi (1-2-3) diabaikan.
@@ -169,10 +169,10 @@ export default class BPETokenizer {
           // Gunakan token utuh yang baru (atau lama) agar panjangnya jadi 1 token
           symbols = [fullWord];
         } else {
-          console.log(`[BPE] Kombinasi simbol terdeteksi: "${fullWord}" (${symbols.length} token). Biarkan tetap di korpus BPE.`);
+          // console.log(`[BPE] Kombinasi simbol terdeteksi: "${fullWord}" (${symbols.length} token). Biarkan tetap di korpus BPE.`);
         }
       }
-      
+
       // Hanya masukkan ke korpus training jika kata tersebut (entah bagaimana) masih "kompleks"
       // Seharusnya sekarang sudah jadi 1 token jika melewati blok di atas.
       if (symbols.length > 3) {
@@ -240,7 +240,7 @@ export default class BPETokenizer {
 
       // HANYA tambah ke merges jika belum ada
       const alreadyMerged = this.merges.some(([l, r]) => l === left && r === right);
-      
+
       if (!alreadyMerged) {
         if (!this.vocab.has(merged)) {
           this.merges.push([left, right]);
@@ -249,7 +249,7 @@ export default class BPETokenizer {
             nextId = allocatedId + 1;
           }
         }
-        
+
         // 3d. Terapkan merge ke seluruh corpus
         for (const entry of corpus) {
           entry.symbols = this.applyMerge(entry.symbols, left, right, merged);
@@ -339,9 +339,9 @@ export default class BPETokenizer {
 
     // 2. Filter vocab (remove compound symbols)
     for (const [token, id] of this.vocab) {
-      const isSpecial = this.specialTokens.includes(token) || 
-                       token.startsWith("<UNUSED_") || 
-                       token.startsWith("<RESERVED_");
+      const isSpecial = this.specialTokens.includes(token) ||
+        token.startsWith("<UNUSED_") ||
+        token.startsWith("<RESERVED_");
       if (isSpecial) continue;
 
       // Single characters are always kept

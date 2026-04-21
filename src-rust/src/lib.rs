@@ -199,11 +199,21 @@ pub fn softmax_native_into(data: Float32Array, rows: u32, cols: u32, is_row: boo
             let offset = i * c;
             let mut max_val = f32::NEG_INFINITY;
             for j in 0..c { if out[offset + j] > max_val { max_val = out[offset + j]; } }
-            let mut sum_exp = 0.0;
+            if !max_val.is_finite() {
+                let uniform = 1.0 / c as f32;
+                for j in 0..c { out[offset + j] = uniform; }
+                continue;
+            }
+            let mut sum_exp = 0.0f32;
             for j in 0..c {
                 let exp_val = (out[offset + j] - max_val).exp();
                 out[offset + j] = exp_val;
                 sum_exp += exp_val;
+            }
+            if !sum_exp.is_finite() || sum_exp <= 0.0 {
+                let uniform = 1.0 / c as f32;
+                for j in 0..c { out[offset + j] = uniform; }
+                continue;
             }
             for j in 0..c { out[offset + j] /= sum_exp; }
         }
@@ -211,12 +221,22 @@ pub fn softmax_native_into(data: Float32Array, rows: u32, cols: u32, is_row: boo
         for j in 0..c {
             let mut max_val = f32::NEG_INFINITY;
             for i in 0..r { if out[i * c + j] > max_val { max_val = out[i * c + j]; } }
-            let mut sum_exp = 0.0;
+            if !max_val.is_finite() {
+                let uniform = 1.0 / r as f32;
+                for i in 0..r { out[i * c + j] = uniform; }
+                continue;
+            }
+            let mut sum_exp = 0.0f32;
             for i in 0..r {
                 let idx = i * c + j;
                 let exp_val = (out[idx] - max_val).exp();
                 out[idx] = exp_val;
                 sum_exp += exp_val;
+            }
+            if !sum_exp.is_finite() || sum_exp <= 0.0 {
+                let uniform = 1.0 / r as f32;
+                for i in 0..r { out[i * c + j] = uniform; }
+                continue;
             }
             for i in 0..r { out[i * c + j] /= sum_exp; }
         }
@@ -431,9 +451,10 @@ pub fn embedding_forward_native_into(
     let v_size = vocab_size as usize;
     for i in 0..out.len() { out[i] = 0.0; }
     for j in 0..seq_len {
-        let token_idx = indices[j] as usize;
-        if let Some(pad_id) = pad_token_id { if token_idx == pad_id as usize { continue; } }
-        if token_idx >= v_size { continue; }
+        let raw = indices[j];
+        if !raw.is_finite() || raw < 0.0 || raw >= v_size as f64 { continue; }
+        let token_idx = raw as usize;
+        if let Some(pad_id) = pad_token_id { if pad_id >= 0 && token_idx == pad_id as usize { continue; } }
         for i in 0..dim { out[i * seq_len + j] = weight_data[i * v_size + token_idx]; }
     }
 }
@@ -453,12 +474,12 @@ pub fn embedding_backward_native(
 
     for i in 0..dim {
         for j in 0..seq_len {
-            let token_idx = indices[j] as usize;
+            let raw = indices[j];
+            if !raw.is_finite() || raw < 0.0 || raw >= v_size as f64 { continue; }
+            let token_idx = raw as usize;
             if let Some(pad_id) = pad_token_id {
-                if token_idx == pad_id as usize { continue; }
+                if pad_id >= 0 && token_idx == pad_id as usize { continue; }
             }
-            if token_idx >= v_size { continue; }
-            
             grad_data[i * v_size + token_idx] += err_data[i * seq_len + j];
         }
     }
@@ -617,16 +638,19 @@ pub fn adam_update_native(
 
 #[napi]
 pub fn add_in_place(mut a: Float32Array, b: Float32Array) {
+    assert_eq!(a.len(), b.len(), "add_in_place: length mismatch {} != {}", a.len(), b.len());
     for i in 0..a.len() { a[i] += b[i]; }
 }
 
 #[napi]
 pub fn sub_in_place(mut a: Float32Array, b: Float32Array) {
+    assert_eq!(a.len(), b.len(), "sub_in_place: length mismatch {} != {}", a.len(), b.len());
     for i in 0..a.len() { a[i] -= b[i]; }
 }
 
 #[napi]
 pub fn mul_in_place(mut a: Float32Array, b: Float32Array) {
+    assert_eq!(a.len(), b.len(), "mul_in_place: length mismatch {} != {}", a.len(), b.len());
     for i in 0..a.len() { a[i] *= b[i]; }
 }
 
