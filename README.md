@@ -11,22 +11,22 @@ ML-V1 adalah library low-level sampai mid-level untuk eksperimen dan pengembanga
 - Menggabungkan kemudahan TypeScript dengan performa Rust untuk hot paths.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `1.1.6`.
+Versi aktif proyek saat ini adalah `1.2.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.1.6`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.2.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `1.1.6`: rilis mayor `1`, fitur set kedua (`1`), dengan 6 patch/perbaikan internal (`6`).
+- `1.2.0`: rilis mayor `1`, fitur set ketiga (`2`), baseline minor baru (`0`) untuk penambahan fitur non-breaking.
 - `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.
 
 ## Key features
 - `Matrix` berbasis `Float32Array` (flat contiguous memory).
 - Operasi math inti (`dotProduct`, `add`, `sumAxis`, `clipGradients`, dst).
-- Layer: `Dense`, `Embedding`, `SelfAttention`, `MultiHeadAttention`, `LayerNormalization`, `Dropout`, `PositionalEncoding`, `Flatten`, `Convolution`.
+- Layer: `Dense`, `Embedding`, `RNN`, `LSTM`, `GRU`, `SelfAttention`, `MultiHeadAttention`, `LayerNormalization`, `Dropout`, `PositionalEncoding`, `Flatten`, `Convolution`.
 - Model: `Sequential`, `Transformers`, `DimentionalityReduction`.
 - Tokenizer BPE (`train`, `update`, `encode`, `decode`, `padSequence`, `save/load`).
 - Native Rust fallback-aware (otomatis ke JS jika native tidak tersedia).
@@ -177,6 +177,7 @@ console.log("loss", model.loss);
 - `Dropout`: aktif di mode train.
 - `PositionalEncoding`: sinusoidal fixed encoding.
 - `MultiHeadAttention`/`SelfAttention`: attention mask causal + pad handling.
+- `RNN`/`LSTM`/`GRU`: recurrent sequence modeling dengan BPTT, gradient clipping, save/load, dan mode stateful.
 
 ## Tokenizer overview
 `BPETokenizer` mendukung:

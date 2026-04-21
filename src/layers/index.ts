@@ -8,6 +8,24 @@ import PositionalEncoding from "./positionalEncoding";
 import LayerNormalization from "./layerNormalization";
 import Dropout from "./dropout";
 import MultiHeadAttention from "./multiHeadAttention";
+import RNN from "./rnn";
+import LSTM from "./lstm";
+import GRU from "./gru";
 import { CompileDenseLayers } from "./dense";
 
-export { Dense, Convolution, Activation, CompileDenseLayers, SelfAttention, MultiHeadAttention, Embedding, Flatten, PositionalEncoding, LayerNormalization, Dropout };
+export {
+  Dense,
+  Convolution,
+  Activation,
+  CompileDenseLayers,
+  SelfAttention,
+  MultiHeadAttention,
+  Embedding,
+  Flatten,
+  PositionalEncoding,
+  LayerNormalization,
+  Dropout,
+  RNN,
+  LSTM,
+  GRU,
+};

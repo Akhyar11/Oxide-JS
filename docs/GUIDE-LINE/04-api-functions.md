@@ -709,6 +709,9 @@ const attention = new MultiHeadAttention({
 - **`LayerNormalization({ units, clipGradient })`**: Menstabilkan distribusi nilai di dalam jaringan.
 - **`Convolution({ kernelSize, inputShape, activation, clipGradient })`**: Operasi filter 2D untuk data spasial (Gambar).
 - **`SelfAttention({ units, alpha, clipGradient })`**: Mekanisme atensi dasar untuk satu input.
+- **`RNN({ units, hiddenUnits, activation, returnSequences, stateful, clipGradient })`**: Recurrent layer dasar dengan BPTT.
+- **`LSTM({ units, hiddenUnits, returnSequences, stateful, clipGradient })`**: Recurrent layer dengan cell-state + gate input/forget/output.
+- **`GRU({ units, hiddenUnits, bidirectional, returnSequences, stateful, clipGradient })`**: Recurrent layer gate update/reset dengan opsi bidirectional.
 
 ---
 

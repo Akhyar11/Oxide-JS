@@ -61,6 +61,7 @@ Catatan:
 | [v1.0.0](./v1.0.0.md) | 2026-04-17 | `47e7734` | Baseline awal synthetic benchmark untuk versi sekarang |
 | [v1.1.0](./v1.1.0.md) | 2026-04-18 | `b2ff012` | Snapshot benchmark versi sekarang dengan aset vocab `dataset/math_vocab.json` |
 | [v1.1.6](./v1.1.6.md) | 2026-04-21 | `78bd441` | Konsolidasi test menjadi satu baseline synthetic benchmark dan snapshot hasil terbaru |
+| [v1.2.0](./v1.2.0.md) | 2026-04-21 | (latest) | Penambahan benchmark untuk model Recurrent (RNN, LSTM, GRU) |
 
 ## Cara Menambah Versi Baru
 
@@ -77,7 +78,7 @@ Catatan:
 - Benchmark yang gagal tetap penting karena bisa menunjukkan regresi, mismatch konfigurasi, atau masalah validitas harness.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `1.1.6`.
+Versi aktif proyek saat ini adalah `1.2.0`.
 
 Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.1.6`.
 

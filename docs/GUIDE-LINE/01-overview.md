@@ -32,6 +32,7 @@ Untuk operasi yang memakan waktu lama (hot paths), ML-V1 secara otomatis melakuk
 ### 3. Komponen Jaringan Saraf (`src/layers`)
 Modul ini menyediakan blok bangunan untuk menyusun model:
 - **Linear/Dense**: Full-connected layers dengan dukungan optimizer.
+- **Recurrent**: `RNN`, `LSTM`, dan `GRU` untuk pemodelan urutan berbasis hidden state.
 - **Attention**: Implementasi *Self-Attention* dan *Multi-Head Attention* dengan skema causal masking.
 - **Normalization**: *Layer Normalization* untuk stabilitas training.
 - **Specialized**: *Embedding*, *Dropout*, *Positional Encoding*, dan *Flatten*.
@@ -69,7 +70,7 @@ ML-V1 memprioritaskan performa melalui:
 ---
 
 > [!NOTE]
-> Proyek ini sedang dalam pengembangan aktif (v1.1.6). Pastikan untuk selalu memeriksa kompatibilitas antara versi library dan backend native yang digunakan.
+> Proyek ini sedang dalam pengembangan aktif (v1.2.0). Pastikan untuk selalu memeriksa kompatibilitas antara versi library dan backend native yang digunakan.
 
 **Langkah Berikutnya:**
 Lanjutkan ke bagian [Instalasi](02-installation.md) untuk mulai menyiapkan lingkungan pengembangan Anda.

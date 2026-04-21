@@ -7,6 +7,9 @@ import Flatten from "../layers/flatten";
 import PositionalEncoding from "../layers/positionalEncoding";
 import LayerNormalization from "../layers/layerNormalization";
 import MultiHeadAttention from "../layers/multiHeadAttention";
+import RNN from "../layers/rnn";
+import LSTM from "../layers/lstm";
+import GRU from "../layers/gru";
 import Dropout from "../layers/dropout";
 import Matrix from "../matrix";
 import AdaGrad from "../optimizer/adaGrad";
@@ -45,7 +48,10 @@ export type Layers =
     | PositionalEncoding
     | LayerNormalization
     | MultiHeadAttention
-    | Dropout;
+    | Dropout
+    | RNN
+    | LSTM
+    | GRU;
 
 export type WorkerData = {
   value: number;

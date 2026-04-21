@@ -6,9 +6,12 @@ import {
   Dropout,
   Embedding,
   Flatten,
+  GRU,
   LayerNormalization,
+  LSTM,
   MultiHeadAttention,
   PositionalEncoding,
+  RNN,
   SelfAttention,
 } from "../layers";
 import { SequentialLayers } from "../models/sequential";
@@ -121,6 +124,59 @@ registerLayer("dropout layer", (data) => {
   });
   dropout.load(data);
   return dropout;
+});
+
+registerLayer("rnn layer", (data) => {
+  const rnn = new RNN({
+    units: data.units,
+    hiddenUnits: data.hiddenUnits,
+    activation: data.activation,
+    returnSequences: data.returnSequences,
+    returnState: data.returnState,
+    stateful: data.stateful,
+    alpha: data.alpha,
+    optimizer: data.optimizer,
+    status: data.status,
+    clipGradient: data.clipGradient,
+    loss: data.loss,
+  });
+  rnn.load(data);
+  return rnn;
+});
+
+registerLayer("lstm layer", (data) => {
+  const lstm = new LSTM({
+    units: data.units,
+    hiddenUnits: data.hiddenUnits,
+    returnSequences: data.returnSequences,
+    returnState: data.returnState,
+    stateful: data.stateful,
+    alpha: data.alpha,
+    optimizer: data.optimizer,
+    status: data.status,
+    clipGradient: data.clipGradient,
+    loss: data.loss,
+  });
+  lstm.load(data);
+  return lstm;
+});
+
+registerLayer("gru layer", (data) => {
+  const gru = new GRU({
+    units: data.units,
+    hiddenUnits: data.hiddenUnits,
+    returnSequences: data.returnSequences,
+    returnState: data.returnState,
+    stateful: data.stateful,
+    bidirectional: data.bidirectional,
+    alpha: data.alpha,
+    optimizer: data.optimizer,
+    status: data.status,
+    clipGradient: data.clipGradient,
+    loss: data.loss,
+  });
+  gru.load(data);
+  return gru;
 });
 
 registerLayer("flatten", (data) => new Flatten(data.status));

@@ -106,6 +106,40 @@ tokenizer.save("./my-tokenizer.json");
 
 ---
 
+## 5. Sequence Modeling dengan GRU
+
+Gunakan layer recurrent saat input berupa urutan (shape umum: `[features, seqLen]`).
+
+```ts
+import mj from "./src/math";
+import { Sequential } from "./src/models";
+import { GRU, Dense } from "./src/layers";
+
+const model = new Sequential({
+  layers: [
+    new GRU({ units: 8, hiddenUnits: 16, returnSequences: false, status: "input" }),
+    new Dense({ units: 16, outputUnits: 4, activation: "linear", status: "output", loss: "softmaxCrossEntropy" }),
+  ],
+});
+
+model.compile({ alpha: 0.001, optimizer: "adam", error: "softmaxCrossEntropy" });
+const x = mj.matrix([
+  [1, 2, 3],
+  [0, 1, 0],
+  [1, 0, 1],
+  [0, 0, 1],
+  [1, 1, 1],
+  [0, 1, 1],
+  [1, 0, 0],
+  [0, 0, 0],
+]); // [8, 3]
+const y = mj.matrix([[2]]);
+model.forward(x);
+model.backward(y);
+```
+
+---
+
 ## Tips Pengembangan
 
 - **Mode Training vs Evol**: Gunakan `model.train()` saat melatih dan `model.eval()` saat melakukan inferensi (terutama jika menggunakan layer `Dropout`).
