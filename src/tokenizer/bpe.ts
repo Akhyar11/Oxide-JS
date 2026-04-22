@@ -452,6 +452,18 @@ export default class BPETokenizer {
   }
 
   /**
+   * Dapatkan kapasitas vocabulary berdasarkan ID tertinggi + 1.
+   * Ini penting karena ID token bisa tidak selalu rapat setelah placeholder direuse.
+   */
+  getVocabularyCapacity(): number {
+    let maxId = -1;
+    for (const id of this.vocab.values()) {
+      if (id > maxId) maxId = id;
+    }
+    return maxId + 1;
+  }
+
+  /**
    * Dapatkan ID dari sebuah token
    */
   getTokenId(token: string): number | undefined {
