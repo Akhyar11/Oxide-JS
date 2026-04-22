@@ -39,6 +39,7 @@
 | Nama | File | Command | Status |
 | --- | --- | --- | --- |
 | training_step | `test/benchmark_training_step.ts` | `node -r ts-node/register/transpile-only test/benchmark_training_step.ts` | pending |
+| transformer_perf_breakdown | `test/benchmark/transformer_perf_breakdown.ts` | `node -r ts-node/register test/benchmark/transformer_perf_breakdown.ts` | pending |
 
 ## Hasil
 
@@ -54,6 +55,18 @@
 - Status:
 - Ukuran data training:
 - Metrik utama:
+- Output ringkas:
+
+### 3. `stage_profile` atau `perf_breakdown`
+
+- Status:
+- Konfigurasi:
+- Metrik utama:
+  - `inferenceOnlyMsPerIter` bila ada benchmark generation/inference
+  - `forwardOnlyMsPerIter`
+  - `backwardOnlyMsPerIter`
+  - `trainingStepMsPerIter`
+  - stage profile rata-rata
 - Output ringkas:
 
 ## Benchmark Gagal
@@ -78,14 +91,14 @@
 - Pertahankan command dan konfigurasi benchmark agar histori tetap comparable.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `1.1.6`.
+Versi aktif proyek saat ini adalah `2.0.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.1.6`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `2.0.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `1.1.6`: rilis mayor `1`, fitur set kedua (`1`), dengan 6 patch/perbaikan internal (`6`).
+- `2.0.0`: rilis mayor `2`, fitur set nol (`0`), dengan patch awal (`0`) untuk major update.
 - `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.

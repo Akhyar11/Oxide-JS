@@ -37,7 +37,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.android-arm64.node')
           } else {
-            nativeBinding = require('ml-v2-android-arm64')
+            nativeBinding = require('ml-v1-android-arm64')
           }
         } catch (e) {
           loadError = e
@@ -49,7 +49,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.android-arm-eabi.node')
           } else {
-            nativeBinding = require('ml-v2-android-arm-eabi')
+            nativeBinding = require('ml-v1-android-arm-eabi')
           }
         } catch (e) {
           loadError = e
@@ -69,7 +69,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.win32-x64-msvc.node')
           } else {
-            nativeBinding = require('ml-v2-win32-x64-msvc')
+            nativeBinding = require('ml-v1-win32-x64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -83,7 +83,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.win32-ia32-msvc.node')
           } else {
-            nativeBinding = require('ml-v2-win32-ia32-msvc')
+            nativeBinding = require('ml-v1-win32-ia32-msvc')
           }
         } catch (e) {
           loadError = e
@@ -97,7 +97,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.win32-arm64-msvc.node')
           } else {
-            nativeBinding = require('ml-v2-win32-arm64-msvc')
+            nativeBinding = require('ml-v1-win32-arm64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -113,7 +113,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./ml-native.darwin-universal.node')
       } else {
-        nativeBinding = require('ml-v2-darwin-universal')
+        nativeBinding = require('ml-v1-darwin-universal')
       }
       break
     } catch {}
@@ -124,7 +124,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.darwin-x64.node')
           } else {
-            nativeBinding = require('ml-v2-darwin-x64')
+            nativeBinding = require('ml-v1-darwin-x64')
           }
         } catch (e) {
           loadError = e
@@ -138,7 +138,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.darwin-arm64.node')
           } else {
-            nativeBinding = require('ml-v2-darwin-arm64')
+            nativeBinding = require('ml-v1-darwin-arm64')
           }
         } catch (e) {
           loadError = e
@@ -157,7 +157,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./ml-native.freebsd-x64.node')
       } else {
-        nativeBinding = require('ml-v2-freebsd-x64')
+        nativeBinding = require('ml-v1-freebsd-x64')
       }
     } catch (e) {
       loadError = e
@@ -174,7 +174,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-x64-musl.node')
             } else {
-              nativeBinding = require('ml-v2-linux-x64-musl')
+              nativeBinding = require('ml-v1-linux-x64-musl')
             }
           } catch (e) {
             loadError = e
@@ -187,7 +187,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-x64-gnu.node')
             } else {
-              nativeBinding = require('ml-v2-linux-x64-gnu')
+              nativeBinding = require('ml-v1-linux-x64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -203,7 +203,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-arm64-musl.node')
             } else {
-              nativeBinding = require('ml-v2-linux-arm64-musl')
+              nativeBinding = require('ml-v1-linux-arm64-musl')
             }
           } catch (e) {
             loadError = e
@@ -216,7 +216,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-arm64-gnu.node')
             } else {
-              nativeBinding = require('ml-v2-linux-arm64-gnu')
+              nativeBinding = require('ml-v1-linux-arm64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -232,7 +232,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-arm-musleabihf.node')
             } else {
-              nativeBinding = require('ml-v2-linux-arm-musleabihf')
+              nativeBinding = require('ml-v1-linux-arm-musleabihf')
             }
           } catch (e) {
             loadError = e
@@ -245,7 +245,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-arm-gnueabihf.node')
             } else {
-              nativeBinding = require('ml-v2-linux-arm-gnueabihf')
+              nativeBinding = require('ml-v1-linux-arm-gnueabihf')
             }
           } catch (e) {
             loadError = e
@@ -261,7 +261,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-riscv64-musl.node')
             } else {
-              nativeBinding = require('ml-v2-linux-riscv64-musl')
+              nativeBinding = require('ml-v1-linux-riscv64-musl')
             }
           } catch (e) {
             loadError = e
@@ -274,7 +274,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./ml-native.linux-riscv64-gnu.node')
             } else {
-              nativeBinding = require('ml-v2-linux-riscv64-gnu')
+              nativeBinding = require('ml-v1-linux-riscv64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -289,7 +289,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./ml-native.linux-s390x-gnu.node')
           } else {
-            nativeBinding = require('ml-v2-linux-s390x-gnu')
+            nativeBinding = require('ml-v1-linux-s390x-gnu')
           }
         } catch (e) {
           loadError = e
@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, layerNormBackwardNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative, multiHeadAttentionForwardNativeInto, multiHeadAttentionBackwardNativeInto } = nativeBinding
+const { dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, layerNormBackwardNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative, maskedSparseSoftmaxCrossEntropyInto, projectLastTokenLogitsNativeInto, multiHeadAttentionForwardNativeInto, multiHeadAttentionBackwardNativeInto } = nativeBinding
 
 module.exports.dotProduct = dotProduct
 module.exports.dotProductInto = dotProductInto
@@ -339,5 +339,7 @@ module.exports.mseNative = mseNative
 module.exports.addBiasNative = addBiasNative
 module.exports.sumAxisNative = sumAxisNative
 module.exports.clipGradientsNative = clipGradientsNative
+module.exports.maskedSparseSoftmaxCrossEntropyInto = maskedSparseSoftmaxCrossEntropyInto
+module.exports.projectLastTokenLogitsNativeInto = projectLastTokenLogitsNativeInto
 module.exports.multiHeadAttentionForwardNativeInto = multiHeadAttentionForwardNativeInto
 module.exports.multiHeadAttentionBackwardNativeInto = multiHeadAttentionBackwardNativeInto

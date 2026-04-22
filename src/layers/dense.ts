@@ -12,7 +12,7 @@ import setActivation from "../utils/setActivation";
 import Matrix from "../matrix";
 import setOptimizer from "../utils/setOptimizer";
 import setLoss from "../utils/setLoss";
-import { isNativeAvailable, reluNative, sigmoidNative, tanhNative } from "../math/rust_backend";
+import { isNativeAvailable, projectLastTokenLogitsNative, reluNative, sigmoidNative, tanhNative } from "../math/rust_backend";
 
 interface DenseLayers {
   units: number;
@@ -64,6 +64,7 @@ export default class Dense {
   private errBiasBuffer: Matrix;
   private errActivationBuffer: Matrix;
   private prevLayerErrBuffer: Matrix;
+  private lastTokenProjectBuffer: Matrix;
 
   constructor({
     units,
@@ -100,6 +101,7 @@ export default class Dense {
     this.errBiasBuffer = mj.zeros([outputUnits, 1]);
     this.errActivationBuffer = mj.zeros([outputUnits, 1]);
     this.prevLayerErrBuffer = mj.zeros([units, 1]);
+    this.lastTokenProjectBuffer = mj.zeros([outputUnits, 1]);
     this.activation = setActivation(activation);
     this.activationName = activation;
     this.optimizerName = optimizer;
@@ -146,6 +148,7 @@ export default class Dense {
     this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
     this.errActivationBuffer = mj.zeros([this.outputUnits, 1]);
     this.prevLayerErrBuffer = mj.zeros([this.units, 1]);
+    this.lastTokenProjectBuffer = mj.zeros([this.outputUnits, 1]);
     this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, 1e-5);
     this.optimizerBias = setOptimizer(this.optimizerName, this.bias._shape, 1e-5);
   }
@@ -390,6 +393,54 @@ export default class Dense {
     this.sumLoss = 0;
     this.index = 0;
     this.loss = 0;
+  }
+
+  getLastOutput(): Matrix {
+    return this.result;
+  }
+
+  projectLastTokenFromSequence(sequence: Matrix, seqLen: number, batchSize: number): Matrix {
+    if (this.activationName !== "linear") {
+      throw new Error("Dense.projectLastTokenFromSequence hanya mendukung activation='linear'.");
+    }
+
+    if (this.lastTokenProjectBuffer._shape[0] !== this.outputUnits || this.lastTokenProjectBuffer._shape[1] !== batchSize) {
+      this.lastTokenProjectBuffer = mj.zeros([this.outputUnits, batchSize]);
+    }
+
+    if (isNativeAvailable()) {
+      projectLastTokenLogitsNative(
+        sequence._data,
+        this.weight._data,
+        this.bias._data,
+        this.units,
+        seqLen,
+        batchSize,
+        this.outputUnits,
+        this.lastTokenProjectBuffer._data
+      );
+      return this.lastTokenProjectBuffer;
+    }
+
+    const sourceData = sequence._data;
+    const outData = this.lastTokenProjectBuffer._data;
+    const totalCols = sequence._shape[1];
+    const weightData = this.weight._data;
+    const biasData = this.bias._data;
+
+    for (let outIdx = 0; outIdx < this.outputUnits; outIdx++) {
+      const weightOffset = outIdx * this.units;
+      for (let b = 0; b < batchSize; b++) {
+        const tokenCol = (b + 1) * seqLen - 1;
+        let sum = biasData[outIdx];
+        for (let unitIdx = 0; unitIdx < this.units; unitIdx++) {
+          sum += weightData[weightOffset + unitIdx] * sourceData[unitIdx * totalCols + tokenCol];
+        }
+        outData[outIdx * batchSize + b] = sum;
+      }
+    }
+
+    return this.lastTokenProjectBuffer;
   }
 
   private ensureForwardBuffers(seqLen: number): void {

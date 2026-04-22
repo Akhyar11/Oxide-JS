@@ -1,10 +1,11 @@
 import { readFileSync } from "fs";
-import { softmaxOnly } from "../activation";
+import { softmaxInto } from "../activation";
 import mj from "../math";
 import Matrix from "../matrix";
 import Sequential from "./sequential";
 import { MultiHeadAttention, Dense, PositionalEncoding, LayerNormalization, Embedding, Dropout } from "../layers";
 import { FitConfig, FitResult } from "../@types/fitConfig";
+import { isNativeAvailable, maskedSparseSoftmaxCrossEntropyNative } from "../math/rust_backend";
 
 interface TransformersConfig {
   units: number;          // d_model (embedding size)
@@ -48,6 +49,7 @@ export default class Transformers extends Sequential {
   private errRes2Buf: Matrix;
   private lastTokenBuffer: Matrix;
   private lossGradientBuffer: Matrix;
+  private invalidTokenIndexBuffer: Int32Array = new Int32Array(0);
   private lastInputTokens: Matrix = mj.matrix([]);
   private emptyErr: Matrix = mj.matrix([[]]);
   private padMaskBuffer: boolean[] = [];
@@ -155,19 +157,24 @@ export default class Transformers extends Sequential {
     const outputDenseBackwardStart = this.profileStart();
     let errDense: Matrix;
     if (y._shape[0] === seqLen) {
+      const lossGradientBuildStart = this.profileStart();
       const lossState = this.buildShiftedLossGradient(y);
+      this.profileEnd("loss gradient build", lossGradientBuildStart);
+      const denseBackwardStart = this.profileStart();
       errDense = this.dense.backward(this.emptyErr, lossState.gradient);
+      this.profileEnd("output dense backward", denseBackwardStart);
       this.loss = lossState.loss;
       this.dense.loss = lossState.loss;
     } else if (y._shape[0] === 1) {
       errDense = this.dense.backward(y, this.emptyErr);
+      this.profileEnd("output dense backward", outputDenseBackwardStart);
       this.loss = this.dense.loss;
     } else {
+      this.profileEnd("output dense backward", outputDenseBackwardStart);
       throw new Error(
         `Transformers.backward: expected target shape [${seqLen}, batch] for full-sequence training or [1, batch] for legacy last-token training, got [${y._shape[0]}, ${y._shape[1]}]`
       );
     }
-    this.profileEnd("output dense backward", outputDenseBackwardStart);
 
     // 2. Map Dense Error back to the full sequence length matrix
     const mapDenseErrStart = this.profileStart();
@@ -283,24 +290,8 @@ export default class Transformers extends Sequential {
   }
 
   private projectLastToken(res2: Matrix, seqLen: number, batchSize: number): Matrix {
-    const units = this.embedding.embeddingDim;
-    if (this.lastTokenBuffer._shape[1] !== batchSize) {
-      this.lastTokenBuffer = mj.zeros([units, batchSize]);
-    }
-
-    const res2Data = res2._data;
-    const lastTokenData = this.lastTokenBuffer._data;
-    const totalCols = res2._shape[1];
-
-    for (let b = 0; b < batchSize; b++) {
-      const lastTokenCol = (b + 1) * seqLen - 1;
-      for (let i = 0; i < units; i++) {
-        lastTokenData[i * batchSize + b] = res2Data[i * totalCols + lastTokenCol];
-      }
-    }
-
     const outputDenseForwardStart = this.profileStart();
-    const out = this.dense.forward(this.lastTokenBuffer);
+    const out = this.dense.projectLastTokenFromSequence(res2, seqLen, batchSize);
     this.profileEnd("output dense forward", outputDenseForwardStart);
     return out;
   }
@@ -308,14 +299,34 @@ export default class Transformers extends Sequential {
   private buildShiftedLossGradient(targets: Matrix): { loss: number; gradient: Matrix; validTokens: number } {
     const [seqLen, batchSize] = targets._shape;
     const totalTokens = seqLen * batchSize;
-    const logits = this.dense.forward(this.xRes2);
-    const probs = softmaxOnly(logits, false);
+    const logits = this.dense.getLastOutput();
 
     if (this.lossGradientBuffer._shape[0] !== this.vocabSize || this.lossGradientBuffer._shape[1] !== totalTokens) {
       this.lossGradientBuffer = mj.zeros([this.vocabSize, totalTokens]);
     }
-    this.lossGradientBuffer._data.fill(0);
+    if (this.invalidTokenIndexBuffer.length !== totalTokens) {
+      this.invalidTokenIndexBuffer = new Int32Array(totalTokens);
+    }
 
+    if (isNativeAvailable()) {
+      const result = maskedSparseSoftmaxCrossEntropyNative(
+        logits._data,
+        this.lastInputTokens._data,
+        targets._data,
+        seqLen,
+        batchSize,
+        this.vocabSize,
+        this.embedding.padTokenId,
+        this.lossGradientBuffer._data
+      );
+      return {
+        loss: result.loss,
+        gradient: this.lossGradientBuffer,
+        validTokens: result.validTokens,
+      };
+    }
+
+    const probs = softmaxInto(logits, this.lossGradientBuffer, false);
     const gradData = this.lossGradientBuffer._data;
     const probsData = probs._data;
     const targetData = targets._data;
@@ -324,6 +335,7 @@ export default class Transformers extends Sequential {
     const padTokenId = this.embedding.padTokenId;
     let totalLoss = 0;
     let validTokens = 0;
+    let invalidCount = 0;
 
     for (let b = 0; b < batchSize; b++) {
       for (let pos = 0; pos < seqLen; pos++) {
@@ -335,7 +347,10 @@ export default class Transformers extends Sequential {
           pos < seqLen - 1 &&
           (padTokenId === null || (sourceToken !== padTokenId && targetToken !== padTokenId));
 
-        if (!canTrainOnPosition) continue;
+        if (!canTrainOnPosition) {
+          this.invalidTokenIndexBuffer[invalidCount++] = tokenIndex;
+          continue;
+        }
         if (targetToken < 0 || targetToken >= this.vocabSize) {
           throw new Error(
             `Transformers.backward: target token '${targetToken}' di posisi ${pos} batch ${b} berada di luar vocab (0 - ${this.vocabSize - 1})`
@@ -345,12 +360,14 @@ export default class Transformers extends Sequential {
         validTokens++;
         const targetOffset = targetToken * totalTokens + tokenIndex;
         totalLoss -= Math.log(Math.max(epsilon, probsData[targetOffset]));
-
-        for (let vocabIndex = 0; vocabIndex < this.vocabSize; vocabIndex++) {
-          const gradOffset = vocabIndex * totalTokens + tokenIndex;
-          gradData[gradOffset] = probsData[gradOffset];
-        }
         gradData[targetOffset] -= 1;
+      }
+    }
+
+    for (let invalidIdx = 0; invalidIdx < invalidCount; invalidIdx++) {
+      const tokenIndex = this.invalidTokenIndexBuffer[invalidIdx];
+      for (let vocabIndex = 0; vocabIndex < this.vocabSize; vocabIndex++) {
+        gradData[vocabIndex * totalTokens + tokenIndex] = 0;
       }
     }
 

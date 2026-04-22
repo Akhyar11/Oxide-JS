@@ -5,6 +5,12 @@ use rayon::prelude::*;
 const ELEMENTWISE_PARALLEL_THRESHOLD: usize = 16 * 1024;
 const ADAM_PARALLEL_THRESHOLD: usize = 8 * 1024;
 
+#[napi(object)]
+pub struct MaskedSparseSoftmaxCrossEntropyResult {
+    pub loss: f64,
+    pub valid_tokens: u32,
+}
+
 #[napi]
 pub fn dot_product(
     a_data: Float32Array,
@@ -713,6 +719,197 @@ pub fn clip_gradients_native(mut data: Float32Array, limit: f64) {
             data[i] = -limit;
         }
     }
+}
+
+#[napi]
+pub fn masked_sparse_softmax_cross_entropy_into(
+    logits: Float32Array,
+    input_tokens: Float32Array,
+    targets: Float32Array,
+    seq_len: u32,
+    batch_size: u32,
+    vocab_size: u32,
+    pad_token_id: Option<i32>,
+    mut out_grad: Float32Array,
+) -> MaskedSparseSoftmaxCrossEntropyResult {
+    let seq_len = seq_len as usize;
+    let batch_size = batch_size as usize;
+    let vocab_size = vocab_size as usize;
+    let total_tokens = seq_len * batch_size;
+    let epsilon = 1e-15f32;
+    let pad_token_id = pad_token_id.unwrap_or(-1);
+
+    if logits.len() != vocab_size * total_tokens {
+        panic!(
+            "masked_sparse_softmax_cross_entropy_into: logits length mismatch {} != {}",
+            logits.len(),
+            vocab_size * total_tokens
+        );
+    }
+    if input_tokens.len() != total_tokens || targets.len() != total_tokens {
+        panic!(
+            "masked_sparse_softmax_cross_entropy_into: token length mismatch input={} targets={} total_tokens={}",
+            input_tokens.len(),
+            targets.len(),
+            total_tokens
+        );
+    }
+    if out_grad.len() != logits.len() {
+        panic!(
+            "masked_sparse_softmax_cross_entropy_into: grad length mismatch {} != {}",
+            out_grad.len(),
+            logits.len()
+        );
+    }
+
+    let logits_slice = &*logits;
+    let input_slice = &*input_tokens;
+    let target_slice = &*targets;
+    let grad_slice = &mut *out_grad;
+
+    let mut total_loss = 0.0f64;
+    let mut valid_tokens = 0usize;
+
+    for batch_idx in 0..batch_size {
+        for pos in 0..seq_len {
+            let source_index = pos * batch_size + batch_idx;
+            let token_index = batch_idx * seq_len + pos;
+            let source_token = input_slice[source_index] as i32;
+            let target_token = target_slice[source_index] as i32;
+            let is_valid_position =
+                pos < seq_len - 1
+                    && (pad_token_id < 0 || (source_token != pad_token_id && target_token != pad_token_id));
+
+            if !is_valid_position {
+                for vocab_idx in 0..vocab_size {
+                    grad_slice[vocab_idx * total_tokens + token_index] = 0.0;
+                }
+                continue;
+            }
+
+            if target_token < 0 || target_token as usize >= vocab_size {
+                panic!(
+                    "masked_sparse_softmax_cross_entropy_into: target token {} out of range 0..{} at batch {} pos {}",
+                    target_token,
+                    vocab_size.saturating_sub(1),
+                    batch_idx,
+                    pos
+                );
+            }
+
+            let mut max_logit = f32::NEG_INFINITY;
+            for vocab_idx in 0..vocab_size {
+                let value = logits_slice[vocab_idx * total_tokens + token_index];
+                if value > max_logit {
+                    max_logit = value;
+                }
+            }
+
+            let mut sum_exp = 0.0f32;
+            for vocab_idx in 0..vocab_size {
+                let idx = vocab_idx * total_tokens + token_index;
+                let exp_val = (logits_slice[idx] - max_logit).exp();
+                grad_slice[idx] = exp_val;
+                sum_exp += exp_val;
+            }
+
+            if !sum_exp.is_finite() || sum_exp <= 0.0 {
+                let uniform = 1.0f32 / vocab_size as f32;
+                for vocab_idx in 0..vocab_size {
+                    grad_slice[vocab_idx * total_tokens + token_index] = uniform;
+                }
+                sum_exp = 1.0;
+            } else {
+                for vocab_idx in 0..vocab_size {
+                    let idx = vocab_idx * total_tokens + token_index;
+                    grad_slice[idx] /= sum_exp;
+                }
+            }
+
+            valid_tokens += 1;
+            let target_offset = target_token as usize * total_tokens + token_index;
+            let target_prob = grad_slice[target_offset].max(epsilon);
+            total_loss -= f64::from(target_prob.ln());
+            grad_slice[target_offset] -= 1.0;
+        }
+    }
+
+    if valid_tokens == 0 {
+        panic!("masked_sparse_softmax_cross_entropy_into: no valid tokens");
+    }
+
+    MaskedSparseSoftmaxCrossEntropyResult {
+        loss: total_loss / valid_tokens as f64,
+        valid_tokens: valid_tokens as u32,
+    }
+}
+
+#[napi]
+pub fn project_last_token_logits_native_into(
+    hidden: Float32Array,
+    weight: Float32Array,
+    bias: Float32Array,
+    units: u32,
+    seq_len: u32,
+    batch_size: u32,
+    vocab_size: u32,
+    mut out: Float32Array,
+) {
+    let units = units as usize;
+    let seq_len = seq_len as usize;
+    let batch_size = batch_size as usize;
+    let vocab_size = vocab_size as usize;
+    let total_cols = seq_len * batch_size;
+
+    if hidden.len() != units * total_cols {
+        panic!(
+            "project_last_token_logits_native_into: hidden length mismatch {} != {}",
+            hidden.len(),
+            units * total_cols
+        );
+    }
+    if weight.len() != vocab_size * units {
+        panic!(
+            "project_last_token_logits_native_into: weight length mismatch {} != {}",
+            weight.len(),
+            vocab_size * units
+        );
+    }
+    if bias.len() != vocab_size {
+        panic!(
+            "project_last_token_logits_native_into: bias length mismatch {} != {}",
+            bias.len(),
+            vocab_size
+        );
+    }
+    if out.len() != vocab_size * batch_size {
+        panic!(
+            "project_last_token_logits_native_into: out length mismatch {} != {}",
+            out.len(),
+            vocab_size * batch_size
+        );
+    }
+
+    let hidden_slice = &*hidden;
+    let weight_slice = &*weight;
+    let bias_slice = &*bias;
+    let out_slice = &mut *out;
+
+    out_slice
+        .par_chunks_mut(batch_size)
+        .enumerate()
+        .for_each(|(vocab_idx, out_row)| {
+            let weight_offset = vocab_idx * units;
+            let bias_value = bias_slice[vocab_idx];
+            for batch_idx in 0..batch_size {
+                let token_col = (batch_idx + 1) * seq_len - 1;
+                let mut sum = bias_value;
+                for unit_idx in 0..units {
+                    sum += weight_slice[weight_offset + unit_idx] * hidden_slice[unit_idx * total_cols + token_col];
+                }
+                out_row[batch_idx] = sum;
+            }
+        });
 }
 
 fn mha_forward_head_into(

@@ -92,6 +92,9 @@ Catatan:
 | [v1.2.3](./v1.2.3.md) | 2026-04-22 | `develop-mode` local patch | Refresh benchmark setelah recurrent memakai jalur batch time-major yang valid, bukan loop sample-per-sample |
 | [v1.2.4](./v1.2.4.md) | 2026-04-22 | `537905a` + local patch | Refactor transformer ke full-sequence causal LM training dan benchmark ulang workload transformer |
 | [v1.3.0](./v1.3.0.md) | 2026-04-22 | `537905a` + local patch | Major release untuk perubahan arsitektur training transformer ke full-sequence causal LM |
+| [v1.3.1](./v1.3.1.md) | 2026-04-22 | `d58d71b` + local patch | Audit bottleneck transformer, benchmark apple-to-apple, dan optimasi internal loss-gradient path |
+| [v1.3.2](./v1.3.2.md) | 2026-04-22 | `d58d71b` + local patch | Kernel native masked sparse softmax-cross-entropy, projector inference khusus LM, dan benchmark inference-only |
+| [v2.0.0](./v2.0.0.md) | 2026-04-22 | `d58d71b` + local patch | Major update transformer dan backend native untuk training full-sequence dan inference khusus LM |
 
 ## Cara Menambah Versi Baru
 
@@ -110,14 +113,14 @@ Catatan:
 - Snapshot recurrent lama sebelum `v1.2.3` masih berguna sebagai referensi historis, tetapi tidak lagi fair untuk membandingkan throughput recurrent karena jalur benchmark utamanya masih memproses sample satu per satu di dalam batch efektif.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `1.3.0`.
+Versi aktif proyek saat ini adalah `2.0.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.3.0`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `2.0.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `1.3.0`: rilis mayor `1`, minor `3`, patch `0` untuk perubahan arsitektur training transformer.
+- `2.0.0`: rilis mayor `2`, minor `0`, patch `0` untuk major update transformer dan backend native.
 - `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.

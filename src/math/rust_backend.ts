@@ -15,6 +15,11 @@ if (!disableNativeByEnv) {
 
 let forceDisable = false;
 
+export type MaskedSparseSoftmaxCrossEntropyResult = {
+  loss: number;
+  validTokens: number;
+};
+
 export const setForceDisableNative = (v: boolean) => {
   forceDisable = v;
 };
@@ -118,6 +123,47 @@ export const softmaxBackwardNative = (
 ): void => {
   if (!native) throw new Error("Native backend not available");
   native.softmaxBackwardNativeInto(sData, gData, rows, cols, isRow, out);
+};
+
+export const maskedSparseSoftmaxCrossEntropyNative = (
+  logits: Float32Array,
+  inputTokens: Float32Array,
+  targets: Float32Array,
+  seqLen: number,
+  batchSize: number,
+  vocabSize: number,
+  padTokenId: number | null,
+  outGrad: Float32Array
+): MaskedSparseSoftmaxCrossEntropyResult => {
+  if (!native) throw new Error("Native backend not available");
+  const result = native.maskedSparseSoftmaxCrossEntropyInto(
+    logits,
+    inputTokens,
+    targets,
+    seqLen,
+    batchSize,
+    vocabSize,
+    padTokenId,
+    outGrad
+  );
+  return {
+    loss: result.loss,
+    validTokens: result.validTokens ?? result.valid_tokens,
+  };
+};
+
+export const projectLastTokenLogitsNative = (
+  hidden: Float32Array,
+  weight: Float32Array,
+  bias: Float32Array,
+  units: number,
+  seqLen: number,
+  batchSize: number,
+  vocabSize: number,
+  out: Float32Array
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.projectLastTokenLogitsNativeInto(hidden, weight, bias, units, seqLen, batchSize, vocabSize, out);
 };
 
 export const layerNormNative = (

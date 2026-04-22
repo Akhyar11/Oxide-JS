@@ -11,16 +11,16 @@ ML-V1 adalah library low-level sampai mid-level untuk eksperimen dan pengembanga
 - Menggabungkan kemudahan TypeScript dengan performa Rust untuk hot paths.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `1.3.0`.
+Versi aktif proyek saat ini adalah `2.0.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.3.0`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `2.0.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `1.3.0`: rilis mayor `1`, minor `3`, patch `0` untuk perubahan arsitektur training transformer ke full-sequence causal LM.
+- `2.0.0`: rilis mayor `2`, minor `0`, patch `0` untuk major update transformer: full-sequence causal LM, kernel native masked sparse softmax-cross-entropy, dan jalur inference khusus LM.
 - `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.
 
 ## Key features
@@ -227,6 +227,7 @@ const nextTokenLogits = model.predict(x); // [vocabSize, batch]
 - Suite benchmark sintetis ada di [test/benchmark](/home/akhyar/Dokumen/Code/NODE%20JS/ML_V2/test/benchmark/index.ts:1).
 - Jalankan seluruh suite dengan `npm test`.
 - Benchmark utama memakai harness [test/benchmark/synthetic_baseline_benchmark.ts](/home/akhyar/Dokumen/Code/NODE%20JS/ML_V2/test/benchmark/synthetic_baseline_benchmark.ts:1) dan histori hasilnya dicatat di [docs/benchmark-sintetis/README.md](/home/akhyar/Dokumen/Code/NODE%20JS/ML_V2/docs/benchmark-sintetis/README.md:1).
+- Benchmark pembanding transformer yang lebih detail tersedia di [test/benchmark/transformer_perf_breakdown.ts](/home/akhyar/Dokumen/Code/NODE%20JS/ML_V2/test/benchmark/transformer_perf_breakdown.ts:1) untuk inference-only, forward-only, backward-only, training-step, dan stage profile apple-to-apple.
 
 ## Best practices
 - Gunakan `softmaxCrossEntropy` untuk klasifikasi sparse token.

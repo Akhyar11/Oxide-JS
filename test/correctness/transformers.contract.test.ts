@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import mj from "../../src/math";
+import { isNativeAvailable, setForceDisableNative } from "../../src/math/rust_backend";
 import Transformers from "../../src/models/transformers";
 
 function test(name: string, fn: () => void) {
@@ -86,6 +87,47 @@ test("Transformers inference path returns last-token logits", () => {
 
   assert.deepEqual(out._shape, [baseConfig.vocabSize, 2]);
   assert.deepEqual(pred._shape, [baseConfig.vocabSize, 2]);
+});
+
+test("Transformers forwardNextToken matches last position of full-sequence logits in eval mode", () => {
+  const model = new Transformers({ ...baseConfig, dropoutRate: 0 });
+  model.eval();
+  const x = mj.matrix([
+    [0, 0],
+    [5, 8],
+    [6, 9],
+    [7, 10],
+  ]);
+
+  const nextToken = model.forwardNextToken(x);
+  const full = model.forwardFullSequence(x);
+  const totalCols = baseConfig.seqLen * 2;
+
+  for (let b = 0; b < 2; b++) {
+    const lastTokenCol = (b + 1) * baseConfig.seqLen - 1;
+    for (let vocab = 0; vocab < baseConfig.vocabSize; vocab++) {
+      const fullIndex = vocab * totalCols + lastTokenCol;
+      const nextIndex = vocab * 2 + b;
+      assert.ok(Math.abs(full._data[fullIndex] - nextToken._data[nextIndex]) <= 1e-6);
+    }
+  }
+});
+
+test("Transformers predict uses eval path temporarily and restores train mode", () => {
+  const model = new Transformers(baseConfig);
+  const x = mj.matrix([
+    [0],
+    [5],
+    [6],
+    [7],
+  ]);
+
+  model.train();
+  const pred = model.predict(x);
+  const trainOut = model.forward(x);
+
+  assert.deepEqual(pred._shape, [baseConfig.vocabSize, 1]);
+  assert.deepEqual(trainOut._shape, [baseConfig.vocabSize, baseConfig.seqLen]);
 });
 
 test("Transformers causal mask blocks future-token influence on earlier logits", () => {
@@ -192,4 +234,45 @@ test("Transformers backward keeps gradients and parameters finite on full-sequen
   assertFiniteMatrix("dense weight", (model as any).dense.weight);
   assertFiniteMatrix("embedding weight", (model as any).embedding.weight);
   assertFiniteMatrix("attention q", (model as any).mha.q);
+});
+
+test("Transformers native masked sparse loss matches JS fallback on small full-sequence batch", () => {
+  if (!isNativeAvailable()) {
+    console.log("SKIP Transformers native masked sparse loss matches JS fallback on small full-sequence batch");
+    return;
+  }
+
+  const seed = new Transformers({ ...baseConfig, dropoutRate: 0, alpha: 1e-4 });
+  const nativeModel = cloneModel(seed, { ...baseConfig, dropoutRate: 0, alpha: 1e-4 });
+  const jsModel = cloneModel(seed, { ...baseConfig, dropoutRate: 0, alpha: 1e-4 });
+  const xRows = [
+    [0, 0],
+    [5, 8],
+    [6, 9],
+    [7, 10],
+  ];
+  const x = mj.matrix(xRows);
+  const y = shiftedTargets(xRows, 0);
+
+  nativeModel.train();
+  jsModel.train();
+
+  setForceDisableNative(false);
+  nativeModel.forward(x);
+  nativeModel.backward(y);
+  const nativeLoss = nativeModel.loss;
+  const nativeDenseWeight = Array.from(((nativeModel as any).dense.weight as { _data: Float32Array })._data);
+
+  setForceDisableNative(true);
+  jsModel.forward(x);
+  jsModel.backward(y);
+  const jsLoss = jsModel.loss;
+  const jsDenseWeight = Array.from(((jsModel as any).dense.weight as { _data: Float32Array })._data);
+  setForceDisableNative(false);
+
+  assert.ok(Math.abs(nativeLoss - jsLoss) <= 1e-5, `native loss ${nativeLoss} != js loss ${jsLoss}`);
+  assert.equal(nativeDenseWeight.length, jsDenseWeight.length);
+  for (let i = 0; i < nativeDenseWeight.length; i++) {
+    assert.ok(Math.abs(nativeDenseWeight[i] - jsDenseWeight[i]) <= 1e-5, `dense weight mismatch at ${i}`);
+  }
 });
