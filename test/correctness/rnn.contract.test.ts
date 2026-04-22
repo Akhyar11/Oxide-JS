@@ -31,6 +31,10 @@ function assertMatrixShape(matrix: { _shape: [number, number] }, expected: [numb
   assert.deepEqual(matrix._shape, expected);
 }
 
+function assertThrowsWithMessage(fn: () => void, pattern: RegExp) {
+  assert.throws(fn, pattern);
+}
+
 type RecurrentFamily = "RNN" | "LSTM" | "GRU";
 type RecurrentLayer = RNN | LSTM | GRU;
 
@@ -335,3 +339,88 @@ for (const factory of recurrentFactories) {
     assert.equal((model.layers[1] as RecurrentLayer).inputShape[1], seqLen);
   });
 }
+
+test("Sequential.fit rejects shuffle=true when a later recurrent layer is stateful", () => {
+  const model = new Sequential({
+    layers: [
+      new RNN({ units: 1, hiddenUnits: 1, stateful: false }),
+      new GRU({ units: 1, hiddenUnits: 1, stateful: true, status: "output" }),
+    ],
+  });
+  const X = [mj.matrix([[1]]), mj.matrix([[2]])];
+  const y = [mj.matrix([[0]]), mj.matrix([[0]])];
+
+  assertThrowsWithMessage(
+    () => model.fit(X, y, 1, { batchSize: 1, shuffle: true }),
+    /stateful=true.*shuffle=true/
+  );
+});
+
+test("Sequential.fit rejects validationSplit > 0 when a later recurrent layer is stateful", () => {
+  const model = new Sequential({
+    layers: [
+      new RNN({ units: 1, hiddenUnits: 1, stateful: false }),
+      new GRU({ units: 1, hiddenUnits: 1, stateful: true, status: "output" }),
+    ],
+  });
+  const X = [mj.matrix([[1]]), mj.matrix([[2]])];
+  const y = [mj.matrix([[0]]), mj.matrix([[0]])];
+
+  assertThrowsWithMessage(
+    () => model.fit(X, y, 1, { batchSize: 1, shuffle: false, validationSplit: 0.5 }),
+    /validationSplit > 0/
+  );
+});
+
+test("LSTM.load rejects malformed serialized payload with explicit error", () => {
+  const lstm = new LSTM({ units: 1, hiddenUnits: 1 });
+  assertThrowsWithMessage(
+    () => lstm.load({}),
+    /LSTM\.load: expected serialized matrix 'Wxi'/
+  );
+});
+
+test("GRU.load rejects malformed serialized payload with explicit error", () => {
+  const gru = new GRU({ units: 1, hiddenUnits: 1 });
+  assertThrowsWithMessage(
+    () => gru.load({}),
+    /GRU\.load: expected serialized 'forward' direction/
+  );
+});
+
+test("Bidirectional GRU forward, backward, and save/load remain consistent", () => {
+  const gru = new GRU({
+    units: 2,
+    hiddenUnits: 3,
+    bidirectional: true,
+    returnSequences: true,
+    optimizer: "sgd",
+    alpha: 0,
+  });
+  const x = mj.matrix([
+    [0.1, 0.2, 0.3],
+    [0.4, 0.5, 0.6],
+  ]);
+
+  const out = gru.forward(x);
+  assertMatrixShape(out, [6, 3]);
+
+  const dx = gru.backward(mj.zeros([6, 3]), mj.zeros([6, 3]));
+  assertMatrixShape(dx, [2, 3]);
+  for (const value of dx._data) {
+    assert.ok(Number.isFinite(value), "Bidirectional GRU backward produced non-finite gradient");
+  }
+
+  const serialized = gru.save();
+  const loaded = new GRU({
+    units: 2,
+    hiddenUnits: 3,
+    bidirectional: true,
+    returnSequences: true,
+    optimizer: "sgd",
+    alpha: 0,
+  });
+  loaded.load(serialized);
+  const reloadedOut = loaded.forward(x);
+  assertMatrixShape(reloadedOut, [6, 3]);
+});

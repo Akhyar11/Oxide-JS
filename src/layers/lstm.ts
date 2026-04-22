@@ -164,6 +164,18 @@ export default class LSTM {
   }
 
   load(data: Record<string, number[][] | number | boolean | undefined>) {
+    this.assertSerializedMatrix(data.Wxi, "Wxi");
+    this.assertSerializedMatrix(data.Whi, "Whi");
+    this.assertSerializedMatrix(data.bi, "bi");
+    this.assertSerializedMatrix(data.Wxf, "Wxf");
+    this.assertSerializedMatrix(data.Whf, "Whf");
+    this.assertSerializedMatrix(data.bf, "bf");
+    this.assertSerializedMatrix(data.Wxo, "Wxo");
+    this.assertSerializedMatrix(data.Who, "Who");
+    this.assertSerializedMatrix(data.bo, "bo");
+    this.assertSerializedMatrix(data.Wxg, "Wxg");
+    this.assertSerializedMatrix(data.Whg, "Whg");
+    this.assertSerializedMatrix(data.bg, "bg");
     this.loadMatrix(this.Wxi, data.Wxi as number[][]);
     this.loadMatrix(this.Whi, data.Whi as number[][]);
     this.loadMatrix(this.bi, data.bi as number[][]);
@@ -176,8 +188,14 @@ export default class LSTM {
     this.loadMatrix(this.Wxg, data.Wxg as number[][]);
     this.loadMatrix(this.Whg, data.Whg as number[][]);
     this.loadMatrix(this.bg, data.bg as number[][]);
-    if (data.hStateful) this.loadMatrix(this.h_stateful, data.hStateful as number[][]);
-    if (data.cStateful) this.loadMatrix(this.c_stateful, data.cStateful as number[][]);
+    if (data.hStateful !== undefined) {
+      this.assertSerializedMatrix(data.hStateful, "hStateful");
+      this.loadMatrix(this.h_stateful, data.hStateful as number[][]);
+    }
+    if (data.cStateful !== undefined) {
+      this.assertSerializedMatrix(data.cStateful, "cStateful");
+      this.loadMatrix(this.c_stateful, data.cStateful as number[][]);
+    }
     if (typeof data.clipGradient === "number" || typeof data.clipGradient === "boolean") {
       this.clipGradient = data.clipGradient;
     }
@@ -489,6 +507,12 @@ export default class LSTM {
   private loadMatrix(target: Matrix, value: number[][]) {
     target._value = value;
     target._shape = [value.length, value[0]?.length ?? 0];
+  }
+
+  private assertSerializedMatrix(value: unknown, fieldName: string): asserts value is number[][] {
+    if (!Array.isArray(value)) {
+      throw new Error(`LSTM.load: expected serialized matrix '${fieldName}'.`);
+    }
   }
 
   private resetOptimizers() {

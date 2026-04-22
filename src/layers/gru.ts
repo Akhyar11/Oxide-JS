@@ -125,8 +125,19 @@ export default class GRU {
   }
 
   load(data: Record<string, any>) {
+    if (!data || typeof data !== "object") {
+      throw new Error("GRU.load: expected serialized GRU object.");
+    }
+    if (!data.forward || typeof data.forward !== "object") {
+      throw new Error("GRU.load: expected serialized 'forward' direction.");
+    }
+    this.assertSerializedDirection(data.forward, "forward");
     this.deserializeDirection(this.forwardDirection, data.forward);
-    if (data.backward && this.backwardDirection) {
+    if (this.backwardDirection) {
+      if (!data.backward || typeof data.backward !== "object") {
+        throw new Error("GRU.load: expected serialized 'backward' direction for bidirectional GRU.");
+      }
+      this.assertSerializedDirection(data.backward, "backward");
       this.deserializeDirection(this.backwardDirection, data.backward);
     }
     if (typeof data.clipGradient === "number" || typeof data.clipGradient === "boolean") {
@@ -519,6 +530,22 @@ export default class GRU {
     this.loadMatrix(direction.Whh, value.Whh);
     this.loadMatrix(direction.bh, value.bh);
     if (value.hStateful) this.loadMatrix(direction.hStateful, value.hStateful);
+  }
+
+  private assertSerializedDirection(value: unknown, directionName: string): asserts value is Record<string, number[][]> {
+    if (!value || typeof value !== "object") {
+      throw new Error(`GRU.load: expected serialized '${directionName}' direction.`);
+    }
+    const direction = value as Record<string, unknown>;
+    const requiredFields = ["Wxr", "Whr", "br", "Wxz", "Whz", "bz", "Wxh", "Whh", "bh"];
+    for (const field of requiredFields) {
+      if (!Array.isArray(direction[field])) {
+        throw new Error(`GRU.load: expected serialized matrix '${directionName}.${field}'.`);
+      }
+    }
+    if (direction.hStateful !== undefined && !Array.isArray(direction.hStateful)) {
+      throw new Error(`GRU.load: expected serialized matrix '${directionName}.hStateful'.`);
+    }
   }
 
   private resetOptimizers(direction: DirectionParams) {

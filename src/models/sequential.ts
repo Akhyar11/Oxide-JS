@@ -374,26 +374,28 @@ export default class Sequential {
     shuffle: boolean,
     validationSplit: number
   ): void {
-    const recurrentLayer = this.layers.find((layer) => this.isRecurrentLayer(layer));
-    if (!recurrentLayer) return;
+    const recurrentLayers = this.layers.filter((layer) => this.isRecurrentLayer(layer));
+    if (recurrentLayers.length === 0) return;
+    const firstRecurrentLayer = recurrentLayers[0];
+    const statefulRecurrentLayers = recurrentLayers.filter((layer) => (layer as any).stateful === true);
 
     if (batchSize !== 1) {
       throw new Error(
-        `Sequential.fit: ${recurrentLayer.name} hanya mendukung training per-sample (batchSize=1). ` +
+        `Sequential.fit: ${firstRecurrentLayer.name} hanya mendukung training per-sample (batchSize=1). ` +
         "Generic batching saat ini menggabungkan sample menjadi kolom matrix dan tidak valid untuk sequence input recurrent."
       );
     }
 
-    if ((recurrentLayer as any).stateful === true && shuffle) {
+    if (statefulRecurrentLayers.length > 0 && shuffle) {
       throw new Error(
-        `Sequential.fit: ${recurrentLayer.name} dengan stateful=true tidak boleh dipakai bersama shuffle=true ` +
+        `Sequential.fit: ${statefulRecurrentLayers[0].name} dengan stateful=true tidak boleh dipakai bersama shuffle=true ` +
         "karena hidden state dapat bocor ke sample acak berikutnya."
       );
     }
 
-    if ((recurrentLayer as any).stateful === true && validationSplit > 0) {
+    if (statefulRecurrentLayers.length > 0 && validationSplit > 0) {
       throw new Error(
-        `Sequential.fit: ${recurrentLayer.name} dengan stateful=true tidak mendukung validationSplit > 0 ` +
+        `Sequential.fit: ${statefulRecurrentLayers[0].name} dengan stateful=true tidak mendukung validationSplit > 0 ` +
         "karena state training dan validation akan saling memengaruhi dalam loop generic saat ini."
       );
     }
