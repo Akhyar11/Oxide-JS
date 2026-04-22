@@ -1,4 +1,5 @@
 import { readFileSync } from "fs";
+import { softmaxOnly } from "../activation";
 import mj from "../math";
 import Matrix from "../matrix";
 import Sequential from "./sequential";
@@ -46,6 +47,8 @@ export default class Transformers extends Sequential {
   private errRes1Buf: Matrix;
   private errRes2Buf: Matrix;
   private lastTokenBuffer: Matrix;
+  private lossGradientBuffer: Matrix;
+  private lastInputTokens: Matrix = mj.matrix([]);
   private emptyErr: Matrix = mj.matrix([[]]);
   private padMaskBuffer: boolean[] = [];
   private profilerEnabled: boolean = false;
@@ -97,11 +100,129 @@ export default class Transformers extends Sequential {
     this.errRes1Buf = mj.zeros([units, seqLen]);
     this.errRes2Buf = mj.zeros([units, seqLen]);
     this.lastTokenBuffer = mj.zeros([units, 1]);
+    this.lossGradientBuffer = mj.zeros([vocabSize, seqLen]);
     this.vocabSize = vocabSize;
     this.train();
   }
 
   forward(x: Matrix): Matrix {
+    this.lastInputTokens = x;
+    const res2 = this.forwardTransformerBlock(x);
+    if (this.isTrainingMode) {
+      const outputDenseForwardStart = this.profileStart();
+      const out = this.dense.forward(res2);
+      this.profileEnd("output dense forward", outputDenseForwardStart);
+      return out;
+    }
+    return this.projectLastToken(res2, x._shape[0], x._shape[1]);
+  }
+
+  forwardFullSequence(x: Matrix): Matrix {
+    this.lastInputTokens = x;
+    const res2 = this.forwardTransformerBlock(x);
+    const outputDenseForwardStart = this.profileStart();
+    const out = this.dense.forward(res2);
+    this.profileEnd("output dense forward", outputDenseForwardStart);
+    return out;
+  }
+
+  forwardNextToken(x: Matrix): Matrix {
+    this.lastInputTokens = x;
+    const res2 = this.forwardTransformerBlock(x);
+    return this.projectLastToken(res2, x._shape[0], x._shape[1]);
+  }
+
+  predict(x: Matrix): Matrix {
+    const wasTraining = this.isTrainingMode;
+    this.eval();
+    const out = this.forwardNextToken(x);
+    if (wasTraining) this.train();
+    return out;
+  }
+
+  backward(y: Matrix) {
+    const batchSize = this.lastInputTokens._shape[1];
+    const seqLen = this.lastInputTokens._shape[0];
+    const units = this.embedding.embeddingDim;
+    const totalTokens = seqLen * batchSize;
+    if (this.errRes1Buf._shape[0] !== units || this.errRes1Buf._shape[1] !== totalTokens) {
+      this.errRes1Buf = mj.zeros([units, totalTokens]);
+    }
+    if (this.errRes2Buf._shape[0] !== units || this.errRes2Buf._shape[1] !== totalTokens) {
+      this.errRes2Buf = mj.zeros([units, totalTokens]);
+    }
+
+    const outputDenseBackwardStart = this.profileStart();
+    let errDense: Matrix;
+    if (y._shape[0] === seqLen) {
+      const lossState = this.buildShiftedLossGradient(y);
+      errDense = this.dense.backward(this.emptyErr, lossState.gradient);
+      this.loss = lossState.loss;
+      this.dense.loss = lossState.loss;
+    } else if (y._shape[0] === 1) {
+      errDense = this.dense.backward(y, this.emptyErr);
+      this.loss = this.dense.loss;
+    } else {
+      throw new Error(
+        `Transformers.backward: expected target shape [${seqLen}, batch] for full-sequence training or [1, batch] for legacy last-token training, got [${y._shape[0]}, ${y._shape[1]}]`
+      );
+    }
+    this.profileEnd("output dense backward", outputDenseBackwardStart);
+
+    // 2. Map Dense Error back to the full sequence length matrix
+    const mapDenseErrStart = this.profileStart();
+    let res2Err = errDense;
+    if (y._shape[0] === 1) {
+      if (this.errRes2Buf._shape[0] !== units || this.errRes2Buf._shape[1] !== totalTokens) {
+        this.errRes2Buf = mj.zeros([units, totalTokens]);
+      } else {
+        this.errRes2Buf._data.fill(0);
+      }
+      res2Err = this.errRes2Buf;
+      const res2ErrData = res2Err._data;
+      const errDenseData = errDense._data;
+
+      for (let b = 0; b < batchSize; b++) {
+        const lastTokenCol = (b + 1) * seqLen - 1;
+        for (let i = 0; i < units; i++) {
+          res2ErrData[i * totalTokens + lastTokenCol] = errDenseData[i * batchSize + b];
+        }
+      }
+    }
+    this.profileEnd("mapping dense error", mapDenseErrStart);
+
+    // 3. Block Backward
+    const ffnBackwardStart = this.profileStart();
+    const errDrop2 = this.drop2.backward(this.emptyErr, res2Err);
+    const errFfn2 = this.ffn2.backward(this.emptyErr, errDrop2);
+    const errDropFfn = this.dropFfn.backward(this.emptyErr, errFfn2);
+    const errFfn1 = this.ffn1.backward(this.emptyErr, errDropFfn);
+    this.profileEnd("FFN backward", ffnBackwardStart);
+    const layerNorm2BackwardStart = this.profileStart();
+    const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
+    this.profileEnd("layer norm backward", layerNorm2BackwardStart);
+
+    const res1Err = mj.addInto(res2Err, errLn2, this.errRes1Buf);
+
+    const errDrop1 = this.drop1.backward(this.emptyErr, res1Err);
+    const mhaBackwardStart = this.profileStart();
+    const errMha = this.mha.backward(this.emptyErr, errDrop1);
+    this.profileEnd("MHA backward", mhaBackwardStart);
+    const layerNorm1BackwardStart = this.profileStart();
+    const errLn1 = this.ln1.backward(this.emptyErr, errMha);
+    this.profileEnd("layer norm backward", layerNorm1BackwardStart);
+
+    // Reuse errRes2Buf: res2Err sudah tidak dipakai setelah res1Err selesai dihitung.
+    const peErr = mj.addInto(res1Err, errLn1, this.errRes2Buf);
+
+    // 4. PE & Embedding Backward
+    const embeddingBackwardStart = this.profileStart();
+    const embErr = this.pe.backward(this.emptyErr, peErr);
+    this.embedding.backward(this.emptyErr, embErr);
+    this.profileEnd("embedding backward", embeddingBackwardStart);
+  }
+
+  private forwardTransformerBlock(x: Matrix): Matrix {
     const [seqLen, batchSize] = x._shape;
     const units = this.embedding.embeddingDim;
     const totalTokens = seqLen * batchSize;
@@ -158,8 +279,11 @@ export default class Transformers extends Sequential {
     this.profileEnd("FFN forward", ffnForwardStart);
     const res2 = mj.addInto(res1, xDrop2Out, this.xRes2);
 
-    // 4. Extract Last Token Embeddings for Output
-    // We only want the embedding of the LAST token for each sample in the batch
+    return res2;
+  }
+
+  private projectLastToken(res2: Matrix, seqLen: number, batchSize: number): Matrix {
+    const units = this.embedding.embeddingDim;
     if (this.lastTokenBuffer._shape[1] !== batchSize) {
       this.lastTokenBuffer = mj.zeros([units, batchSize]);
     }
@@ -175,75 +299,70 @@ export default class Transformers extends Sequential {
       }
     }
 
-    // 5. Output Dense Layer
     const outputDenseForwardStart = this.profileStart();
     const out = this.dense.forward(this.lastTokenBuffer);
     this.profileEnd("output dense forward", outputDenseForwardStart);
     return out;
   }
 
-  backward(y: Matrix) {
-    // 1. Output Dense Backward
-    const outputDenseBackwardStart = this.profileStart();
-    const errDense = this.dense.backward(y, this.emptyErr);
-    this.profileEnd("output dense backward", outputDenseBackwardStart);
-    this.loss = this.dense.loss;
-    const batchSize = errDense._shape[1];
-    const seqLen = this.pe.maxSeqLen;
-    const units = this.embedding.embeddingDim;
+  private buildShiftedLossGradient(targets: Matrix): { loss: number; gradient: Matrix; validTokens: number } {
+    const [seqLen, batchSize] = targets._shape;
     const totalTokens = seqLen * batchSize;
-    if (this.errRes1Buf._shape[0] !== units || this.errRes1Buf._shape[1] !== totalTokens) {
-      this.errRes1Buf = mj.zeros([units, totalTokens]);
-    }
+    const logits = this.dense.forward(this.xRes2);
+    const probs = softmaxOnly(logits, false);
 
-    // 2. Map Dense Error back to the full sequence length matrix
-    const mapDenseErrStart = this.profileStart();
-    if (this.errRes2Buf._shape[0] !== units || this.errRes2Buf._shape[1] !== totalTokens) {
-      this.errRes2Buf = mj.zeros([units, totalTokens]);
-    } else {
-      this.errRes2Buf._data.fill(0);
+    if (this.lossGradientBuffer._shape[0] !== this.vocabSize || this.lossGradientBuffer._shape[1] !== totalTokens) {
+      this.lossGradientBuffer = mj.zeros([this.vocabSize, totalTokens]);
     }
-    const res2Err = this.errRes2Buf;
-    const res2ErrData = res2Err._data;
-    const errDenseData = errDense._data;
+    this.lossGradientBuffer._data.fill(0);
+
+    const gradData = this.lossGradientBuffer._data;
+    const probsData = probs._data;
+    const targetData = targets._data;
+    const inputData = this.lastInputTokens._data;
+    const epsilon = 1e-15;
+    const padTokenId = this.embedding.padTokenId;
+    let totalLoss = 0;
+    let validTokens = 0;
 
     for (let b = 0; b < batchSize; b++) {
-      const lastTokenCol = (b + 1) * seqLen - 1;
-      for (let i = 0; i < units; i++) {
-        res2ErrData[i * totalTokens + lastTokenCol] = errDenseData[i * batchSize + b];
+      for (let pos = 0; pos < seqLen; pos++) {
+        const sourceIndex = pos * batchSize + b;
+        const tokenIndex = b * seqLen + pos;
+        const sourceToken = Math.floor(inputData[sourceIndex]);
+        const targetToken = Math.floor(targetData[sourceIndex]);
+        const canTrainOnPosition =
+          pos < seqLen - 1 &&
+          (padTokenId === null || (sourceToken !== padTokenId && targetToken !== padTokenId));
+
+        if (!canTrainOnPosition) continue;
+        if (targetToken < 0 || targetToken >= this.vocabSize) {
+          throw new Error(
+            `Transformers.backward: target token '${targetToken}' di posisi ${pos} batch ${b} berada di luar vocab (0 - ${this.vocabSize - 1})`
+          );
+        }
+
+        validTokens++;
+        const targetOffset = targetToken * totalTokens + tokenIndex;
+        totalLoss -= Math.log(Math.max(epsilon, probsData[targetOffset]));
+
+        for (let vocabIndex = 0; vocabIndex < this.vocabSize; vocabIndex++) {
+          const gradOffset = vocabIndex * totalTokens + tokenIndex;
+          gradData[gradOffset] = probsData[gradOffset];
+        }
+        gradData[targetOffset] -= 1;
       }
     }
-    this.profileEnd("mapping dense error", mapDenseErrStart);
 
-    // 3. Block Backward
-    const ffnBackwardStart = this.profileStart();
-    const errDrop2 = this.drop2.backward(this.emptyErr, res2Err);
-    const errFfn2 = this.ffn2.backward(this.emptyErr, errDrop2);
-    const errDropFfn = this.dropFfn.backward(this.emptyErr, errFfn2);
-    const errFfn1 = this.ffn1.backward(this.emptyErr, errDropFfn);
-    this.profileEnd("FFN backward", ffnBackwardStart);
-    const layerNorm2BackwardStart = this.profileStart();
-    const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
-    this.profileEnd("layer norm backward", layerNorm2BackwardStart);
+    if (validTokens === 0) {
+      throw new Error("Transformers.backward: tidak ada token valid untuk full-sequence causal LM loss.");
+    }
 
-    const res1Err = mj.addInto(res2Err, errLn2, this.errRes1Buf);
-
-    const errDrop1 = this.drop1.backward(this.emptyErr, res1Err);
-    const mhaBackwardStart = this.profileStart();
-    const errMha = this.mha.backward(this.emptyErr, errDrop1);
-    this.profileEnd("MHA backward", mhaBackwardStart);
-    const layerNorm1BackwardStart = this.profileStart();
-    const errLn1 = this.ln1.backward(this.emptyErr, errMha);
-    this.profileEnd("layer norm backward", layerNorm1BackwardStart);
-
-    // Reuse errRes2Buf: res2Err sudah tidak dipakai setelah res1Err selesai dihitung.
-    const peErr = mj.addInto(res1Err, errLn1, this.errRes2Buf);
-
-    // 4. PE & Embedding Backward
-    const embeddingBackwardStart = this.profileStart();
-    const embErr = this.pe.backward(this.emptyErr, peErr);
-    this.embedding.backward(this.emptyErr, embErr);
-    this.profileEnd("embedding backward", embeddingBackwardStart);
+    return {
+      loss: totalLoss / validTokens,
+      gradient: this.lossGradientBuffer,
+      validTokens,
+    };
   }
 
   load(path: string) {

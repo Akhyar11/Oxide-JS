@@ -271,7 +271,8 @@ export default class Dense {
     const [rows, seqLen] = this.result._shape;
     let e: Matrix = mj.matrix([]);
     let lossValue = 0;
-    if (this.status === "output") {
+    const hasExternalError = err._data.length > 0;
+    if (this.status === "output" && !hasExternalError) {
       // Safety check: Jika target adalah sparse index (1xN) tapi output bukan 1xN, 
       // dan loss function saat ini adalah MSE, maka PASTI akan error shape.
       // Paksa gunakan SoftmaxCrossEntropy untuk kasus klasifikasi sparse.

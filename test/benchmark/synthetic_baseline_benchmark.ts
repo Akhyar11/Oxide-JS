@@ -10,6 +10,7 @@ import { BPETokenizer } from "../../src/tokenizer";
 type Sample = {
   x: number[];
   y: number;
+  ySeq: number[];
 };
 
 type SyntheticBaselineConfig = {
@@ -156,7 +157,13 @@ function buildSamples(lines: string[], tokenizer: BPETokenizer, seqLen: number):
         x[offset + j] = context[j];
       }
 
-      samples.push({ x, y: tokens[i] });
+      const ySeq = new Array<number>(seqLen).fill(padId);
+      for (let j = 0; j < seqLen - 1; j++) {
+        ySeq[j] = x[j + 1];
+      }
+      ySeq[seqLen - 1] = tokens[i];
+
+      samples.push({ x, y: tokens[i], ySeq });
     }
   }
 
@@ -166,22 +173,24 @@ function buildSamples(lines: string[], tokenizer: BPETokenizer, seqLen: number):
 function fillBatch(samples: Sample[], startIndex: number, actualBatchSize: number, seqLen: number) {
   const x = mj.zeros([seqLen, actualBatchSize]);
   const y = mj.zeros([1, actualBatchSize]);
+  const ySeq = mj.zeros([seqLen, actualBatchSize]);
 
   for (let batchIndex = 0; batchIndex < actualBatchSize; batchIndex++) {
     const sample = samples[startIndex + batchIndex];
     for (let row = 0; row < seqLen; row++) {
       x._data[row * actualBatchSize + batchIndex] = sample.x[row];
+      ySeq._data[row * actualBatchSize + batchIndex] = sample.ySeq[row];
     }
     y._data[batchIndex] = sample.y;
   }
 
-  return { x, y };
+  return { x, y, ySeq };
 }
 
 function enableTrainingDropout(model: Sequential): void {
   for (const layer of model.layers) {
-    if (layer.name === "dropout layer") {
-      (layer as any).status = "train";
+    if (typeof (layer as any).setTrainingMode === "function") {
+      (layer as any).setTrainingMode(true);
     }
   }
 }
@@ -231,10 +240,10 @@ export async function runSyntheticBaselineBenchmark(
   for (let batchNumber = 0; batchNumber < warmupBatches; batchNumber++) {
     const startIndex = (batchNumber * config.batchSize) % samples.length;
     const actualBatchSize = Math.min(config.batchSize, samples.length - startIndex);
-    const { x, y } = fillBatch(samples, startIndex, actualBatchSize, config.seqLen);
+    const { x, y, ySeq } = fillBatch(samples, startIndex, actualBatchSize, config.seqLen);
     if (config.modelType === "transformers") {
       (model as Sequential).forward(x);
-      (model as Sequential).backward(y);
+      (model as Sequential).backward(ySeq);
     } else {
       (model as RecurrentBenchmarkModel).trainBatch(x, y);
     }
@@ -244,10 +253,10 @@ export async function runSyntheticBaselineBenchmark(
   let batchCount = 0;
   for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += config.batchSize) {
     const actualBatchSize = Math.min(config.batchSize, samples.length - sampleIndex);
-    const { x, y } = fillBatch(samples, sampleIndex, actualBatchSize, config.seqLen);
+    const { x, y, ySeq } = fillBatch(samples, sampleIndex, actualBatchSize, config.seqLen);
     if (config.modelType === "transformers") {
       (model as Sequential).forward(x);
-      (model as Sequential).backward(y);
+      (model as Sequential).backward(ySeq);
     } else {
       (model as RecurrentBenchmarkModel).trainBatch(x, y);
     }

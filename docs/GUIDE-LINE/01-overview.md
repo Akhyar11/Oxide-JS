@@ -40,7 +40,7 @@ Modul ini menyediakan blok bangunan untuk menyusun model:
 ### 4. Komposisi Model (`src/models`)
 Abstraksi tingkat tinggi untuk mengelola alur data:
 - **Sequential**: Penumpukan layer secara linier.
-- **Transformers**: Arsitektur lengkap yang siap digunakan untuk tugas-tugas NLP.
+- **Transformers**: Arsitektur lengkap untuk NLP dengan training full-sequence causal language modeling dan inference last-token untuk generasi.
 - **Dimentionality Reduction**: Model khusus untuk reduksi dimensi data.
 
 ### 5. Preprocessing Teks (`src/tokenizer`)
@@ -70,7 +70,7 @@ ML-V1 memprioritaskan performa melalui:
 ---
 
 > [!NOTE]
-> Proyek ini sedang dalam pengembangan aktif (v1.2.0). Pastikan untuk selalu memeriksa kompatibilitas antara versi library dan backend native yang digunakan.
+> Proyek ini sedang dalam pengembangan aktif (v1.3.0). Pastikan untuk selalu memeriksa kompatibilitas antara versi library dan backend native yang digunakan.
 
 **Langkah Berikutnya:**
 Lanjutkan ke bagian [Instalasi](02-installation.md) untuk mulai menyiapkan lingkungan pengembangan Anda.

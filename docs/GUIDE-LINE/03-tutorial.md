@@ -140,6 +140,54 @@ model.backward(y);
 
 ---
 
+## 6. Full-Sequence Causal LM dengan Transformers
+
+Untuk `Transformers`, jalur training dan inference sengaja dipisahkan:
+- training: logits untuk seluruh posisi token valid
+- inference: logits token terakhir saja untuk sampling token berikutnya
+
+```ts
+import mj from "./src/math";
+import { Transformers } from "./src/models";
+
+const padTokenId = 0;
+const model = new Transformers({
+  units: 32,
+  seqLen: 6,
+  vocabSize: 100,
+  heads: 4,
+  alpha: 0.001,
+  padTokenId,
+});
+
+const x = mj.matrix([
+  [0],
+  [11],
+  [12],
+  [13],
+  [14],
+  [15],
+]);
+
+const y = mj.matrix([
+  [0],
+  [12],
+  [13],
+  [14],
+  [15],
+  [0],
+]);
+
+model.train();
+const trainLogits = model.forward(x); // [vocabSize, seqLen * batch]
+model.backward(y);
+
+model.eval();
+const nextTokenLogits = model.predict(x); // [vocabSize, batch]
+```
+
+---
+
 ## Tips Pengembangan
 
 - **Mode Training vs Evol**: Gunakan `model.train()` saat melatih dan `model.eval()` saat melakukan inferensi (terutama jika menggunakan layer `Dropout`).

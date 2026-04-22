@@ -613,7 +613,31 @@ model.fit(trainData, labels, 100, (loss) => {
 
 ### B. Transformers Model
 
-Model arsitektur Transformer yang lengkap (berbasis arsitektur `Sequential`).
+Model arsitektur Transformer yang lengkap (berbasis arsitektur `Sequential`) untuk causal language modeling.
+
+Perubahan penting pada versi ini:
+- training path sekarang memakai **full-sequence causal LM**
+- inference path tetap memakai **last-token logits**
+- target training yang benar adalah **shifted next-token targets** dengan shape `[seqLen, batch]`
+- kontrak lama `backward(y)` dengan target `[1, batch]` masih diterima sebagai compatibility path terbatas, tetapi bukan lagi path training yang direkomendasikan
+
+#### Kontrak Shape
+
+- **Input token IDs**: `Matrix` dengan shape `[seqLen, batch]`
+- **Training logits** (`model.train(); model.forward(x)` atau `model.forwardFullSequence(x)`): `[vocabSize, seqLen * batch]`
+- **Inference logits** (`model.eval(); model.forward(x)`, `model.forwardNextToken(x)`, atau `model.predict(x)`): `[vocabSize, batch]`
+- **Training target**: `Matrix` sparse index `[seqLen, batch]`
+- **Legacy target**: `Matrix` sparse index `[1, batch]`
+
+Urutan kolom logits training bersifat **sample-major**:
+- sample 0 posisi `0..seqLen-1`
+- sample 1 posisi `0..seqLen-1`
+- dan seterusnya
+
+Posisi valid untuk loss full-sequence:
+- causal shift harus valid
+- token input saat ini bukan `padTokenId`
+- token target shifted juga bukan `padTokenId`
 
 #### `constructor(config)`
 - **`units`**: Dimensi model (`d_model`).
@@ -622,6 +646,7 @@ Model arsitektur Transformer yang lengkap (berbasis arsitektur `Sequential`).
 - **`heads`**: Jumlah attention heads (default: 8).
 - **`dropoutRate`**: Tingkat dropout (default: 0.1).
 - **`alpha`**: Learning rate (default: 0.01).
+- **`padTokenId`**: Token padding yang harus diabaikan di embedding, attention pad mask, dan loss full-sequence.
 - **`clipGradient`**: Batas clipping gradien global untuk seluruh sub-layer (default: 5.0).
 
 ```ts
@@ -631,9 +656,133 @@ const model = new Transformers({
   units: 128,
   seqLen: 50,
   vocabSize: 5000,
+  padTokenId: 0,
   clipGradient: 1.5
 });
 ```
+
+#### `forward(input)`
+
+Behavior `forward()` sekarang tergantung mode model:
+- saat `model.train()`: mengembalikan logits full-sequence `[vocabSize, seqLen * batch]`
+- saat `model.eval()`: mengembalikan logits last-token `[vocabSize, batch]`
+
+Ini sengaja memisahkan default training path dan inference path tanpa menghapus ergonomi generation yang sudah ada.
+
+#### `forwardFullSequence(input)`
+
+Memaksa jalur training/full-sequence tanpa bergantung pada mode saat ini.
+
+Gunakan jika Anda ingin eksplisit bahwa output yang diinginkan adalah logits seluruh sequence.
+
+#### `forwardNextToken(input)`
+
+Memaksa jalur inference/last-token tanpa bergantung pada mode saat ini.
+
+Gunakan untuk sampling token berikutnya pada loop generation.
+
+#### `predict(input)`
+
+`predict()` sekarang memakai jalur inference last-token dan mengembalikan shape `[vocabSize, batch]`.
+
+#### `backward(target)`
+
+Kontrak target yang direkomendasikan:
+- **shape**: `[seqLen, batch]`
+- **isi**: target next-token yang sudah di-shift satu posisi ke kiri
+- **last row**: umumnya diisi `padTokenId` karena tidak ada token berikutnya
+
+Loss dihitung untuk seluruh posisi valid non-pad, bukan hanya satu posisi terakhir.
+
+Compatibility path:
+- target `[1, batch]` masih diterima untuk legacy loop yang hanya melatih token terakhir
+- path ini dipertahankan hanya untuk meminimalkan breaking change, bukan best practice baru
+
+#### Contoh Training Full-Sequence
+
+```ts
+import mj from "./src/math";
+import { Transformers } from "./src/models";
+
+const padTokenId = 0;
+const model = new Transformers({
+  units: 64,
+  seqLen: 6,
+  vocabSize: 2000,
+  heads: 8,
+  alpha: 0.001,
+  padTokenId,
+});
+
+const x = mj.matrix([
+  [0, 0],
+  [11, 21],
+  [12, 22],
+  [13, 23],
+  [14, 24],
+  [15, 25],
+]);
+
+const y = mj.matrix([
+  [0, 0],
+  [12, 22],
+  [13, 23],
+  [14, 24],
+  [15, 25],
+  [0, 0],
+]);
+
+model.train();
+const logits = model.forward(x); // [vocabSize, seqLen * batch]
+model.backward(y);
+console.log(logits._shape, model.loss);
+```
+
+#### Contoh Inference / Generation
+
+```ts
+import mj from "./src/math";
+import { Transformers } from "./src/models";
+
+const model = new Transformers({
+  units: 64,
+  seqLen: 6,
+  vocabSize: 2000,
+  heads: 8,
+  alpha: 0.001,
+  padTokenId: 0,
+});
+
+model.eval();
+const x = mj.matrix([
+  [0],
+  [11],
+  [12],
+  [13],
+  [14],
+  [15],
+]);
+
+const nextTokenLogits = model.predict(x); // [vocabSize, 1]
+```
+
+#### Best Practices
+
+- Gunakan target shifted `[seqLen, batch]`, bukan target tunggal `[1, batch]`, untuk training LM yang benar.
+- Konsistenkan `seqLen`, `vocabSize`, dan `padTokenId` antara tokenizer, preprocessing, dan model.
+- Pastikan posisi pad di target tetap `padTokenId` agar loss tidak menghitung area padding.
+- Gunakan `model.predict()` atau `model.forwardNextToken()` pada generation loop agar sampling tetap memakai last-token logits.
+- Gunakan `model.forwardFullSequence()` bila Anda butuh inspeksi logits semua posisi saat eval/debug.
+
+#### Migration Note
+
+Sebelum refactor ini, training transformer hanya memakai representasi token terakhir untuk memprediksi token berikutnya.
+
+Sesudah refactor:
+- training default memakai objective full-sequence causal LM
+- shape output `forward()` saat mode train berubah dari `[vocabSize, batch]` menjadi `[vocabSize, seqLen * batch]`
+- `backward()` idealnya menerima target shifted `[seqLen, batch]`
+- jalur inference last-token dipertahankan lewat `predict()` dan `forwardNextToken()`
 
 ---
 
@@ -702,16 +851,149 @@ const attention = new MultiHeadAttention({
 
 ---
 
-### F. Layer Utilitas Lainnya
+### F. Keluarga Recurrent Layer (`RNN`, `LSTM`, `GRU`)
+
+Keluarga recurrent layer dipakai untuk data berurutan dengan format input **`[features, seqLen]`** untuk satu sample sequence.
+
+#### Konvensi Umum
+- **Input**: `Matrix` dengan shape `[units, seqLen]`.
+- **`returnSequences: false`**: output shape `[hiddenUnits, 1]` untuk `RNN`/`LSTM`, atau `[hiddenUnits * 2, 1]` untuk `GRU` bidirectional.
+- **`returnSequences: true`**: output shape `[hiddenUnits, seqLen]` untuk `RNN`/`LSTM`, atau `[hiddenUnits * 2, seqLen]` untuk `GRU` bidirectional.
+- **`stateful: true`**: hidden state dibawa ke pemanggilan `forward()` berikutnya sampai `resetState()` dipanggil.
+- **`returnState`**: saat ini **belum didukung** untuk seluruh keluarga recurrent dan akan melempar error eksplisit ketika `forward()` dipanggil.
+- **`Sequential.fit()`**: untuk recurrent generic path saat ini gunakan **`batchSize=1`**. Jika `stateful=true`, hindari `shuffle=true` dan `validationSplit > 0`.
+
+#### `RNN(config)`
+Recurrent layer dasar dengan satu hidden state dan Backpropagation Through Time (BPTT).
+
+##### `constructor(config)`
+- **`units`**: Jumlah fitur input per time step.
+- **`hiddenUnits`**: Jumlah unit hidden state.
+- **`activation`**: Aktivasi recurrent (`"tanh"` default, atau `"relu"`).
+- **`returnSequences`**: Jika `true`, kembalikan output untuk setiap time step.
+- **`returnState`**: Disimpan di konfigurasi, tetapi belum didukung saat inferensi/training.
+- **`stateful`**: Jika `true`, hidden state terakhir dipertahankan antar pemanggilan.
+- **`optimizer`**: Optimizer parameter recurrent.
+- **`clipGradient`**: Batas gradient clipping (default: `5.0`).
+
+```ts
+import mj from "./src/math";
+import { RNN } from "./src/layers";
+
+const layer = new RNN({
+  units: 8,
+  hiddenUnits: 16,
+  activation: "tanh",
+  returnSequences: true,
+  stateful: false,
+});
+
+const x = mj.matrix([
+  [1, 2, 3],
+  [0, 1, 0],
+  [1, 0, 1],
+  [0, 0, 1],
+  [1, 1, 1],
+  [0, 1, 1],
+  [1, 0, 0],
+  [0, 0, 0],
+]); // [8, 3]
+
+const out = layer.forward(x); // [16, 3] karena returnSequences=true
+```
+
+#### `LSTM(config)`
+Recurrent layer dengan **cell state** dan gate input/forget/output untuk menangani dependency sequence yang lebih panjang.
+
+##### `constructor(config)`
+- **`units`**: Jumlah fitur input per time step.
+- **`hiddenUnits`**: Jumlah unit hidden state dan cell state.
+- **`returnSequences`**: Jika `true`, kembalikan output untuk setiap time step.
+- **`returnState`**: Belum didukung dan akan throw eksplisit saat `forward()`.
+- **`stateful`**: Jika `true`, hidden state dan cell state dipertahankan antar pemanggilan.
+- **`optimizer`**: Optimizer parameter gate LSTM.
+- **`clipGradient`**: Batas gradient clipping (default: `5.0`).
+
+```ts
+import mj from "./src/math";
+import { LSTM } from "./src/layers";
+
+const layer = new LSTM({
+  units: 8,
+  hiddenUnits: 32,
+  returnSequences: false,
+  stateful: true,
+});
+
+const out = layer.forward(
+  mj.matrix([
+    [1, 2, 3, 4],
+    [0, 1, 0, 1],
+    [1, 0, 1, 0],
+    [0, 0, 1, 1],
+    [1, 1, 1, 1],
+    [0, 1, 1, 0],
+    [1, 0, 0, 1],
+    [0, 0, 0, 1],
+  ])
+); // [32, 1]
+
+layer.resetState(); // kosongkan hidden/cell state stateful
+```
+
+#### `GRU(config)`
+Recurrent layer dengan gate **update/reset**. Implementasi ini juga mendukung mode **`bidirectional`**.
+
+##### `constructor(config)`
+- **`units`**: Jumlah fitur input per time step.
+- **`hiddenUnits`**: Jumlah unit hidden state per arah.
+- **`bidirectional`**: Jika `true`, jalankan GRU maju dan mundur lalu gabungkan output keduanya.
+- **`returnSequences`**: Jika `true`, kembalikan output untuk setiap time step.
+- **`returnState`**: Belum didukung dan akan throw eksplisit saat `forward()`.
+- **`stateful`**: Jika `true`, hidden state per arah dipertahankan antar pemanggilan.
+- **`optimizer`**: Optimizer parameter gate GRU.
+- **`clipGradient`**: Batas gradient clipping (default: `5.0`).
+
+```ts
+import mj from "./src/math";
+import { GRU } from "./src/layers";
+
+const layer = new GRU({
+  units: 8,
+  hiddenUnits: 16,
+  bidirectional: true,
+  returnSequences: true,
+});
+
+const out = layer.forward(
+  mj.matrix([
+    [1, 2, 3],
+    [0, 1, 0],
+    [1, 0, 1],
+    [0, 0, 1],
+    [1, 1, 1],
+    [0, 1, 1],
+    [1, 0, 0],
+    [0, 0, 0],
+  ])
+); // [32, 3] = 16 forward + 16 backward
+```
+
+#### Catatan Praktis
+- Untuk sequence modeling di dalam `Sequential`, recurrent layer biasanya diikuti `Dense` output layer.
+- Jika `returnSequences=false`, layer akan mengembalikan representasi time step terakhir.
+- Method `save()`/`load()` sudah menyimpan bobot recurrent dan state internal stateful.
+- Method `getState()` tersedia untuk inspeksi state saat debugging.
+
+---
+
+### G. Layer Utilitas Lainnya
 
 - **`Flatten`**: Meratakan matriks menjadi satu dimensi (biasanya sebelum Dense layer).
 - **`Dropout({ rate })`**: Menonaktifkan neuron secara acak untuk mencegah overfitting.
 - **`LayerNormalization({ units, clipGradient })`**: Menstabilkan distribusi nilai di dalam jaringan.
 - **`Convolution({ kernelSize, inputShape, activation, clipGradient })`**: Operasi filter 2D untuk data spasial (Gambar).
 - **`SelfAttention({ units, alpha, clipGradient })`**: Mekanisme atensi dasar untuk satu input.
-- **`RNN({ units, hiddenUnits, activation, returnSequences, returnState, stateful, clipGradient })`**: Recurrent layer dasar dengan BPTT. `returnSequences` didukung; `returnState` saat ini ditolak eksplisit.
-- **`LSTM({ units, hiddenUnits, returnSequences, returnState, stateful, clipGradient })`**: Recurrent layer dengan cell-state + gate input/forget/output. `returnState` belum didukung dan akan throw eksplisit.
-- **`GRU({ units, hiddenUnits, bidirectional, returnSequences, returnState, stateful, clipGradient })`**: Recurrent layer gate update/reset dengan opsi bidirectional. `returnState` belum didukung dan akan throw eksplisit.
 
 ---
 

@@ -90,6 +90,8 @@ Catatan:
 | [v1.2.1](./v1.2.1.md) | 2026-04-21 | `78bd441` | Entry test tunggal `test/index.ts` dengan correctness suite + benchmark suite |
 | [v1.2.2](./v1.2.2.md) | 2026-04-22 | `5a606f9` + local patch | Hardening kontrak `RNN`/`LSTM`/`GRU`, guard recurrent stateful, dan benchmark recurrent yang memproses sample per sample secara valid |
 | [v1.2.3](./v1.2.3.md) | 2026-04-22 | `develop-mode` local patch | Refresh benchmark setelah recurrent memakai jalur batch time-major yang valid, bukan loop sample-per-sample |
+| [v1.2.4](./v1.2.4.md) | 2026-04-22 | `537905a` + local patch | Refactor transformer ke full-sequence causal LM training dan benchmark ulang workload transformer |
+| [v1.3.0](./v1.3.0.md) | 2026-04-22 | `537905a` + local patch | Major release untuk perubahan arsitektur training transformer ke full-sequence causal LM |
 
 ## Cara Menambah Versi Baru
 
@@ -108,14 +110,14 @@ Catatan:
 - Snapshot recurrent lama sebelum `v1.2.3` masih berguna sebagai referensi historis, tetapi tidak lagi fair untuk membandingkan throughput recurrent karena jalur benchmark utamanya masih memproses sample satu per satu di dalam batch efektif.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `1.2.3`.
+Versi aktif proyek saat ini adalah `1.3.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.2.3`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.3.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `1.2.3`: rilis mayor `1`, minor `2`, patch `3` untuk optimasi batch recurrent.
+- `1.3.0`: rilis mayor `1`, minor `3`, patch `0` untuk perubahan arsitektur training transformer.
 - `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.

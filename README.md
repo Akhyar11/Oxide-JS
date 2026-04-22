@@ -11,16 +11,16 @@ ML-V1 adalah library low-level sampai mid-level untuk eksperimen dan pengembanga
 - Menggabungkan kemudahan TypeScript dengan performa Rust untuk hot paths.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `1.2.3`.
+Versi aktif proyek saat ini adalah `1.3.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.2.3`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `1.3.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `1.2.3`: rilis mayor `1`, minor `2`, patch `3` untuk optimasi batch recurrent dan penyegaran benchmark.
+- `1.3.0`: rilis mayor `1`, minor `3`, patch `0` untuk perubahan arsitektur training transformer ke full-sequence causal LM.
 - `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.
 
 ## Key features
@@ -150,25 +150,39 @@ const padded = tokenizer.padSequence(ids, 12);
 console.log(ids, padded, tokenizer.decode(ids));
 ```
 
-### Transformer next-token
+### Transformer causal LM training
 ```ts
 import mj from "./src/math";
 import { Transformers } from "./src/models";
 
 const model = new Transformers({ units: 64, seqLen: 8, vocabSize: 500, heads: 8, alpha: 0.001, padTokenId: 0 });
 model.compile({ alpha: 0.001, optimizer: "adam", error: "softmaxCrossEntropy" });
+model.train();
 
 const x = mj.matrix([[0], [0], [10], [20], [30], [40], [50], [60]]); // [seqLen, 1]
-const y = mj.matrix([[70]]); // next token index
+const y = mj.matrix([[0], [10], [20], [30], [40], [50], [60], [0]]); // shifted targets [seqLen, 1]
 
-model.forward(x);
+const logits = model.forward(x); // [vocabSize, seqLen * batch]
 model.backward(y);
-console.log("loss", model.loss);
+console.log("shape", logits._shape, "loss", model.loss);
+```
+
+### Transformer generation / inference
+```ts
+import mj from "./src/math";
+import { Transformers } from "./src/models";
+
+const model = new Transformers({ units: 64, seqLen: 8, vocabSize: 500, heads: 8, alpha: 0.001, padTokenId: 0 });
+model.eval();
+
+const x = mj.matrix([[0], [0], [10], [20], [30], [40], [50], [60]]);
+const nextTokenLogits = model.predict(x); // [vocabSize, batch]
+// setara dengan model.forwardNextToken(x)
 ```
 
 ## Models overview
 - `Sequential`: stack layer umum (dense/embedding/attention/cnn).
-- `Transformers`: satu blok transformer (embedding + PE + pre-norm MHA + FFN + output projector).
+- `Transformers`: satu blok transformer (embedding + PE + pre-norm MHA + FFN + output projector) dengan training full-sequence causal LM dan inference last-token.
 - `DimentionalityReduction`: turunan `Sequential` dengan pemisahan encoder/decoder via status layer `outputReduction`.
 
 ## Layers overview
@@ -218,6 +232,8 @@ console.log("loss", model.loss);
 - Gunakan `softmaxCrossEntropy` untuk klasifikasi sparse token.
 - Konsistenkan `seqLen` antara preprocessing dan model constructor.
 - Tetapkan `padTokenId` di tokenizer + model embedding.
+- Untuk `Transformers`, siapkan target shifted next-token dengan shape `[seqLen, batch]` dan isi posisi yang tidak valid dengan `padTokenId`.
+- Gunakan `model.train()` untuk training full-sequence dan `model.predict()` / `model.forwardNextToken()` untuk inferensi generatif berbasis last-token.
 - Untuk recurrent `stateful`, hindari `shuffle=true` dan `validationSplit > 0` di loop `Sequential.fit()` generic saat ini.
 - Awali debug dengan `ML_DISABLE_NATIVE=1` saat membandingkan perilaku JS vs native.
 - Cek shape di setiap boundary layer bila loss tidak turun.
