@@ -91,14 +91,14 @@
 - Pertahankan command dan konfigurasi benchmark agar histori tetap comparable.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `2.0.2`.
+Versi aktif proyek saat ini adalah `2.1.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `2.0.2`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `2.1.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `2.0.2`: rilis mayor `2`, fitur set nol (`0`), dengan patch kedua (`2`) untuk optimasi internal tanpa perubahan API.
-- `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.
+- `2.1.0`: rilis mayor `2`, minor `1`, patch `0` untuk fitur/kapabilitas baru yang tetap kompatibel.
+- `2.0.2`: masih di mayor `2` dan minor `0`, dengan patch kedua (`2`) untuk optimasi internal tanpa perubahan API.

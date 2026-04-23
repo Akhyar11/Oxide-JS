@@ -57,6 +57,11 @@ const baseConfig = {
   clipGradient: false,
 };
 
+const multiBlockConfig = {
+  ...baseConfig,
+  numBlocks: 2,
+};
+
 test("Transformers training forward returns full-sequence logits", () => {
   const model = new Transformers(baseConfig);
   model.train();
@@ -87,6 +92,24 @@ test("Transformers inference path returns last-token logits", () => {
 
   assert.deepEqual(out._shape, [baseConfig.vocabSize, 2]);
   assert.deepEqual(pred._shape, [baseConfig.vocabSize, 2]);
+});
+
+test("Transformers multi-block training and inference paths keep expected shapes", () => {
+  const model = new Transformers(multiBlockConfig);
+  const x = mj.matrix([
+    [0, 0],
+    [5, 8],
+    [6, 9],
+    [7, 10],
+  ]);
+
+  model.train();
+  const trainOut = model.forward(x);
+  model.eval();
+  const inferOut = model.forwardNextToken(x);
+
+  assert.deepEqual(trainOut._shape, [multiBlockConfig.vocabSize, multiBlockConfig.seqLen * 2]);
+  assert.deepEqual(inferOut._shape, [multiBlockConfig.vocabSize, 2]);
 });
 
 test("Transformers forwardNextToken matches last position of full-sequence logits in eval mode", () => {
@@ -234,6 +257,27 @@ test("Transformers backward keeps gradients and parameters finite on full-sequen
   assertFiniteMatrix("dense weight", (model as any).dense.weight);
   assertFiniteMatrix("embedding weight", (model as any).embedding.weight);
   assertFiniteMatrix("attention q", (model as any).mha.q);
+});
+
+test("Transformers multi-block save/load roundtrip preserves eval logits", () => {
+  const seed = new Transformers({ ...multiBlockConfig, dropoutRate: 0 });
+  seed.eval();
+  const clone = cloneModel(seed, { ...multiBlockConfig, dropoutRate: 0 });
+  clone.eval();
+  const x = mj.matrix([
+    [0, 0],
+    [5, 8],
+    [6, 9],
+    [7, 10],
+  ]);
+
+  const seedLogits = seed.forwardFullSequence(x);
+  const cloneLogits = clone.forwardFullSequence(x);
+
+  assert.deepEqual(seedLogits._shape, cloneLogits._shape);
+  for (let i = 0; i < seedLogits._data.length; i++) {
+    assert.ok(Math.abs(seedLogits._data[i] - cloneLogits._data[i]) <= 1e-6, `multi-block logits mismatch at ${i}`);
+  }
 });
 
 test("Transformers native masked sparse loss matches JS fallback on small full-sequence batch", () => {

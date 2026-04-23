@@ -618,6 +618,7 @@ Model arsitektur Transformer yang lengkap (berbasis arsitektur `Sequential`) unt
 Perubahan penting pada versi ini:
 - training path sekarang memakai **full-sequence causal LM**
 - inference path tetap memakai **last-token logits**
+- arsitektur sekarang mendukung **multi-block depth** lewat `numBlocks`
 - target training yang benar adalah **shifted next-token targets** dengan shape `[seqLen, batch]`
 - kontrak lama `backward(y)` dengan target `[1, batch]` masih diterima sebagai compatibility path terbatas, tetapi bukan lagi path training yang direkomendasikan
 
@@ -644,6 +645,7 @@ Posisi valid untuk loss full-sequence:
 - **`seqLen`**: Panjang urutan input.
 - **`vocabSize`**: Ukuran kosakata.
 - **`heads`**: Jumlah attention heads (default: 8).
+- **`numBlocks`**: Jumlah block Transformer bertingkat (default: 1).
 - **`dropoutRate`**: Tingkat dropout (default: 0.1).
 - **`alpha`**: Learning rate (default: 0.01).
 - **`padTokenId`**: Token padding yang harus diabaikan di embedding, attention pad mask, dan loss full-sequence.
@@ -656,10 +658,22 @@ const model = new Transformers({
   units: 128,
   seqLen: 50,
   vocabSize: 5000,
+  heads: 8,
+  numBlocks: 4,
   padTokenId: 0,
   clipGradient: 1.5
 });
 ```
+
+#### Arsitektur Internal
+
+Setiap block Transformer berisi:
+- `LayerNormalization -> MultiHeadAttention -> Dropout -> Residual`
+- `LayerNormalization -> Dense(4x units, relu) -> Dropout -> Dense(units, linear) -> Dropout -> Residual`
+
+Jika `numBlocks = 1`, perilaku dan topology dasarnya setara dengan versi lama single-block.
+
+Jika `numBlocks > 1`, seluruh block dijalankan berurutan saat forward dan di-unroll terbalik saat backward.
 
 #### `forward(input)`
 
@@ -698,6 +712,32 @@ Compatibility path:
 - target `[1, batch]` masih diterima untuk legacy loop yang hanya melatih token terakhir
 - path ini dipertahankan hanya untuk meminimalkan breaking change, bukan best practice baru
 
+#### `save(path)` / `load(path)`
+
+`Transformers` tetap memakai format serialisasi flat-array seperti model `Sequential`, tetapi sekarang dapat menyimpan banyak block.
+
+Aturan penting:
+- model single-block lama tetap bisa di-load
+- model multi-block baru juga bisa di-save/load
+- instance yang memanggil `load()` harus dibuat dengan `numBlocks` yang sama dengan artefak model
+
+Contoh aman:
+
+```ts
+const model = new Transformers({
+  units: 128,
+  seqLen: 50,
+  vocabSize: 5000,
+  heads: 8,
+  numBlocks: 4,
+  padTokenId: 0,
+});
+
+model.load("transformer_model.json");
+```
+
+Jika artefak model memiliki jumlah block berbeda dengan instance saat ini, `load()` akan melempar error eksplisit.
+
 #### Contoh Training Full-Sequence
 
 ```ts
@@ -710,6 +750,7 @@ const model = new Transformers({
   seqLen: 6,
   vocabSize: 2000,
   heads: 8,
+  numBlocks: 2,
   alpha: 0.001,
   padTokenId,
 });
@@ -749,6 +790,7 @@ const model = new Transformers({
   seqLen: 6,
   vocabSize: 2000,
   heads: 8,
+  numBlocks: 2,
   alpha: 0.001,
   padTokenId: 0,
 });
@@ -770,6 +812,7 @@ const nextTokenLogits = model.predict(x); // [vocabSize, 1]
 
 - Gunakan target shifted `[seqLen, batch]`, bukan target tunggal `[1, batch]`, untuk training LM yang benar.
 - Konsistenkan `seqLen`, `vocabSize`, dan `padTokenId` antara tokenizer, preprocessing, dan model.
+- Mulai dari `numBlocks=2` atau `numBlocks=4` jika ingin model lebih dalam, lalu benchmark karena biaya runtime akan naik signifikan.
 - Pastikan posisi pad di target tetap `padTokenId` agar loss tidak menghitung area padding.
 - Gunakan `model.predict()` atau `model.forwardNextToken()` pada generation loop agar sampling tetap memakai last-token logits.
 - Gunakan `model.forwardFullSequence()` bila Anda butuh inspeksi logits semua posisi saat eval/debug.
@@ -783,6 +826,7 @@ Sesudah refactor:
 - shape output `forward()` saat mode train berubah dari `[vocabSize, batch]` menjadi `[vocabSize, seqLen * batch]`
 - `backward()` idealnya menerima target shifted `[seqLen, batch]`
 - jalur inference last-token dipertahankan lewat `predict()` dan `forwardNextToken()`
+- arsitektur kini dapat ditingkatkan kedalamannya dengan `numBlocks` tanpa mengubah API training/inference utama
 
 ---
 

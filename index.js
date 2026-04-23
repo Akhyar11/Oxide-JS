@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, layerNormBackwardNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative, maskedSparseSoftmaxCrossEntropyInto, projectLastTokenLogitsNativeInto, multiHeadAttentionForwardNativeInto, multiHeadAttentionBackwardNativeInto } = nativeBinding
+const { dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, layerNormBackwardNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingBackwardNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative, denseLinearBackwardNativeInto, maskedSparseSoftmaxCrossEntropyInto, projectLastTokenLogitsNativeInto, multiHeadAttentionForwardNativeInto, multiHeadAttentionBackwardNativeInto } = nativeBinding
 
 module.exports.dotProduct = dotProduct
 module.exports.dotProductInto = dotProductInto
@@ -339,6 +339,7 @@ module.exports.mseNative = mseNative
 module.exports.addBiasNative = addBiasNative
 module.exports.sumAxisNative = sumAxisNative
 module.exports.clipGradientsNative = clipGradientsNative
+module.exports.denseLinearBackwardNativeInto = denseLinearBackwardNativeInto
 module.exports.maskedSparseSoftmaxCrossEntropyInto = maskedSparseSoftmaxCrossEntropyInto
 module.exports.projectLastTokenLogitsNativeInto = projectLastTokenLogitsNativeInto
 module.exports.multiHeadAttentionForwardNativeInto = multiHeadAttentionForwardNativeInto

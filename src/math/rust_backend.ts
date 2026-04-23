@@ -33,6 +33,7 @@ export const isNativeAvailable = () => native !== null && !forceDisable;
 const DOT_NATIVE_WORKLOAD_THRESHOLD = 32 * 32 * 32;
 const ELEMENTWISE_NATIVE_LENGTH_THRESHOLD = 4 * 1024;
 const ADAM_NATIVE_LENGTH_THRESHOLD = 2 * 1024;
+const DENSE_LINEAR_BACKWARD_NATIVE_WORKLOAD_THRESHOLD = 64 * 128 * 256;
 
 export const shouldUseNativeDotProduct = (aRows: number, aCols: number, bCols: number): boolean => {
   return aRows * aCols * bCols >= DOT_NATIVE_WORKLOAD_THRESHOLD;
@@ -44,6 +45,14 @@ export const shouldUseNativeElementwise = (length: number): boolean => {
 
 export const shouldUseNativeAdam = (length: number): boolean => {
   return length >= ADAM_NATIVE_LENGTH_THRESHOLD;
+};
+
+export const shouldUseNativeDenseLinearBackward = (
+  outputUnits: number,
+  units: number,
+  seqLen: number
+): boolean => {
+  return outputUnits * units * seqLen >= DENSE_LINEAR_BACKWARD_NATIVE_WORKLOAD_THRESHOLD;
 };
 
 
@@ -385,4 +394,31 @@ export const sumAxisNative = (data: Float32Array, rows: number, cols: number, ax
 export const clipGradientsNative = (data: Float32Array, limit: number): void => {
   if (!native) throw new Error("Native backend not available");
   native.clipGradientsNative(data, limit);
+};
+
+export const denseLinearBackwardNative = (
+  errActivation: Float32Array,
+  input: Float32Array,
+  weight: Float32Array,
+  outputUnits: number,
+  units: number,
+  seqLen: number,
+  clipLimit: number,
+  gradWeightOut: Float32Array,
+  gradBiasOut: Float32Array,
+  prevErrOut: Float32Array
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.denseLinearBackwardNativeInto(
+    errActivation,
+    input,
+    weight,
+    outputUnits,
+    units,
+    seqLen,
+    clipLimit,
+    gradWeightOut,
+    gradBiasOut,
+    prevErrOut
+  );
 };

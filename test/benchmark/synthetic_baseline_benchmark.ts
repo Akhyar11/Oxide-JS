@@ -20,6 +20,7 @@ type SyntheticBaselineConfig = {
   batchSize: number;
   units: number;
   heads: number;
+  numBlocks: number;
   alpha: number;
   subsetRecords: number;
   warmupBatches: number;
@@ -40,6 +41,7 @@ type SyntheticBaselineResult = {
   batchSize: number;
   units: number;
   heads: number;
+  numBlocks: number;
   vocabSize: number;
 };
 
@@ -50,6 +52,7 @@ const DEFAULT_CONFIG: SyntheticBaselineConfig = {
   batchSize: 64,
   units: 64,
   heads: 8,
+  numBlocks: 1,
   alpha: 1e-5,
   subsetRecords: 256,
   warmupBatches: 1,
@@ -224,6 +227,7 @@ export async function runSyntheticBaselineBenchmark(
       seqLen: config.seqLen,
       vocabSize: tokenizer.getVocabSize(),
       heads: config.heads,
+      numBlocks: config.numBlocks,
       alpha: config.alpha,
       padTokenId: tokenizer.getPadId(),
     });
@@ -283,6 +287,7 @@ export async function runSyntheticBaselineBenchmark(
     batchSize: config.batchSize,
     units: config.units,
     heads: config.heads,
+    numBlocks: config.modelType === "transformers" ? config.numBlocks : 1,
     vocabSize: tokenizer.getVocabSize(),
   };
 }

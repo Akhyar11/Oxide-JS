@@ -12,7 +12,15 @@ import setActivation from "../utils/setActivation";
 import Matrix from "../matrix";
 import setOptimizer from "../utils/setOptimizer";
 import setLoss from "../utils/setLoss";
-import { isNativeAvailable, projectLastTokenLogitsNative, reluNative, sigmoidNative, tanhNative } from "../math/rust_backend";
+import {
+  denseLinearBackwardNative,
+  isNativeAvailable,
+  projectLastTokenLogitsNative,
+  reluNative,
+  shouldUseNativeDenseLinearBackward,
+  sigmoidNative,
+  tanhNative
+} from "../math/rust_backend";
 
 interface DenseLayers {
   units: number;
@@ -306,29 +314,56 @@ export default class Dense {
       errActivation = mj.mul(e, this.dInput, this.errActivationBuffer);
     }
 
-    // 1. Hitung gradien weight
-    // [outputUnits, seqLen] * [seqLen, units] -> [outputUnits, units]
-    const gradWeight = mj.dotProduct(errActivation, this.input, this.errWeightBuffer, false, true);
-
-    // 2. Hitung gradien bias (Sum sepanjang sequence/kolom) - OPTIMIZED WITH NATIVE
-    if (this.errBiasBuffer._shape[0] !== this.outputUnits) {
-      this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
-    }
-    const gradBias = mj.sumAxis(errActivation, 1, this.errBiasBuffer);
-
-    // [New] Gradient Clipping: Batasi nilai gradien agar tidak meledak - OPTIMIZED WITH NATIVE
-    if (this.clipGradient !== false) {
-      const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
-      mj.clipGradients(gradWeight, limit);
-      mj.clipGradients(gradBias, limit);
-    }
-
-    // 3. Hitung gradien ke layer sebelumnya dengan bobot sebelum update
-    // [units, outputUnits] * [outputUnits, seqLen] -> [units, seqLen]
     if (this.prevLayerErrBuffer._shape[0] !== this.units || this.prevLayerErrBuffer._shape[1] !== seqLen) {
       this.prevLayerErrBuffer = mj.zeros([this.units, seqLen]);
     }
-    const prevErr = mj.dotProduct(this.weight, errActivation, this.prevLayerErrBuffer, true, false);
+    if (this.errBiasBuffer._shape[0] !== this.outputUnits) {
+      this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
+    }
+
+    const canUseNativeLinearBackward =
+      this.activationName === "linear" &&
+      isNativeAvailable() &&
+      shouldUseNativeDenseLinearBackward(this.outputUnits, this.units, seqLen);
+
+    let gradWeight: Matrix;
+    let gradBias: Matrix;
+    let prevErr: Matrix;
+
+    if (canUseNativeLinearBackward) {
+      denseLinearBackwardNative(
+        errActivation._data,
+        this.input._data,
+        this.weight._data,
+        this.outputUnits,
+        this.units,
+        seqLen,
+        this.clipGradient === false ? -1 : (typeof this.clipGradient === "number" ? this.clipGradient : 5.0),
+        this.errWeightBuffer._data,
+        this.errBiasBuffer._data,
+        this.prevLayerErrBuffer._data
+      );
+      gradWeight = this.errWeightBuffer;
+      gradBias = this.errBiasBuffer;
+      prevErr = this.prevLayerErrBuffer;
+    } else {
+      // 1. Hitung gradien weight
+      // [outputUnits, seqLen] * [seqLen, units] -> [outputUnits, units]
+      gradWeight = mj.dotProduct(errActivation, this.input, this.errWeightBuffer, false, true);
+
+      // 2. Hitung gradien bias (Sum sepanjang sequence/kolom)
+      gradBias = mj.sumAxis(errActivation, 1, this.errBiasBuffer);
+
+      if (this.clipGradient !== false) {
+        const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
+        mj.clipGradients(gradWeight, limit);
+        mj.clipGradients(gradBias, limit);
+      }
+
+      // 3. Hitung gradien ke layer sebelumnya dengan bobot sebelum update
+      // [units, outputUnits] * [outputUnits, seqLen] -> [units, seqLen]
+      prevErr = mj.dotProduct(this.weight, errActivation, this.prevLayerErrBuffer, true, false);
+    }
 
     // 4. Dapatkan update dari optimizer
     const updateWeight = this.optimizerWeight.calculate(gradWeight, this.alpha);

@@ -34,6 +34,7 @@ export declare function mseNative(yTrue: Float32Array, yPred: Float32Array): Arr
 export declare function addBiasNative(data: Float32Array, bias: Float32Array, rows: number, cols: number): void
 export declare function sumAxisNative(data: Float32Array, rows: number, cols: number, axis: number, out: Float32Array): void
 export declare function clipGradientsNative(data: Float32Array, limit: number): void
+export declare function denseLinearBackwardNativeInto(errActivation: Float32Array, input: Float32Array, weight: Float32Array, outputUnits: number, units: number, seqLen: number, clipLimit: number, gradWeightOut: Float32Array, gradBiasOut: Float32Array, prevErrOut: Float32Array): void
 export declare function maskedSparseSoftmaxCrossEntropyInto(logits: Float32Array, inputTokens: Float32Array, targets: Float32Array, seqLen: number, batchSize: number, vocabSize: number, padTokenId: number | undefined | null, outGrad: Float32Array): MaskedSparseSoftmaxCrossEntropyResult
 export declare function projectLastTokenLogitsNativeInto(hidden: Float32Array, weight: Float32Array, bias: Float32Array, units: number, seqLen: number, batchSize: number, vocabSize: number, out: Float32Array): void
 export declare function multiHeadAttentionForwardNativeInto(qData: Float32Array, kData: Float32Array, vData: Float32Array, padMask: Array<boolean>, heads: number, headUnits: number, seqLen: number, batchSize: number, scale: number, outData: Float32Array, attentionData: Float32Array): void

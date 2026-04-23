@@ -98,6 +98,7 @@ Catatan:
 | [v2.0.1](./v2.0.1.md) | 2026-04-22 | `18134d6` + local patch | Optimasi lanjutan kernel native masked sparse loss dengan paralelisasi per token |
 | [v2.0.2](./v2.0.2.md) | 2026-04-22 | `18134d6` + local patch | Optimasi projector transformer dengan menghilangkan copy linear output dan mempercepat broadcast bias native |
 | [v2.0.3](./v2.0.3.md) | 2026-04-23 | `61dc7d4` + local patch | Optimasi blocked native loss kernel dan pengurangan overhead copy pada `MHA.backward` |
+| [v2.1.0](./v2.1.0.md) | 2026-04-23 | `eea34f5` + local patch | Tambahan benchmark scaling `numBlocks=2/4/6` dan release minor untuk arsitektur transformer yang kini mendukung multi-block |
 
 ## Cara Menambah Versi Baru
 
@@ -116,14 +117,14 @@ Catatan:
 - Snapshot recurrent lama sebelum `v1.2.3` masih berguna sebagai referensi historis, tetapi tidak lagi fair untuk membandingkan throughput recurrent karena jalur benchmark utamanya masih memproses sample satu per satu di dalam batch efektif.
 
 ## Versioning
-Versi aktif proyek saat ini adalah `2.0.2`.
+Versi aktif proyek saat ini adalah `2.1.0`.
 
-Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `2.0.2`.
+Proyek ini memakai format versi `MAJOR.MINOR.PATCH` seperti `2.1.0`.
 
 - Angka paling depan (`MAJOR`): perubahan besar yang biasanya membawa breaking change atau perubahan arsitektur utama.
 - Angka tengah (`MINOR`): penambahan fitur baru atau peningkatan yang tetap kompatibel dengan versi sebelumnya.
 - Angka paling belakang (`PATCH`): perbaikan bug, optimasi kecil, cleanup, atau perubahan minor yang tidak mengubah API utama.
 
 Contoh:
-- `2.0.2`: rilis mayor `2`, minor `0`, patch `2` untuk optimasi projector transformer tanpa perubahan API.
-- `1.1.4`: masih di mayor `1` dan minor `1`, tetapi sudah ada 4 patch/perbaikan kecil dari baseline `1.1.0`.
+- `2.1.0`: rilis mayor `2`, minor `1`, patch `0` untuk penambahan capability multi-block transformer dan benchmark scaling depth.
+- `2.0.2`: masih di mayor `2` dan minor `0`, dengan patch kedua (`2`) untuk optimasi projector transformer.

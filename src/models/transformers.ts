@@ -12,10 +12,26 @@ interface TransformersConfig {
   seqLen: number;         // sequence length
   vocabSize: number;      // vocabulary size
   heads?: number;         // number of attention heads (default 8)
+  numBlocks?: number;     // number of transformer blocks (default 1)
   dropoutRate?: number;   // dropout rate (default 0.1)
   alpha?: number;         // learning rate
   padTokenId?: number;
   clipGradient?: number | boolean;
+}
+
+interface TransformerBlock {
+  ln1: LayerNormalization;
+  mha: MultiHeadAttention;
+  drop1: Dropout;
+  ln2: LayerNormalization;
+  ffn1: Dense;
+  dropFfn: Dropout;
+  ffn2: Dense;
+  drop2: Dropout;
+  xRes1: Matrix;
+  xRes2: Matrix;
+  errRes1Buf: Matrix;
+  errRes2Buf: Matrix;
 }
 
 /**
@@ -30,8 +46,13 @@ interface TransformersConfig {
  */
 export default class Transformers extends Sequential {
   public vocabSize: number;
+  public numBlocks: number;
   private embedding: Embedding;
   private pe: PositionalEncoding;
+  private blocks: TransformerBlock[];
+  private dense: Dense;
+
+  // Alias ke block pertama untuk kompatibilitas internal/test lama.
   private ln1: LayerNormalization;
   private mha: MultiHeadAttention;
   private drop1: Dropout;
@@ -40,13 +61,7 @@ export default class Transformers extends Sequential {
   private dropFfn: Dropout;
   private ffn2: Dense;
   private drop2: Dropout;
-  private dense: Dense;
 
-  private xRes1: Matrix;
-  private xRes2: Matrix;
-
-  private errRes1Buf: Matrix;
-  private errRes2Buf: Matrix;
   private lastTokenBuffer: Matrix;
   private lossGradientBuffer: Matrix;
   private invalidTokenIndexBuffer: Int32Array = new Int32Array(0);
@@ -56,20 +71,54 @@ export default class Transformers extends Sequential {
   private profilerEnabled: boolean = false;
   private profileStats: { [key: string]: { totalMs: number; count: number } } = Object.create(null);
 
-  constructor({ units, seqLen, vocabSize, heads = 8, dropoutRate = 0.1, alpha = 0.01, padTokenId, clipGradient = 5.0 }: TransformersConfig) {
+  constructor({
+    units,
+    seqLen,
+    vocabSize,
+    heads = 8,
+    numBlocks = 1,
+    dropoutRate = 0.1,
+    alpha = 0.01,
+    padTokenId,
+    clipGradient = 5.0
+  }: TransformersConfig) {
+    if (!Number.isInteger(numBlocks) || numBlocks < 1) {
+      throw new Error(`Transformers: numBlocks harus integer >= 1, got ${numBlocks}`);
+    }
+
     const embedding = new Embedding({ vocabSize, embeddingDim: units, alpha, padTokenId });
     const pe = new PositionalEncoding({ dModel: units, maxSeqLen: seqLen });
+    const blocks: TransformerBlock[] = [];
+    const flatLayers: Array<Embedding | PositionalEncoding | LayerNormalization | MultiHeadAttention | Dropout | Dense> = [embedding, pe];
 
-    // Block
-    const ln1 = new LayerNormalization({ units, clipGradient });
-    const mha = new MultiHeadAttention({ units, heads, seqLen, alpha, clipGradient });
-    const drop1 = new Dropout({ rate: dropoutRate });
+    for (let blockIndex = 0; blockIndex < numBlocks; blockIndex++) {
+      const ln1 = new LayerNormalization({ units, clipGradient });
+      const mha = new MultiHeadAttention({ units, heads, seqLen, alpha, clipGradient });
+      const drop1 = new Dropout({ rate: dropoutRate });
 
-    const ln2 = new LayerNormalization({ units, clipGradient });
-    const ffn1 = new Dense({ units, outputUnits: units * 4, activation: "relu", alpha, clipGradient });
-    const dropFfn = new Dropout({ rate: dropoutRate });
-    const ffn2 = new Dense({ units: units * 4, outputUnits: units, activation: "linear", alpha, clipGradient });
-    const drop2 = new Dropout({ rate: dropoutRate });
+      const ln2 = new LayerNormalization({ units, clipGradient });
+      const ffn1 = new Dense({ units, outputUnits: units * 4, activation: "relu", alpha, clipGradient });
+      const dropFfn = new Dropout({ rate: dropoutRate });
+      const ffn2 = new Dense({ units: units * 4, outputUnits: units, activation: "linear", alpha, clipGradient });
+      const drop2 = new Dropout({ rate: dropoutRate });
+
+      blocks.push({
+        ln1,
+        mha,
+        drop1,
+        ln2,
+        ffn1,
+        dropFfn,
+        ffn2,
+        drop2,
+        xRes1: mj.zeros([units, seqLen]),
+        xRes2: mj.zeros([units, seqLen]),
+        errRes1Buf: mj.zeros([units, seqLen]),
+        errRes2Buf: mj.zeros([units, seqLen]),
+      });
+
+      flatLayers.push(ln1, mha, drop1, ln2, ffn1, dropFfn, ffn2, drop2);
+    }
 
     // Output Projector (applied independently to sequence length)
     const dense = new Dense({
@@ -81,26 +130,25 @@ export default class Transformers extends Sequential {
       loss: "softmaxCrossEntropy", // Paksa gunakan Cross Entropy dari awal
       clipGradient
     });
+    flatLayers.push(dense);
 
-    super({ layers: [embedding, pe, ln1, mha, drop1, ln2, ffn1, dropFfn, ffn2, drop2, dense] });
+    super({ layers: flatLayers });
 
     this.embedding = embedding;
     this.pe = pe;
-    this.ln1 = ln1;
-    this.mha = mha;
-    this.drop1 = drop1;
-    this.ln2 = ln2;
-    this.ffn1 = ffn1;
-    this.dropFfn = dropFfn;
-    this.ffn2 = ffn2;
-    this.drop2 = drop2;
+    this.blocks = blocks;
+    this.numBlocks = numBlocks;
+    this.ln1 = blocks[0].ln1;
+    this.mha = blocks[0].mha;
+    this.drop1 = blocks[0].drop1;
+    this.ln2 = blocks[0].ln2;
+    this.ffn1 = blocks[0].ffn1;
+    this.dropFfn = blocks[0].dropFfn;
+    this.ffn2 = blocks[0].ffn2;
+    this.drop2 = blocks[0].drop2;
     this.dense = dense;
 
     // Pre-allocate buffers
-    this.xRes1 = mj.zeros([units, seqLen]);
-    this.xRes2 = mj.zeros([units, seqLen]);
-    this.errRes1Buf = mj.zeros([units, seqLen]);
-    this.errRes2Buf = mj.zeros([units, seqLen]);
     this.lastTokenBuffer = mj.zeros([units, 1]);
     this.lossGradientBuffer = mj.zeros([vocabSize, seqLen]);
     this.vocabSize = vocabSize;
@@ -147,12 +195,7 @@ export default class Transformers extends Sequential {
     const seqLen = this.lastInputTokens._shape[0];
     const units = this.embedding.embeddingDim;
     const totalTokens = seqLen * batchSize;
-    if (this.errRes1Buf._shape[0] !== units || this.errRes1Buf._shape[1] !== totalTokens) {
-      this.errRes1Buf = mj.zeros([units, totalTokens]);
-    }
-    if (this.errRes2Buf._shape[0] !== units || this.errRes2Buf._shape[1] !== totalTokens) {
-      this.errRes2Buf = mj.zeros([units, totalTokens]);
-    }
+    this.ensureBlockBuffers(units, totalTokens);
 
     const outputDenseBackwardStart = this.profileStart();
     let errDense: Matrix;
@@ -180,12 +223,13 @@ export default class Transformers extends Sequential {
     const mapDenseErrStart = this.profileStart();
     let res2Err = errDense;
     if (y._shape[0] === 1) {
-      if (this.errRes2Buf._shape[0] !== units || this.errRes2Buf._shape[1] !== totalTokens) {
-        this.errRes2Buf = mj.zeros([units, totalTokens]);
+      const lastBlock = this.blocks[this.blocks.length - 1];
+      if (lastBlock.errRes2Buf._shape[0] !== units || lastBlock.errRes2Buf._shape[1] !== totalTokens) {
+        lastBlock.errRes2Buf = mj.zeros([units, totalTokens]);
       } else {
-        this.errRes2Buf._data.fill(0);
+        lastBlock.errRes2Buf._data.fill(0);
       }
-      res2Err = this.errRes2Buf;
+      res2Err = lastBlock.errRes2Buf;
       const res2ErrData = res2Err._data;
       const errDenseData = errDense._data;
 
@@ -198,33 +242,40 @@ export default class Transformers extends Sequential {
     }
     this.profileEnd("mapping dense error", mapDenseErrStart);
 
-    // 3. Block Backward
-    const ffnBackwardStart = this.profileStart();
-    const errDrop2 = this.drop2.backward(this.emptyErr, res2Err);
-    const errFfn2 = this.ffn2.backward(this.emptyErr, errDrop2);
-    const errDropFfn = this.dropFfn.backward(this.emptyErr, errFfn2);
-    const errFfn1 = this.ffn1.backward(this.emptyErr, errDropFfn);
-    this.profileEnd("FFN backward", ffnBackwardStart);
-    const layerNorm2BackwardStart = this.profileStart();
-    const errLn2 = this.ln2.backward(this.emptyErr, errFfn1);
-    this.profileEnd("layer norm backward", layerNorm2BackwardStart);
+    // 3. Block Backward (reverse order)
+    let blockErr = res2Err;
+    for (let blockIndex = this.blocks.length - 1; blockIndex >= 0; blockIndex--) {
+      const block = this.blocks[blockIndex];
 
-    const res1Err = mj.addInto(res2Err, errLn2, this.errRes1Buf);
+      const ffnBackwardStart = this.profileStart();
+      const errDrop2 = block.drop2.backward(this.emptyErr, blockErr);
+      const errFfn2 = block.ffn2.backward(this.emptyErr, errDrop2);
+      const errDropFfn = block.dropFfn.backward(this.emptyErr, errFfn2);
+      const errFfn1 = block.ffn1.backward(this.emptyErr, errDropFfn);
+      this.profileEnd("FFN backward", ffnBackwardStart);
 
-    const errDrop1 = this.drop1.backward(this.emptyErr, res1Err);
-    const mhaBackwardStart = this.profileStart();
-    const errMha = this.mha.backward(this.emptyErr, errDrop1);
-    this.profileEnd("MHA backward", mhaBackwardStart);
-    const layerNorm1BackwardStart = this.profileStart();
-    const errLn1 = this.ln1.backward(this.emptyErr, errMha);
-    this.profileEnd("layer norm backward", layerNorm1BackwardStart);
+      const layerNorm2BackwardStart = this.profileStart();
+      const errLn2 = block.ln2.backward(this.emptyErr, errFfn1);
+      this.profileEnd("layer norm backward", layerNorm2BackwardStart);
 
-    // Reuse errRes2Buf: res2Err sudah tidak dipakai setelah res1Err selesai dihitung.
-    const peErr = mj.addInto(res1Err, errLn1, this.errRes2Buf);
+      const res1Err = mj.addInto(blockErr, errLn2, block.errRes1Buf);
+
+      const errDrop1 = block.drop1.backward(this.emptyErr, res1Err);
+      const mhaBackwardStart = this.profileStart();
+      const errMha = block.mha.backward(this.emptyErr, errDrop1);
+      this.profileEnd("MHA backward", mhaBackwardStart);
+
+      const layerNorm1BackwardStart = this.profileStart();
+      const errLn1 = block.ln1.backward(this.emptyErr, errMha);
+      this.profileEnd("layer norm backward", layerNorm1BackwardStart);
+
+      // Reuse errRes2Buf block-local setelah blockErr sebelumnya tidak lagi dipakai.
+      blockErr = mj.addInto(res1Err, errLn1, block.errRes2Buf);
+    }
 
     // 4. PE & Embedding Backward
     const embeddingBackwardStart = this.profileStart();
-    const embErr = this.pe.backward(this.emptyErr, peErr);
+    const embErr = this.pe.backward(this.emptyErr, blockErr);
     this.embedding.backward(this.emptyErr, embErr);
     this.profileEnd("embedding backward", embeddingBackwardStart);
   }
@@ -233,12 +284,7 @@ export default class Transformers extends Sequential {
     const [seqLen, batchSize] = x._shape;
     const units = this.embedding.embeddingDim;
     const totalTokens = seqLen * batchSize;
-    if (this.xRes1._shape[0] !== units || this.xRes1._shape[1] !== totalTokens) {
-      this.xRes1 = mj.zeros([units, totalTokens]);
-    }
-    if (this.xRes2._shape[0] !== units || this.xRes2._shape[1] !== totalTokens) {
-      this.xRes2 = mj.zeros([units, totalTokens]);
-    }
+    this.ensureBlockBuffers(units, totalTokens);
 
     const padMaskStart = this.profileStart();
     if (this.padMaskBuffer.length !== totalTokens) {
@@ -260,33 +306,33 @@ export default class Transformers extends Sequential {
     // 2. Positional Encoding
     const xPe = this.pe.forward(xEmb);
 
-    // 3. Block Forward
-    const h = xPe;
+    // 3. Transformer Blocks
+    let h = xPe;
+    for (const block of this.blocks) {
+      const layerNorm1ForwardStart = this.profileStart();
+      const xLn1 = block.ln1.forward(h);
+      this.profileEnd("layer norm forward", layerNorm1ForwardStart);
 
-    // Residual 1: Norm -> Attention -> Dropout -> Add
-    const layerNorm1ForwardStart = this.profileStart();
-    const xLn1 = this.ln1.forward(h);
-    this.profileEnd("layer norm forward", layerNorm1ForwardStart);
-    this.mha.setPadMask(this.padMaskBuffer);
-    const mhaForwardStart = this.profileStart();
-    const xMhaOut = this.mha.forward(xLn1);
-    this.profileEnd("MHA forward", mhaForwardStart);
-    const xDrop1Out = this.drop1.forward(xMhaOut);
-    const res1 = mj.addInto(h, xDrop1Out, this.xRes1);
+      block.mha.setPadMask(this.padMaskBuffer);
+      const mhaForwardStart = this.profileStart();
+      const xMhaOut = block.mha.forward(xLn1);
+      this.profileEnd("MHA forward", mhaForwardStart);
+      const xDrop1Out = block.drop1.forward(xMhaOut);
+      const res1 = mj.addInto(h, xDrop1Out, block.xRes1);
 
-    // Residual 2: Norm -> FFN -> Dropout -> Add
-    const layerNorm2ForwardStart = this.profileStart();
-    const xLn2 = this.ln2.forward(res1);
-    this.profileEnd("layer norm forward", layerNorm2ForwardStart);
-    const ffnForwardStart = this.profileStart();
-    const xFfn1Out = this.ffn1.forward(xLn2);
-    const xDropFfnOut = this.dropFfn.forward(xFfn1Out);
-    const xFfn2Out = this.ffn2.forward(xDropFfnOut);
-    const xDrop2Out = this.drop2.forward(xFfn2Out);
-    this.profileEnd("FFN forward", ffnForwardStart);
-    const res2 = mj.addInto(res1, xDrop2Out, this.xRes2);
+      const layerNorm2ForwardStart = this.profileStart();
+      const xLn2 = block.ln2.forward(res1);
+      this.profileEnd("layer norm forward", layerNorm2ForwardStart);
+      const ffnForwardStart = this.profileStart();
+      const xFfn1Out = block.ffn1.forward(xLn2);
+      const xDropFfnOut = block.dropFfn.forward(xFfn1Out);
+      const xFfn2Out = block.ffn2.forward(xDropFfnOut);
+      const xDrop2Out = block.drop2.forward(xFfn2Out);
+      this.profileEnd("FFN forward", ffnForwardStart);
+      h = mj.addInto(res1, xDrop2Out, block.xRes2);
+    }
 
-    return res2;
+    return h;
   }
 
   private projectLastToken(res2: Matrix, seqLen: number, batchSize: number): Matrix {
@@ -445,7 +491,15 @@ export default class Transformers extends Sequential {
       throw new Error(`Invalid transformer model file: ${path}`);
     }
 
-    const [embedding, _pe, ln1, mha, drop1, ln2, ffn1, dropFfn, ffn2, drop2, dense] = data;
+    const inferredNumBlocks = this.inferNumBlocksFromSerializedLayers(data);
+    if (inferredNumBlocks !== this.blocks.length) {
+      throw new Error(
+        `Transformers.load: model memiliki ${inferredNumBlocks} block, tetapi instance saat ini dibuat dengan ${this.blocks.length} block.`
+      );
+    }
+
+    const [embedding, _pe] = data;
+    const dense = data[data.length - 1];
 
     if (embedding?.weight) {
       this.embedding.load(embedding.weight);
@@ -454,14 +508,20 @@ export default class Transformers extends Sequential {
       }
     }
 
-    if (ln1?.gamma && ln1?.beta) this.ln1.load(ln1.gamma, ln1.beta, ln1.clipGradient);
-    if (mha) this.mha.load(mha);
-    if (drop1?.rate !== undefined) this.drop1.load({ rate: drop1.rate, status: drop1.status ?? this.drop1.status });
-    if (ln2?.gamma && ln2?.beta) this.ln2.load(ln2.gamma, ln2.beta);
-    if (ffn1?.weight && ffn1?.bias) this.ffn1.load(ffn1.weight, ffn1.bias, ffn1.clipGradient);
-    if (dropFfn?.rate !== undefined) this.dropFfn.load({ rate: dropFfn.rate, status: dropFfn.status ?? this.dropFfn.status });
-    if (ffn2?.weight && ffn2?.bias) this.ffn2.load(ffn2.weight, ffn2.bias, ffn2.clipGradient);
-    if (drop2?.rate !== undefined) this.drop2.load({ rate: drop2.rate, status: drop2.status ?? this.drop2.status });
+    let offset = 2;
+    for (const block of this.blocks) {
+      const [ln1, mha, drop1, ln2, ffn1, dropFfn, ffn2, drop2] = data.slice(offset, offset + 8);
+      if (ln1?.gamma && ln1?.beta) block.ln1.load(ln1.gamma, ln1.beta, ln1.clipGradient);
+      if (mha) block.mha.load(mha);
+      if (drop1?.rate !== undefined) block.drop1.load({ rate: drop1.rate, status: drop1.status ?? block.drop1.status });
+      if (ln2?.gamma && ln2?.beta) block.ln2.load(ln2.gamma, ln2.beta, ln2.clipGradient);
+      if (ffn1?.weight && ffn1?.bias) block.ffn1.load(ffn1.weight, ffn1.bias, ffn1.clipGradient);
+      if (dropFfn?.rate !== undefined) block.dropFfn.load({ rate: dropFfn.rate, status: dropFfn.status ?? block.dropFfn.status });
+      if (ffn2?.weight && ffn2?.bias) block.ffn2.load(ffn2.weight, ffn2.bias, ffn2.clipGradient);
+      if (drop2?.rate !== undefined) block.drop2.load({ rate: drop2.rate, status: drop2.status ?? block.drop2.status });
+      offset += 8;
+    }
+
     if (dense?.weight && dense?.bias) this.dense.load(dense.weight, dense.bias, dense.clipGradient);
 
     this.vocabSize = this.embedding.vocabSize;
@@ -541,5 +601,35 @@ export default class Transformers extends Sequential {
     }
     this.profileStats[label].totalMs += elapsed;
     this.profileStats[label].count += 1;
+  }
+
+  private ensureBlockBuffers(units: number, totalTokens: number): void {
+    for (const block of this.blocks) {
+      if (block.xRes1._shape[0] !== units || block.xRes1._shape[1] !== totalTokens) {
+        block.xRes1 = mj.zeros([units, totalTokens]);
+      }
+      if (block.xRes2._shape[0] !== units || block.xRes2._shape[1] !== totalTokens) {
+        block.xRes2 = mj.zeros([units, totalTokens]);
+      }
+      if (block.errRes1Buf._shape[0] !== units || block.errRes1Buf._shape[1] !== totalTokens) {
+        block.errRes1Buf = mj.zeros([units, totalTokens]);
+      }
+      if (block.errRes2Buf._shape[0] !== units || block.errRes2Buf._shape[1] !== totalTokens) {
+        block.errRes2Buf = mj.zeros([units, totalTokens]);
+      }
+    }
+  }
+
+  private inferNumBlocksFromSerializedLayers(layers: Array<Record<string, unknown>>): number {
+    const mhaCount = layers.filter((layer) => layer.name === "multi head attention layer").length;
+    if (mhaCount > 0) {
+      return mhaCount;
+    }
+
+    const inferred = (layers.length - 3) / 8;
+    if (Number.isInteger(inferred) && inferred >= 1) {
+      return inferred;
+    }
+    return 1;
   }
 }

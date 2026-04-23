@@ -9,6 +9,7 @@ type TransformerPerfConfig = {
   batchSize: number;
   units: number;
   heads: number;
+  numBlocks: number;
   vocabSize: number;
   alpha: number;
   padTokenId: number;
@@ -37,6 +38,7 @@ const DEFAULT_CONFIG: TransformerPerfConfig = {
   batchSize: 64,
   units: 64,
   heads: 8,
+  numBlocks: 1,
   vocabSize: 2000,
   alpha: 1e-5,
   padTokenId: 0,
@@ -79,6 +81,7 @@ async function runPerfBreakdown(configOverrides: Partial<TransformerPerfConfig> 
       seqLen: config.seqLen,
       vocabSize: config.vocabSize,
       heads: config.heads,
+      numBlocks: config.numBlocks,
       alpha: config.alpha,
       padTokenId: config.padTokenId,
     });
@@ -142,6 +145,7 @@ async function runPerfBreakdown(configOverrides: Partial<TransformerPerfConfig> 
         batchSize: config.batchSize,
         units: config.units,
         heads: config.heads,
+        numBlocks: config.numBlocks,
         alpha: config.alpha,
         subsetRecords: config.subsetRecords,
         warmupBatches: config.warmupBatches,
@@ -155,6 +159,7 @@ async function runPerfBreakdown(configOverrides: Partial<TransformerPerfConfig> 
       batchSize: config.batchSize,
       units: config.units,
       heads: config.heads,
+      numBlocks: config.numBlocks,
       vocabSize: config.vocabSize,
       alpha: config.alpha,
       subsetRecords: config.subsetRecords,
@@ -179,6 +184,7 @@ async function runPerfBreakdown(configOverrides: Partial<TransformerPerfConfig> 
   };
 
   console.log(JSON.stringify(summary, null, 2));
+  return summary;
 }
 
 if (require.main === module) {

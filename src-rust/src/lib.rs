@@ -6,6 +6,7 @@ const ELEMENTWISE_PARALLEL_THRESHOLD: usize = 16 * 1024;
 const ADAM_PARALLEL_THRESHOLD: usize = 8 * 1024;
 const MASKED_SPARSE_SOFTMAX_PARALLEL_THRESHOLD: usize = 2048;
 const MASKED_SPARSE_SOFTMAX_TOKEN_BLOCK: usize = 16;
+const DENSE_LINEAR_BACKWARD_PARALLEL_THRESHOLD: usize = 64 * 64;
 
 #[napi(object)]
 pub struct MaskedSparseSoftmaxCrossEntropyResult {
@@ -732,6 +733,162 @@ pub fn clip_gradients_native(mut data: Float32Array, limit: f64) {
             data[i] = limit;
         } else if data[i] < -limit {
             data[i] = -limit;
+        }
+    }
+}
+
+#[napi]
+pub fn dense_linear_backward_native_into(
+    err_activation: Float32Array,
+    input: Float32Array,
+    weight: Float32Array,
+    output_units: u32,
+    units: u32,
+    seq_len: u32,
+    clip_limit: f64,
+    mut grad_weight_out: Float32Array,
+    mut grad_bias_out: Float32Array,
+    mut prev_err_out: Float32Array,
+) {
+    let output_units = output_units as usize;
+    let units = units as usize;
+    let seq_len = seq_len as usize;
+    let clip_limit = clip_limit as f32;
+
+    if err_activation.len() != output_units * seq_len {
+        panic!(
+            "dense_linear_backward_native_into: err_activation length mismatch {} != {}",
+            err_activation.len(),
+            output_units * seq_len
+        );
+    }
+    if input.len() != units * seq_len {
+        panic!(
+            "dense_linear_backward_native_into: input length mismatch {} != {}",
+            input.len(),
+            units * seq_len
+        );
+    }
+    if weight.len() != output_units * units {
+        panic!(
+            "dense_linear_backward_native_into: weight length mismatch {} != {}",
+            weight.len(),
+            output_units * units
+        );
+    }
+    if grad_weight_out.len() != output_units * units {
+        panic!(
+            "dense_linear_backward_native_into: grad_weight_out length mismatch {} != {}",
+            grad_weight_out.len(),
+            output_units * units
+        );
+    }
+    if grad_bias_out.len() != output_units {
+        panic!(
+            "dense_linear_backward_native_into: grad_bias_out length mismatch {} != {}",
+            grad_bias_out.len(),
+            output_units
+        );
+    }
+    if prev_err_out.len() != units * seq_len {
+        panic!(
+            "dense_linear_backward_native_into: prev_err_out length mismatch {} != {}",
+            prev_err_out.len(),
+            units * seq_len
+        );
+    }
+
+    let err_slice = &*err_activation;
+    let input_slice = &*input;
+    let weight_slice = &*weight;
+    let grad_weight_slice = &mut *grad_weight_out;
+    let grad_bias_slice = &mut *grad_bias_out;
+    let prev_err_slice = &mut *prev_err_out;
+
+    let should_clip = clip_limit >= 0.0;
+
+    if output_units * units >= DENSE_LINEAR_BACKWARD_PARALLEL_THRESHOLD {
+        grad_weight_slice
+            .par_chunks_mut(units)
+            .zip(grad_bias_slice.par_iter_mut())
+            .enumerate()
+            .for_each(|(out_idx, (grad_weight_row, grad_bias_ref))| {
+                let err_row = &err_slice[out_idx * seq_len..(out_idx + 1) * seq_len];
+                let mut bias_sum = 0.0f32;
+                for unit_idx in 0..units {
+                    let input_row = &input_slice[unit_idx * seq_len..(unit_idx + 1) * seq_len];
+                    let mut sum = 0.0f32;
+                    for token_idx in 0..seq_len {
+                        let e = err_row[token_idx];
+                        sum += e * input_row[token_idx];
+                    }
+                    grad_weight_row[unit_idx] = if should_clip {
+                        sum.clamp(-clip_limit, clip_limit)
+                    } else {
+                        sum
+                    };
+                }
+                for &e in err_row {
+                    bias_sum += e;
+                }
+                *grad_bias_ref = if should_clip {
+                    bias_sum.clamp(-clip_limit, clip_limit)
+                } else {
+                    bias_sum
+                };
+            });
+    } else {
+        for out_idx in 0..output_units {
+            let err_row = &err_slice[out_idx * seq_len..(out_idx + 1) * seq_len];
+            let grad_weight_row = &mut grad_weight_slice[out_idx * units..(out_idx + 1) * units];
+            let mut bias_sum = 0.0f32;
+            for unit_idx in 0..units {
+                let input_row = &input_slice[unit_idx * seq_len..(unit_idx + 1) * seq_len];
+                let mut sum = 0.0f32;
+                for token_idx in 0..seq_len {
+                    let e = err_row[token_idx];
+                    sum += e * input_row[token_idx];
+                }
+                grad_weight_row[unit_idx] = if should_clip {
+                    sum.clamp(-clip_limit, clip_limit)
+                } else {
+                    sum
+                };
+            }
+            for &e in err_row {
+                bias_sum += e;
+            }
+            grad_bias_slice[out_idx] = if should_clip {
+                bias_sum.clamp(-clip_limit, clip_limit)
+            } else {
+                bias_sum
+            };
+        }
+    }
+
+    if units * seq_len >= DENSE_LINEAR_BACKWARD_PARALLEL_THRESHOLD {
+        prev_err_slice
+            .par_chunks_mut(seq_len)
+            .enumerate()
+            .for_each(|(unit_idx, prev_err_row)| {
+                for token_idx in 0..seq_len {
+                    let mut sum = 0.0f32;
+                    for out_idx in 0..output_units {
+                        sum += weight_slice[out_idx * units + unit_idx] * err_slice[out_idx * seq_len + token_idx];
+                    }
+                    prev_err_row[token_idx] = sum;
+                }
+            });
+    } else {
+        for unit_idx in 0..units {
+            let prev_err_row = &mut prev_err_slice[unit_idx * seq_len..(unit_idx + 1) * seq_len];
+            for token_idx in 0..seq_len {
+                let mut sum = 0.0f32;
+                for out_idx in 0..output_units {
+                    sum += weight_slice[out_idx * units + unit_idx] * err_slice[out_idx * seq_len + token_idx];
+                }
+                prev_err_row[token_idx] = sum;
+            }
         }
     }
 }
