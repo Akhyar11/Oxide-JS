@@ -123,15 +123,11 @@ export function trimPaddingBatch(
 
 /**
  * Returns a new Matrix that contains rows [startRow, startRow + count) of src.
- * Data layout: data[pos * batchSize + b].
+ * Data layout: data[pos * batchSize + b] – rows are contiguous in memory,
+ * so we can copy the entire block with a single subarray operation.
  */
 function sliceRows(src: Matrix, startRow: number, count: number, batchSize: number): Matrix {
-  const newData = new Float32Array(count * batchSize);
-  const srcData = src._data;
-  for (let pos = 0; pos < count; pos++) {
-    const srcOffset = (startRow + pos) * batchSize;
-    const dstOffset = pos * batchSize;
-    newData.set(srcData.subarray(srcOffset, srcOffset + batchSize), dstOffset);
-  }
+  const start = startRow * batchSize;
+  const newData = src._data.slice(start, start + count * batchSize);
   return Matrix.fromFlat(newData, [count, batchSize]);
 }

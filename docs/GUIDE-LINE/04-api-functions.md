@@ -564,7 +564,7 @@ model.fit(X, y, epochs, (loss: number) => void): FitResult;
 | `monitorMetric` | `"loss" \| "valLoss"` | `"valLoss"` jika ada validasi, else `"loss"` | Metrik yang dipantau untuk early stopping |
 | `minDelta` | `number` | `0` | Minimum perubahan yang dianggap sebagai improvement |
 | `mode` | `"min" \| "max"` | `"min"` | `"min"` = berhenti jika tidak turun, `"max"` = berhenti jika tidak naik |
-| `trimPadding` | `boolean` | `true` | Secara dinamis memotong PAD dari setiap batch sebelum forward/backward. Hanya aktif untuk full-sequence target (Y.shape[0] === X.shape[0]) dan model yang mendukung `getPadTokenId()` / `setPositionOffset()` (mis. Transformers). |
+| `trimPadding` | `boolean` | `true` | Secara dinamis memotong PAD dari setiap batch sebelum forward/backward. Hanya aktif untuk full-sequence target (Y.shape[0] === X.shape[0]) dan model yang mendukung `getPadTokenId()` / `setPositionOffset()` (mis. Transformers). Untuk model lain atau legacy target Y=[1,batch], training berlanjut normal tanpa trimming. |
 | `paddingSide` | `"left" \| "right"` | `"right"` | Sisi padding pada data input. `"right"` memotong trailing PAD (direkomendasikan untuk full-sequence causal LM). `"left"` memotong leading PAD dan menyesuaikan positional encoding offset. |
 
 ##### Return Value `FitResult`

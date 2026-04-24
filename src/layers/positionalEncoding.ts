@@ -108,7 +108,8 @@ export default class PositionalEncoding {
         const absolutePos = positionOffset + localPos;
         if (absolutePos >= this.maxSeqLen) {
           throw new Error(
-            `PositionalEncoding: absolutePos ${absolutePos} (positionOffset=${positionOffset} + localPos=${localPos}) exceeds maxSeqLen=${this.maxSeqLen}`
+            `PositionalEncoding: absolutePos ${absolutePos} (positionOffset=${positionOffset} + localPos=${localPos}) exceeds maxSeqLen=${this.maxSeqLen}. ` +
+            `Increase maxSeqLen in the model configuration or reduce positionOffset.`
           );
         }
         const val = xData[xOffset + j];
