@@ -64,6 +64,14 @@ export default class RNN {
   private batchOuterInputBuffer: Matrix = mj.matrix([]);
   private batchOuterHiddenBuffer: Matrix = mj.matrix([]);
   private batchBiasGradBuffer: Matrix = mj.matrix([]);
+  private inputSequenceBuffer: Float32Array = new Float32Array(0);
+  private hiddenSequenceBuffer: Float32Array = new Float32Array(0);
+  private activationGradientBuffer: Float32Array = new Float32Array(0);
+  private batchInputSequenceBuffer: Float32Array = new Float32Array(0);
+  private batchHiddenSequenceBuffer: Float32Array = new Float32Array(0);
+  private batchActivationGradientBuffer: Float32Array = new Float32Array(0);
+  private errorStepBuffer: Float32Array = new Float32Array(0);
+  private batchErrorStepBuffer: Float32Array = new Float32Array(0);
 
   constructor({
     units,
@@ -211,30 +219,27 @@ export default class RNN {
 
     this.inputShape = [this.units, seqLen];
     this.outputShape = [this.hiddenUnits, outCols];
-    this.inputSequence = new Array(seqLen);
-    this.hiddenSequence = new Array(seqLen + 1);
-    this.activationGradients = new Array(seqLen);
+    this.ensureSequenceStateBuffers(seqLen);
 
-    const prev = new Float32Array(this.hiddenUnits);
+    const prev = this.hiddenSequence[0];
+    prev.fill(0);
     if (this.stateful) {
       prev.set(this.h_stateful._data);
     }
-    this.hiddenSequence[0] = prev.slice();
 
     for (let t = 0; t < seqLen; t++) {
-      const x_t = this.getColumn(x, t);
-      const z = new Float32Array(this.hiddenUnits);
-      const h_t = new Float32Array(this.hiddenUnits);
-      const dAct = new Float32Array(this.hiddenUnits);
+      const x_t = this.inputSequence[t];
+      this.copyColumnToArray(x, t, x_t);
+      const h_t = this.hiddenSequence[t + 1];
+      const dAct = this.activationGradients[t];
+      const hPrev = this.hiddenSequence[t];
 
       for (let i = 0; i < this.hiddenUnits; i++) {
         let sum = this.bh._data[i];
         const wxhOffset = i * this.units;
         for (let j = 0; j < this.units; j++) sum += this.Wxh._data[wxhOffset + j] * x_t[j];
         const whhOffset = i * this.hiddenUnits;
-        const hPrev = this.hiddenSequence[t];
         for (let j = 0; j < this.hiddenUnits; j++) sum += this.Whh._data[whhOffset + j] * hPrev[j];
-        z[i] = sum;
 
         if (this.activation === "relu") {
           if (sum > 0) {
@@ -251,9 +256,6 @@ export default class RNN {
         }
       }
 
-      this.inputSequence[t] = x_t;
-      this.hiddenSequence[t + 1] = h_t;
-      this.activationGradients[t] = dAct;
       if (this.returnSequences) {
         this.setColumnData(this.resultBuffer._data, outCols, t, h_t);
       } else if (t === seqLen - 1) {
@@ -280,15 +282,13 @@ export default class RNN {
 
     this.inputShape = [this.units, totalCols];
     this.outputShape = [this.hiddenUnits, outCols];
-    this.batchInputSequence = new Array(seqLen);
-    this.batchHiddenSequence = new Array(seqLen + 1);
-    this.batchActivationGradients = new Array(seqLen);
+    this.ensureBatchSequenceStateBuffers(seqLen, batchSize);
 
-    const prev = new Float32Array(this.hiddenUnits * batchSize);
+    const prev = this.batchHiddenSequence[0];
+    prev.fill(0);
     if (this.stateful && batchSize === 1) {
       prev.set(this.h_stateful._data);
     }
-    this.batchHiddenSequence[0] = prev.slice();
 
     for (let t = 0; t < seqLen; t++) {
       const colOffset = t * batchSize;
@@ -298,8 +298,8 @@ export default class RNN {
       const hPrev = Matrix.fromFlat(this.batchHiddenSequence[t], [this.hiddenUnits, batchSize]);
       mj.dotProduct(this.Whh, hPrev, this.batchRecurrentBuffer);
 
-      const h_t = new Float32Array(this.hiddenUnits * batchSize);
-      const dAct = new Float32Array(this.hiddenUnits * batchSize);
+      const h_t = this.batchHiddenSequence[t + 1];
+      const dAct = this.batchActivationGradients[t];
       const projected = this.batchProjectionSliceBuffer._data;
       const recurrent = this.batchRecurrentBuffer._data;
       for (let i = 0; i < h_t.length; i++) {
@@ -319,9 +319,7 @@ export default class RNN {
         }
       }
 
-      this.batchInputSequence[t] = new Float32Array(this.batchInputSliceBuffer._data);
-      this.batchHiddenSequence[t + 1] = h_t;
-      this.batchActivationGradients[t] = dAct;
+      this.batchInputSequence[t].set(this.batchInputSliceBuffer._data);
 
       if (this.returnSequences) {
         this.writeColumnBlock(this.resultBuffer, colOffset, batchSize, h_t);
@@ -348,33 +346,37 @@ export default class RNN {
     const dBh = Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]);
     const dxData = new Float32Array(this.units * seqLen);
     let dhNext = new Float32Array(this.hiddenUnits);
+    const dhBuffer = new Float32Array(this.hiddenUnits);
+    const dzBuffer = new Float32Array(this.hiddenUnits);
+    let dhPrevBuffer = new Float32Array(this.hiddenUnits);
 
     for (let t = seqLen - 1; t >= 0; t--) {
-      const dh = externalError[t].slice();
+      const dh = dhBuffer;
+      dh.set(externalError[t]);
       for (let i = 0; i < this.hiddenUnits; i++) dh[i] += dhNext[i];
 
-      const dz = new Float32Array(this.hiddenUnits);
+      const dz = dzBuffer;
       for (let i = 0; i < this.hiddenUnits; i++) dz[i] = dh[i] * this.activationGradients[t][i];
 
       this.outerAccumulate(dWxh._data, this.hiddenUnits, this.units, dz, this.inputSequence[t]);
       this.outerAccumulate(dWhh._data, this.hiddenUnits, this.hiddenUnits, dz, this.hiddenSequence[t]);
       for (let i = 0; i < this.hiddenUnits; i++) dBh._data[i] += dz[i];
 
-      const dx_t = new Float32Array(this.units);
       for (let j = 0; j < this.units; j++) {
         let sum = 0;
         for (let i = 0; i < this.hiddenUnits; i++) sum += this.Wxh._data[i * this.units + j] * dz[i];
-        dx_t[j] = sum;
         dxData[j * seqLen + t] = sum;
       }
 
-      const dhPrev = new Float32Array(this.hiddenUnits);
+      const dhPrev = dhPrevBuffer;
       for (let j = 0; j < this.hiddenUnits; j++) {
         let sum = 0;
         for (let i = 0; i < this.hiddenUnits; i++) sum += this.Whh._data[i * this.hiddenUnits + j] * dz[i];
         dhPrev[j] = sum;
       }
+      const prevDhNext = dhNext;
       dhNext = dhPrev;
+      dhPrevBuffer = prevDhNext;
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
@@ -401,12 +403,16 @@ export default class RNN {
     let dhNext = new Float32Array(this.hiddenUnits * batchSize);
 
     this.ensureBatchBackwardBuffers(batchSize);
+    const dhBuffer = new Float32Array(this.hiddenUnits * batchSize);
+    const dzBuffer = new Float32Array(this.hiddenUnits * batchSize);
+    let dhPrevBuffer = new Float32Array(this.hiddenUnits * batchSize);
 
     for (let t = seqLen - 1; t >= 0; t--) {
-      const dh = externalError[t].slice();
+      const dh = dhBuffer;
+      dh.set(externalError[t]);
       for (let i = 0; i < dh.length; i++) dh[i] += dhNext[i];
 
-      const dz = new Float32Array(this.hiddenUnits * batchSize);
+      const dz = dzBuffer;
       for (let i = 0; i < dz.length; i++) dz[i] = dh[i] * this.batchActivationGradients[t][i];
 
       const dzMatrix = Matrix.fromFlat(dz, [this.hiddenUnits, batchSize]);
@@ -423,7 +429,10 @@ export default class RNN {
       mj.dotProduct(this.Wxh, dzMatrix, this.batchDxStepBuffer, true, false);
       this.writeColumnBlock(dx, t * batchSize, batchSize, this.batchDxStepBuffer._data);
       mj.dotProduct(this.Whh, dzMatrix, this.batchDhStepBuffer, true, false);
-      dhNext = new Float32Array(this.batchDhStepBuffer._data);
+      dhPrevBuffer.set(this.batchDhStepBuffer._data);
+      const prevDhNext = dhNext;
+      dhNext = dhPrevBuffer;
+      dhPrevBuffer = prevDhNext;
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
@@ -456,7 +465,9 @@ export default class RNN {
       );
     }
 
-    const perStep: Float32Array[] = Array.from({ length: seqLen }, () => new Float32Array(this.hiddenUnits));
+    this.ensureErrorStepBuffers(seqLen);
+    const perStep = this.buildStepViews(this.errorStepBuffer, seqLen, this.hiddenUnits);
+    this.errorStepBuffer.fill(0, 0, seqLen * this.hiddenUnits);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         for (let i = 0; i < this.hiddenUnits; i++) {
@@ -477,13 +488,6 @@ export default class RNN {
     mj.clipGradients(dWxh, limit);
     mj.clipGradients(dWhh, limit);
     mj.clipGradients(dBh, limit);
-  }
-
-  private getColumn(m: Matrix, col: number): Float32Array {
-    const [rows, cols] = m._shape;
-    const out = new Float32Array(rows);
-    for (let i = 0; i < rows; i++) out[i] = m._data[i * cols + col];
-    return out;
   }
 
   private setColumnData(target: Float32Array, targetCols: number, col: number, data: Float32Array) {
@@ -521,10 +525,10 @@ export default class RNN {
       );
     }
 
-    const perStep: Float32Array[] = Array.from(
-      { length: seqLen },
-      () => new Float32Array(this.hiddenUnits * batchSize)
-    );
+    const stepWidth = this.hiddenUnits * batchSize;
+    this.ensureBatchErrorStepBuffers(seqLen, batchSize);
+    const perStep = this.buildStepViews(this.batchErrorStepBuffer, seqLen, stepWidth);
+    this.batchErrorStepBuffer.fill(0, 0, seqLen * stepWidth);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         this.copyColumnBlockToArray(effectiveErr, t * batchSize, batchSize, perStep[t]);
@@ -554,6 +558,83 @@ export default class RNN {
         `RNN batched path expects time-major columns divisible by batchSize. Got cols=${totalCols}, batchSize=${batchSize}.`
       );
     }
+  }
+
+  private ensureSequenceStateBuffers(seqLen: number) {
+    const inputWidth = this.units;
+    const hiddenWidth = this.hiddenUnits;
+    const inputLen = seqLen * inputWidth;
+    const hiddenLen = (seqLen + 1) * hiddenWidth;
+    const activationLen = seqLen * hiddenWidth;
+
+    if (this.inputSequenceBuffer.length < inputLen) {
+      this.inputSequenceBuffer = new Float32Array(Math.max(inputLen, Math.max(1, this.inputSequenceBuffer.length * 2)));
+    }
+    if (this.hiddenSequenceBuffer.length < hiddenLen) {
+      this.hiddenSequenceBuffer = new Float32Array(Math.max(hiddenLen, Math.max(1, this.hiddenSequenceBuffer.length * 2)));
+    }
+    if (this.activationGradientBuffer.length < activationLen) {
+      this.activationGradientBuffer = new Float32Array(
+        Math.max(activationLen, Math.max(1, this.activationGradientBuffer.length * 2))
+      );
+    }
+
+    this.inputSequence = this.buildStepViews(this.inputSequenceBuffer, seqLen, inputWidth);
+    this.hiddenSequence = this.buildStepViews(this.hiddenSequenceBuffer, seqLen + 1, hiddenWidth);
+    this.activationGradients = this.buildStepViews(this.activationGradientBuffer, seqLen, hiddenWidth);
+  }
+
+  private ensureBatchSequenceStateBuffers(seqLen: number, batchSize: number) {
+    const inputWidth = this.units * batchSize;
+    const hiddenWidth = this.hiddenUnits * batchSize;
+    const inputLen = seqLen * inputWidth;
+    const hiddenLen = (seqLen + 1) * hiddenWidth;
+    const activationLen = seqLen * hiddenWidth;
+
+    if (this.batchInputSequenceBuffer.length < inputLen) {
+      this.batchInputSequenceBuffer = new Float32Array(
+        Math.max(inputLen, Math.max(1, this.batchInputSequenceBuffer.length * 2))
+      );
+    }
+    if (this.batchHiddenSequenceBuffer.length < hiddenLen) {
+      this.batchHiddenSequenceBuffer = new Float32Array(
+        Math.max(hiddenLen, Math.max(1, this.batchHiddenSequenceBuffer.length * 2))
+      );
+    }
+    if (this.batchActivationGradientBuffer.length < activationLen) {
+      this.batchActivationGradientBuffer = new Float32Array(
+        Math.max(activationLen, Math.max(1, this.batchActivationGradientBuffer.length * 2))
+      );
+    }
+
+    this.batchInputSequence = this.buildStepViews(this.batchInputSequenceBuffer, seqLen, inputWidth);
+    this.batchHiddenSequence = this.buildStepViews(this.batchHiddenSequenceBuffer, seqLen + 1, hiddenWidth);
+    this.batchActivationGradients = this.buildStepViews(this.batchActivationGradientBuffer, seqLen, hiddenWidth);
+  }
+
+  private ensureErrorStepBuffers(seqLen: number) {
+    const expectedLen = seqLen * this.hiddenUnits;
+    if (this.errorStepBuffer.length < expectedLen) {
+      this.errorStepBuffer = new Float32Array(Math.max(expectedLen, Math.max(1, this.errorStepBuffer.length * 2)));
+    }
+  }
+
+  private ensureBatchErrorStepBuffers(seqLen: number, batchSize: number) {
+    const expectedLen = seqLen * this.hiddenUnits * batchSize;
+    if (this.batchErrorStepBuffer.length < expectedLen) {
+      this.batchErrorStepBuffer = new Float32Array(
+        Math.max(expectedLen, Math.max(1, this.batchErrorStepBuffer.length * 2))
+      );
+    }
+  }
+
+  private buildStepViews(buffer: Float32Array, steps: number, width: number): Float32Array[] {
+    const views = new Array<Float32Array>(steps);
+    for (let step = 0; step < steps; step++) {
+      const start = step * width;
+      views[step] = buffer.subarray(start, start + width);
+    }
+    return views;
   }
 
   private ensureBatchForwardBuffers(batchSize: number, totalCols: number, outCols: number) {
@@ -608,6 +689,13 @@ export default class RNN {
     for (let row = 0; row < rows; row++) {
       const srcOffset = row * cols + startCol;
       target.set(source._data.subarray(srcOffset, srcOffset + blockCols), row * blockCols);
+    }
+  }
+
+  private copyColumnToArray(source: Matrix, col: number, target: Float32Array) {
+    const [rows, cols] = source._shape;
+    for (let row = 0; row < rows; row++) {
+      target[row] = source._data[row * cols + col];
     }
   }
 

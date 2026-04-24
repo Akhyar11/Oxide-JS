@@ -43,6 +43,11 @@ type DirectionParams = {
   rSeq: Float32Array[];
   zSeq: Float32Array[];
   nSeq: Float32Array[];
+  xSeqBuffer: Float32Array;
+  hSeqBuffer: Float32Array;
+  rSeqBuffer: Float32Array;
+  zSeqBuffer: Float32Array;
+  nSeqBuffer: Float32Array;
 };
 
 export default class GRU {
@@ -85,6 +90,12 @@ export default class GRU {
   private batchOuterHiddenBuffer: Matrix = mj.matrix([]);
   private batchBiasGradBuffer: Matrix = mj.matrix([]);
   private batchTransposeProductBuffer: Matrix = mj.matrix([]);
+  private errorStepBuffer: Float32Array = new Float32Array(0);
+  private batchErrorStepBuffer: Float32Array = new Float32Array(0);
+  private splitForwardErrorBuffer: Float32Array = new Float32Array(0);
+  private splitBackwardErrorBuffer: Float32Array = new Float32Array(0);
+  private batchSplitForwardErrorBuffer: Float32Array = new Float32Array(0);
+  private batchSplitBackwardErrorBuffer: Float32Array = new Float32Array(0);
 
   constructor({
     units,
@@ -290,10 +301,12 @@ export default class GRU {
       throw new Error("GRU.backward: forward must be called before backward.");
     }
     const external = this.resolveError(y, err, seqLen);
-    const extForward = Array.from({ length: seqLen }, () => new Float32Array(this.hiddenUnits));
+    const extForward = this.buildErrorViews(this.ensureSplitErrorBuffer("forward", seqLen * this.hiddenUnits), seqLen, this.hiddenUnits);
+    this.splitForwardErrorBuffer.fill(0, 0, seqLen * this.hiddenUnits);
     const extBackward = this.backwardDirection
-      ? Array.from({ length: seqLen }, () => new Float32Array(this.hiddenUnits))
+      ? this.buildErrorViews(this.ensureSplitErrorBuffer("backward", seqLen * this.hiddenUnits), seqLen, this.hiddenUnits)
       : undefined;
+    if (extBackward) this.splitBackwardErrorBuffer.fill(0, 0, seqLen * this.hiddenUnits);
 
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
@@ -327,10 +340,17 @@ export default class GRU {
     }
 
     const external = this.resolveBatchError(y, err, seqLen, batchSize);
-    const extForward = Array.from({ length: seqLen }, () => new Float32Array(this.hiddenUnits * batchSize));
+    const stepWidth = this.hiddenUnits * batchSize;
+    const extForward = this.buildErrorViews(
+      this.ensureBatchSplitErrorBuffer("forward", seqLen * stepWidth),
+      seqLen,
+      stepWidth
+    );
+    this.batchSplitForwardErrorBuffer.fill(0, 0, seqLen * stepWidth);
     const extBackward = this.backwardDirection
-      ? Array.from({ length: seqLen }, () => new Float32Array(this.hiddenUnits * batchSize))
+      ? this.buildErrorViews(this.ensureBatchSplitErrorBuffer("backward", seqLen * stepWidth), seqLen, stepWidth)
       : undefined;
+    if (extBackward) this.batchSplitBackwardErrorBuffer.fill(0, 0, seqLen * stepWidth);
 
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
@@ -379,7 +399,8 @@ export default class GRU {
         `GRU.backward: error shape mismatch, expected [${expectedRows},${expectedCols}], got [${effectiveErr._shape[0]},${effectiveErr._shape[1]}]`
       );
     }
-    const out: Float32Array[] = Array.from({ length: seqLen }, () => new Float32Array(expectedRows));
+    const out = this.buildErrorViews(this.ensureErrorBuffer(seqLen * expectedRows), seqLen, expectedRows);
+    this.errorStepBuffer.fill(0, 0, seqLen * expectedRows);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         for (let i = 0; i < expectedRows; i++) out[t][i] = effectiveErr._data[i * seqLen + t];
@@ -411,10 +432,12 @@ export default class GRU {
         `GRU.backwardBatch: error shape mismatch, expected [${expectedRows},${expectedCols}], got [${effectiveErr._shape[0]},${effectiveErr._shape[1]}]`
       );
     }
-    const perStep: Float32Array[] = Array.from(
-      { length: seqLen },
-      () => new Float32Array(expectedRows * batchSize)
+    const perStep = this.buildErrorViews(
+      this.ensureBatchErrorBuffer(seqLen * expectedRows * batchSize),
+      seqLen,
+      expectedRows * batchSize
     );
+    this.batchErrorStepBuffer.fill(0, 0, seqLen * expectedRows * batchSize);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         this.copyColumnBlockToArray(effectiveErr, t * batchSize, batchSize, perStep[t]);
@@ -430,24 +453,21 @@ export default class GRU {
 
   private runDirectionForward(direction: DirectionParams, x: Matrix, reverse: boolean): Float32Array[] {
     const seqLen = x._shape[1];
-    direction.xSeq = new Array(seqLen);
-    direction.hSeq = new Array(seqLen + 1);
-    direction.rSeq = new Array(seqLen);
-    direction.zSeq = new Array(seqLen);
-    direction.nSeq = new Array(seqLen);
-    const h0 = new Float32Array(this.hiddenUnits);
+    this.ensureDirectionSequenceBuffers(direction, seqLen, 1);
+    const h0 = direction.hSeq[0];
+    h0.fill(0);
     if (this.stateful) h0.set(direction.hStateful._data);
-    direction.hSeq[0] = h0.slice();
 
     const outputs: Float32Array[] = new Array(seqLen);
     for (let step = 0; step < seqLen; step++) {
       const t = reverse ? seqLen - 1 - step : step;
-      const x_t = this.getColumn(x, t);
+      const x_t = direction.xSeq[step];
+      this.copyColumnToArray(x, t, x_t);
       const hPrev = direction.hSeq[step];
-      const r = new Float32Array(this.hiddenUnits);
-      const z = new Float32Array(this.hiddenUnits);
-      const n = new Float32Array(this.hiddenUnits);
-      const h = new Float32Array(this.hiddenUnits);
+      const r = direction.rSeq[step];
+      const z = direction.zSeq[step];
+      const n = direction.nSeq[step];
+      const h = direction.hSeq[step + 1];
 
       for (let i = 0; i < this.hiddenUnits; i++) {
         const rPre = this.gatePre(direction.Wxr, direction.Whr, direction.br, i, x_t, hPrev);
@@ -468,12 +488,6 @@ export default class GRU {
         n[i] = Math.tanh(xTerm + hMix);
         h[i] = (1 - z[i]) * n[i] + z[i] * hPrev[i];
       }
-
-      direction.xSeq[step] = x_t;
-      direction.hSeq[step + 1] = h;
-      direction.rSeq[step] = r;
-      direction.zSeq[step] = z;
-      direction.nSeq[step] = n;
       outputs[t] = h;
     }
 
@@ -493,6 +507,7 @@ export default class GRU {
     const totalCols = x._shape[1];
     const seqLen = totalCols / batchSize;
     this.ensureBatchForwardBuffers(batchSize, totalCols);
+    this.ensureDirectionSequenceBuffers(direction, seqLen, batchSize);
     const xGateR = this.batchGateXRBuffer;
     const xGateZ = this.batchGateXZBuffer;
     const xGateN = this.batchGateXNBuffer;
@@ -506,14 +521,9 @@ export default class GRU {
     mj.addBias(xGateZ, direction.bz);
     mj.addBias(xGateN, direction.bh);
 
-    direction.xSeq = new Array(seqLen);
-    direction.hSeq = new Array(seqLen + 1);
-    direction.rSeq = new Array(seqLen);
-    direction.zSeq = new Array(seqLen);
-    direction.nSeq = new Array(seqLen);
-    const h0 = new Float32Array(this.hiddenUnits * batchSize);
+    const h0 = direction.hSeq[0];
+    h0.fill(0);
     if (this.stateful && batchSize === 1) h0.set(direction.hStateful._data);
-    direction.hSeq[0] = h0.slice();
 
     const outputs: Float32Array[] = new Array(seqLen);
     for (let step = 0; step < seqLen; step++) {
@@ -528,17 +538,17 @@ export default class GRU {
       mj.dotProduct(direction.Whr, hPrev, this.batchRecRBuffer);
       mj.dotProduct(direction.Whz, hPrev, this.batchRecZBuffer);
 
-      const r = new Float32Array(this.hiddenUnits * batchSize);
-      const z = new Float32Array(this.hiddenUnits * batchSize);
-      const n = new Float32Array(this.hiddenUnits * batchSize);
-      const h = new Float32Array(this.hiddenUnits * batchSize);
+      const r = direction.rSeq[step];
+      const z = direction.zSeq[step];
+      const n = direction.nSeq[step];
+      const h = direction.hSeq[step + 1];
 
       for (let idx = 0; idx < h.length; idx++) {
         r[idx] = this.sigmoid(this.batchGateSliceRBuffer._data[idx] + this.batchRecRBuffer._data[idx]);
         z[idx] = this.sigmoid(this.batchGateSliceZBuffer._data[idx] + this.batchRecZBuffer._data[idx]);
       }
 
-      const rMulHPrev = new Float32Array(this.hiddenUnits * batchSize);
+      const rMulHPrev = this.batchDhStepBuffer._data.subarray(0, this.hiddenUnits * batchSize);
       for (let idx = 0; idx < rMulHPrev.length; idx++) rMulHPrev[idx] = r[idx] * direction.hSeq[step][idx];
       const rMulHPrevMatrix = Matrix.fromFlat(rMulHPrev, [this.hiddenUnits, batchSize]);
       mj.dotProduct(direction.Whh, rMulHPrevMatrix, this.batchRecNBuffer);
@@ -547,12 +557,7 @@ export default class GRU {
         n[idx] = Math.tanh(this.batchGateSliceNBuffer._data[idx] + this.batchRecNBuffer._data[idx]);
         h[idx] = (1 - z[idx]) * n[idx] + z[idx] * direction.hSeq[step][idx];
       }
-
-      direction.xSeq[step] = new Float32Array(this.batchInputSliceBuffer._data);
-      direction.hSeq[step + 1] = h;
-      direction.rSeq[step] = r;
-      direction.zSeq[step] = z;
-      direction.nSeq[step] = n;
+      direction.xSeq[step].set(this.batchInputSliceBuffer._data);
       outputs[t] = h;
     }
 
@@ -577,6 +582,17 @@ export default class GRU {
     const dBh = Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]);
 
     let dhNext = new Float32Array(this.hiddenUnits);
+    const dhBuffer = new Float32Array(this.hiddenUnits);
+    const dn = new Float32Array(this.hiddenUnits);
+    const dz = new Float32Array(this.hiddenUnits);
+    const daN = new Float32Array(this.hiddenUnits);
+    const rMulHPrev = new Float32Array(this.hiddenUnits);
+    const dRhPrev = new Float32Array(this.hiddenUnits);
+    const drFromN = new Float32Array(this.hiddenUnits);
+    const dhPrevFromN = new Float32Array(this.hiddenUnits);
+    const daR = new Float32Array(this.hiddenUnits);
+    const daZ = new Float32Array(this.hiddenUnits);
+    let dhPrev = new Float32Array(this.hiddenUnits);
     for (let step = seqLen - 1; step >= 0; step--) {
       const t = reverse ? seqLen - 1 - step : step;
       const hPrev = direction.hSeq[step];
@@ -584,26 +600,22 @@ export default class GRU {
       const r = direction.rSeq[step];
       const z = direction.zSeq[step];
       const n = direction.nSeq[step];
-      const dh = externalError[t].slice();
+      const dh = dhBuffer;
+      dh.set(externalError[t]);
       for (let i = 0; i < this.hiddenUnits; i++) dh[i] += dhNext[i];
 
-      const dn = new Float32Array(this.hiddenUnits);
-      const dz = new Float32Array(this.hiddenUnits);
-      const daN = new Float32Array(this.hiddenUnits);
       for (let i = 0; i < this.hiddenUnits; i++) {
         dn[i] = dh[i] * (1 - z[i]);
         dz[i] = dh[i] * (hPrev[i] - n[i]);
         daN[i] = dn[i] * (1 - n[i] * n[i]);
       }
 
-      const rMulHPrev = new Float32Array(this.hiddenUnits);
       for (let i = 0; i < this.hiddenUnits; i++) rMulHPrev[i] = r[i] * hPrev[i];
 
       this.outerAccumulate(dWxh._data, this.hiddenUnits, this.units, daN, x_t);
       this.outerAccumulate(dWhh._data, this.hiddenUnits, this.hiddenUnits, daN, rMulHPrev);
       for (let i = 0; i < this.hiddenUnits; i++) dBh._data[i] += daN[i];
 
-      const dRhPrev = new Float32Array(this.hiddenUnits);
       for (let j = 0; j < this.hiddenUnits; j++) {
         let val = 0;
         for (let i = 0; i < this.hiddenUnits; i++) {
@@ -611,15 +623,11 @@ export default class GRU {
         }
         dRhPrev[j] = val;
       }
-      const drFromN = new Float32Array(this.hiddenUnits);
-      const dhPrevFromN = new Float32Array(this.hiddenUnits);
       for (let i = 0; i < this.hiddenUnits; i++) {
         drFromN[i] = dRhPrev[i] * hPrev[i];
         dhPrevFromN[i] = dRhPrev[i] * r[i];
       }
 
-      const daR = new Float32Array(this.hiddenUnits);
-      const daZ = new Float32Array(this.hiddenUnits);
       for (let i = 0; i < this.hiddenUnits; i++) {
         daR[i] = drFromN[i] * r[i] * (1 - r[i]);
         daZ[i] = dz[i] * z[i] * (1 - z[i]);
@@ -644,7 +652,6 @@ export default class GRU {
         dx[j * seqLen + t] = val;
       }
 
-      const dhPrev = new Float32Array(this.hiddenUnits);
       for (let j = 0; j < this.hiddenUnits; j++) {
         let val = 0;
         for (let i = 0; i < this.hiddenUnits; i++) {
@@ -653,7 +660,9 @@ export default class GRU {
         }
         dhPrev[j] = val + dhPrevFromN[j] + dh[j] * z[j];
       }
+      const prevDhNext = dhNext;
       dhNext = dhPrev;
+      dhPrev = prevDhNext;
     }
 
     this.clipGradientsIfNeeded(dWxr, dWhr, dBr, dWxz, dWhz, dBz, dWxh, dWhh, dBh);
@@ -691,6 +700,16 @@ export default class GRU {
     this.ensureBatchBackwardBuffers(batchSize);
     let dhNext = new Float32Array(this.hiddenUnits * batchSize);
     const dxMatrix = Matrix.fromFlat(dx, [this.units, totalCols]);
+    const dhBuffer = new Float32Array(this.hiddenUnits * batchSize);
+    const dn = new Float32Array(this.hiddenUnits * batchSize);
+    const dz = new Float32Array(this.hiddenUnits * batchSize);
+    const daN = new Float32Array(this.hiddenUnits * batchSize);
+    const rMulHPrev = new Float32Array(this.hiddenUnits * batchSize);
+    const drFromN = new Float32Array(this.hiddenUnits * batchSize);
+    const dhPrevFromN = new Float32Array(this.hiddenUnits * batchSize);
+    const daR = new Float32Array(this.hiddenUnits * batchSize);
+    const daZ = new Float32Array(this.hiddenUnits * batchSize);
+    let dhPrev = new Float32Array(this.hiddenUnits * batchSize);
 
     for (let step = seqLen - 1; step >= 0; step--) {
       const t = reverse ? seqLen - 1 - step : step;
@@ -699,19 +718,16 @@ export default class GRU {
       const r = direction.rSeq[step];
       const z = direction.zSeq[step];
       const n = direction.nSeq[step];
-      const dh = externalError[t].slice();
+      const dh = dhBuffer;
+      dh.set(externalError[t]);
       for (let i = 0; i < dh.length; i++) dh[i] += dhNext[i];
 
-      const dn = new Float32Array(this.hiddenUnits * batchSize);
-      const dz = new Float32Array(this.hiddenUnits * batchSize);
-      const daN = new Float32Array(this.hiddenUnits * batchSize);
       for (let i = 0; i < daN.length; i++) {
         dn[i] = dh[i] * (1 - z[i]);
         dz[i] = dh[i] * (hPrev[i] - n[i]);
         daN[i] = dn[i] * (1 - n[i] * n[i]);
       }
 
-      const rMulHPrev = new Float32Array(this.hiddenUnits * batchSize);
       for (let i = 0; i < rMulHPrev.length; i++) rMulHPrev[i] = r[i] * hPrev[i];
 
       const daNMatrix = Matrix.fromFlat(daN, [this.hiddenUnits, batchSize]);
@@ -723,15 +739,11 @@ export default class GRU {
 
       mj.dotProduct(direction.Whh, daNMatrix, this.batchDhStepBuffer, true, false);
       const dRhPrev = this.batchDhStepBuffer._data;
-      const drFromN = new Float32Array(this.hiddenUnits * batchSize);
-      const dhPrevFromN = new Float32Array(this.hiddenUnits * batchSize);
       for (let i = 0; i < drFromN.length; i++) {
         drFromN[i] = dRhPrev[i] * hPrev[i];
         dhPrevFromN[i] = dRhPrev[i] * r[i];
       }
 
-      const daR = new Float32Array(this.hiddenUnits * batchSize);
-      const daZ = new Float32Array(this.hiddenUnits * batchSize);
       for (let i = 0; i < daR.length; i++) {
         daR[i] = drFromN[i] * r[i] * (1 - r[i]);
         daZ[i] = dz[i] * z[i] * (1 - z[i]);
@@ -754,7 +766,10 @@ export default class GRU {
       for (let i = 0; i < this.batchDhStepBuffer._data.length; i++) {
         this.batchDhStepBuffer._data[i] += dhPrevFromN[i] + dh[i] * z[i];
       }
-      dhNext = new Float32Array(this.batchDhStepBuffer._data);
+      dhPrev.set(this.batchDhStepBuffer._data);
+      const prevDhNext = dhNext;
+      dhNext = dhPrev;
+      dhPrev = prevDhNext;
     }
 
     this.clipGradientsIfNeeded(dWxr, dWhr, dBr, dWxz, dWhz, dBz, dWxh, dWhh, dBh);
@@ -806,6 +821,11 @@ export default class GRU {
       rSeq: [],
       zSeq: [],
       nSeq: [],
+      xSeqBuffer: new Float32Array(0),
+      hSeqBuffer: new Float32Array(0),
+      rSeqBuffer: new Float32Array(0),
+      zSeqBuffer: new Float32Array(0),
+      nSeqBuffer: new Float32Array(0),
     };
   }
 
@@ -890,13 +910,6 @@ export default class GRU {
     target._shape = [value.length, value[0]?.length ?? 0];
   }
 
-  private getColumn(m: Matrix, col: number): Float32Array {
-    const [rows, cols] = m._shape;
-    const out = new Float32Array(rows);
-    for (let i = 0; i < rows; i++) out[i] = m._data[i * cols + col];
-    return out;
-  }
-
   private setColumnData(target: Float32Array, targetCols: number, col: number, data: Float32Array) {
     for (let i = 0; i < data.length; i++) target[i * targetCols + col] = data[i];
   }
@@ -919,6 +932,65 @@ export default class GRU {
       const offset = i * outCols;
       for (let j = 0; j < outCols; j++) target[offset + j] += ai * b[j];
     }
+  }
+
+  private ensureDirectionSequenceBuffers(direction: DirectionParams, seqLen: number, batchSize: number) {
+    const inputWidth = this.units * batchSize;
+    const hiddenWidth = this.hiddenUnits * batchSize;
+    direction.xSeqBuffer = this.ensureCapacity(direction.xSeqBuffer, seqLen * inputWidth);
+    direction.hSeqBuffer = this.ensureCapacity(direction.hSeqBuffer, (seqLen + 1) * hiddenWidth);
+    direction.rSeqBuffer = this.ensureCapacity(direction.rSeqBuffer, seqLen * hiddenWidth);
+    direction.zSeqBuffer = this.ensureCapacity(direction.zSeqBuffer, seqLen * hiddenWidth);
+    direction.nSeqBuffer = this.ensureCapacity(direction.nSeqBuffer, seqLen * hiddenWidth);
+    direction.xSeq = this.buildErrorViews(direction.xSeqBuffer, seqLen, inputWidth);
+    direction.hSeq = this.buildErrorViews(direction.hSeqBuffer, seqLen + 1, hiddenWidth);
+    direction.rSeq = this.buildErrorViews(direction.rSeqBuffer, seqLen, hiddenWidth);
+    direction.zSeq = this.buildErrorViews(direction.zSeqBuffer, seqLen, hiddenWidth);
+    direction.nSeq = this.buildErrorViews(direction.nSeqBuffer, seqLen, hiddenWidth);
+  }
+
+  private ensureErrorBuffer(expectedLen: number): Float32Array {
+    this.errorStepBuffer = this.ensureCapacity(this.errorStepBuffer, expectedLen);
+    return this.errorStepBuffer;
+  }
+
+  private ensureBatchErrorBuffer(expectedLen: number): Float32Array {
+    this.batchErrorStepBuffer = this.ensureCapacity(this.batchErrorStepBuffer, expectedLen);
+    return this.batchErrorStepBuffer;
+  }
+
+  private ensureSplitErrorBuffer(kind: "forward" | "backward", expectedLen: number): Float32Array {
+    if (kind === "forward") {
+      this.splitForwardErrorBuffer = this.ensureCapacity(this.splitForwardErrorBuffer, expectedLen);
+      return this.splitForwardErrorBuffer;
+    }
+    this.splitBackwardErrorBuffer = this.ensureCapacity(this.splitBackwardErrorBuffer, expectedLen);
+    return this.splitBackwardErrorBuffer;
+  }
+
+  private ensureBatchSplitErrorBuffer(kind: "forward" | "backward", expectedLen: number): Float32Array {
+    if (kind === "forward") {
+      this.batchSplitForwardErrorBuffer = this.ensureCapacity(this.batchSplitForwardErrorBuffer, expectedLen);
+      return this.batchSplitForwardErrorBuffer;
+    }
+    this.batchSplitBackwardErrorBuffer = this.ensureCapacity(this.batchSplitBackwardErrorBuffer, expectedLen);
+    return this.batchSplitBackwardErrorBuffer;
+  }
+
+  private ensureCapacity(buffer: Float32Array, expectedLen: number): Float32Array {
+    if (buffer.length < expectedLen) {
+      return new Float32Array(Math.max(expectedLen, Math.max(1, buffer.length * 2)));
+    }
+    return buffer;
+  }
+
+  private buildErrorViews(buffer: Float32Array, steps: number, width: number): Float32Array[] {
+    const views = new Array<Float32Array>(steps);
+    for (let step = 0; step < steps; step++) {
+      const start = step * width;
+      views[step] = buffer.subarray(start, start + width);
+    }
+    return views;
   }
 
   private assertBatchInputSupported(x: Matrix, batchSize: number) {
@@ -1011,6 +1083,13 @@ export default class GRU {
     for (let row = 0; row < rows; row++) {
       const srcOffset = row * cols + startCol;
       target.set(source._data.subarray(srcOffset, srcOffset + blockCols), row * blockCols);
+    }
+  }
+
+  private copyColumnToArray(source: Matrix, col: number, target: Float32Array) {
+    const [rows, cols] = source._shape;
+    for (let row = 0; row < rows; row++) {
+      target[row] = source._data[row * cols + col];
     }
   }
 

@@ -100,6 +100,7 @@ Catatan:
 | [v2.0.3](./v2.0.3.md) | 2026-04-23 | `61dc7d4` + local patch | Optimasi blocked native loss kernel dan pengurangan overhead copy pada `MHA.backward` |
 | [v2.1.0](./v2.1.0.md) | 2026-04-23 | `eea34f5` + local patch | Tambahan benchmark scaling `numBlocks=2/4/6` dan release minor untuk arsitektur transformer yang kini mendukung multi-block |
 | [v2.2.0](./v2.2.0.md) | 2026-04-24 | `fa33aa0` + local patch | Fitur dynamic padding (`trimPadding`), proyek `math-reasoning-ai`, dan benchmark baseline v2.2.0 |
+| [v2.2.1](./v2.2.1.md) | 2026-04-24 | `24f4d55` + local patch | Optimasi reuse buffer pada keluarga recurrent dan snapshot benchmark micro untuk `rnn`/`transformers` |
 
 ## Cara Menambah Versi Baru
 

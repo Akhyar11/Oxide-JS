@@ -101,6 +101,22 @@ export default class LSTM {
   private batchOuterHiddenBuffer: Matrix = mj.matrix([]);
   private batchBiasGradBuffer: Matrix = mj.matrix([]);
   private batchTransposeProductBuffer: Matrix = mj.matrix([]);
+  private xSeqBuffer: Float32Array = new Float32Array(0);
+  private hSeqBuffer: Float32Array = new Float32Array(0);
+  private cSeqBuffer: Float32Array = new Float32Array(0);
+  private iSeqBuffer: Float32Array = new Float32Array(0);
+  private fSeqBuffer: Float32Array = new Float32Array(0);
+  private oSeqBuffer: Float32Array = new Float32Array(0);
+  private gSeqBuffer: Float32Array = new Float32Array(0);
+  private batchXSeqBuffer: Float32Array = new Float32Array(0);
+  private batchHSeqBuffer: Float32Array = new Float32Array(0);
+  private batchCSeqBuffer: Float32Array = new Float32Array(0);
+  private batchISeqBuffer: Float32Array = new Float32Array(0);
+  private batchFSeqBuffer: Float32Array = new Float32Array(0);
+  private batchOSeqBuffer: Float32Array = new Float32Array(0);
+  private batchGSeqBuffer: Float32Array = new Float32Array(0);
+  private errorStepBuffer: Float32Array = new Float32Array(0);
+  private batchErrorStepBuffer: Float32Array = new Float32Array(0);
 
   constructor({
     units,
@@ -280,33 +296,28 @@ export default class LSTM {
 
     this.inputShape = [this.units, seqLen];
     this.outputShape = [this.hiddenUnits, outCols];
-    this.xSeq = new Array(seqLen);
-    this.hSeq = new Array(seqLen + 1);
-    this.cSeq = new Array(seqLen + 1);
-    this.iSeq = new Array(seqLen);
-    this.fSeq = new Array(seqLen);
-    this.oSeq = new Array(seqLen);
-    this.gSeq = new Array(seqLen);
+    this.ensureSequenceStateBuffers(seqLen);
 
-    const h0 = new Float32Array(this.hiddenUnits);
-    const c0 = new Float32Array(this.hiddenUnits);
+    const h0 = this.hSeq[0];
+    const c0 = this.cSeq[0];
+    h0.fill(0);
+    c0.fill(0);
     if (this.stateful) {
       h0.set(this.h_stateful._data);
       c0.set(this.c_stateful._data);
     }
-    this.hSeq[0] = h0.slice();
-    this.cSeq[0] = c0.slice();
 
     for (let t = 0; t < seqLen; t++) {
-      const x_t = this.getColumn(x, t);
+      const x_t = this.xSeq[t];
+      this.copyColumnToArray(x, t, x_t);
       const hPrev = this.hSeq[t];
       const cPrev = this.cSeq[t];
-      const i = new Float32Array(this.hiddenUnits);
-      const f = new Float32Array(this.hiddenUnits);
-      const o = new Float32Array(this.hiddenUnits);
-      const g = new Float32Array(this.hiddenUnits);
-      const c = new Float32Array(this.hiddenUnits);
-      const h = new Float32Array(this.hiddenUnits);
+      const i = this.iSeq[t];
+      const f = this.fSeq[t];
+      const o = this.oSeq[t];
+      const g = this.gSeq[t];
+      const c = this.cSeq[t + 1];
+      const h = this.hSeq[t + 1];
 
       for (let row = 0; row < this.hiddenUnits; row++) {
         const iPre = this.gatePreActivation(this.Wxi, this.Whi, this.bi, row, x_t, hPrev);
@@ -320,14 +331,6 @@ export default class LSTM {
         c[row] = f[row] * cPrev[row] + i[row] * g[row];
         h[row] = o[row] * Math.tanh(c[row]);
       }
-
-      this.xSeq[t] = x_t;
-      this.iSeq[t] = i;
-      this.fSeq[t] = f;
-      this.oSeq[t] = o;
-      this.gSeq[t] = g;
-      this.cSeq[t + 1] = c;
-      this.hSeq[t + 1] = h;
       if (this.returnSequences) {
         this.setColumnData(this.resultBuffer._data, outCols, t, h);
       } else if (t === seqLen - 1) {
@@ -367,22 +370,16 @@ export default class LSTM {
 
     this.inputShape = [this.units, totalCols];
     this.outputShape = [this.hiddenUnits, outCols];
-    this.batchXSeq = new Array(seqLen);
-    this.batchHSeq = new Array(seqLen + 1);
-    this.batchCSeq = new Array(seqLen + 1);
-    this.batchISeq = new Array(seqLen);
-    this.batchFSeq = new Array(seqLen);
-    this.batchOSeq = new Array(seqLen);
-    this.batchGSeq = new Array(seqLen);
+    this.ensureBatchSequenceStateBuffers(seqLen, batchSize);
 
-    const h0 = new Float32Array(this.hiddenUnits * batchSize);
-    const c0 = new Float32Array(this.hiddenUnits * batchSize);
+    const h0 = this.batchHSeq[0];
+    const c0 = this.batchCSeq[0];
+    h0.fill(0);
+    c0.fill(0);
     if (this.stateful && batchSize === 1) {
       h0.set(this.h_stateful._data);
       c0.set(this.c_stateful._data);
     }
-    this.batchHSeq[0] = h0.slice();
-    this.batchCSeq[0] = c0.slice();
 
     for (let t = 0; t < seqLen; t++) {
       const colOffset = t * batchSize;
@@ -398,12 +395,12 @@ export default class LSTM {
       mj.dotProduct(this.Who, hPrevMatrix, this.batchRecOBuffer);
       mj.dotProduct(this.Whg, hPrevMatrix, this.batchRecGBuffer);
 
-      const i = new Float32Array(this.hiddenUnits * batchSize);
-      const f = new Float32Array(this.hiddenUnits * batchSize);
-      const o = new Float32Array(this.hiddenUnits * batchSize);
-      const g = new Float32Array(this.hiddenUnits * batchSize);
-      const c = new Float32Array(this.hiddenUnits * batchSize);
-      const h = new Float32Array(this.hiddenUnits * batchSize);
+      const i = this.batchISeq[t];
+      const f = this.batchFSeq[t];
+      const o = this.batchOSeq[t];
+      const g = this.batchGSeq[t];
+      const c = this.batchCSeq[t + 1];
+      const h = this.batchHSeq[t + 1];
       const cPrev = this.batchCSeq[t];
       for (let idx = 0; idx < h.length; idx++) {
         const iVal = this.sigmoid(this.batchGateSliceIBuffer._data[idx] + this.batchRecIBuffer._data[idx]);
@@ -418,14 +415,7 @@ export default class LSTM {
         c[idx] = cVal;
         h[idx] = oVal * Math.tanh(cVal);
       }
-
-      this.batchXSeq[t] = new Float32Array(this.batchInputSliceBuffer._data);
-      this.batchISeq[t] = i;
-      this.batchFSeq[t] = f;
-      this.batchOSeq[t] = o;
-      this.batchGSeq[t] = g;
-      this.batchCSeq[t + 1] = c;
-      this.batchHSeq[t + 1] = h;
+      this.batchXSeq[t].set(this.batchInputSliceBuffer._data);
       if (this.returnSequences) {
         this.writeColumnBlock(this.resultBuffer, colOffset, batchSize, h);
       } else if (t === seqLen - 1) {
@@ -463,6 +453,18 @@ export default class LSTM {
 
     let dhNext = new Float32Array(this.hiddenUnits);
     let dcNext = new Float32Array(this.hiddenUnits);
+    const dh = new Float32Array(this.hiddenUnits);
+    const di = new Float32Array(this.hiddenUnits);
+    const df = new Float32Array(this.hiddenUnits);
+    const doGate = new Float32Array(this.hiddenUnits);
+    const dg = new Float32Array(this.hiddenUnits);
+    const dc = new Float32Array(this.hiddenUnits);
+    const dzI = new Float32Array(this.hiddenUnits);
+    const dzF = new Float32Array(this.hiddenUnits);
+    const dzO = new Float32Array(this.hiddenUnits);
+    const dzG = new Float32Array(this.hiddenUnits);
+    let dhPrev = new Float32Array(this.hiddenUnits);
+    let dcPrev = new Float32Array(this.hiddenUnits);
 
     for (let t = seqLen - 1; t >= 0; t--) {
       const hPrev = this.hSeq[t];
@@ -474,18 +476,8 @@ export default class LSTM {
       const g = this.gSeq[t];
       const x_t = this.xSeq[t];
 
-      const dh = externalError[t].slice();
+      dh.set(externalError[t]);
       for (let k = 0; k < this.hiddenUnits; k++) dh[k] += dhNext[k];
-
-      const di = new Float32Array(this.hiddenUnits);
-      const df = new Float32Array(this.hiddenUnits);
-      const doGate = new Float32Array(this.hiddenUnits);
-      const dg = new Float32Array(this.hiddenUnits);
-      const dc = new Float32Array(this.hiddenUnits);
-      const dzI = new Float32Array(this.hiddenUnits);
-      const dzF = new Float32Array(this.hiddenUnits);
-      const dzO = new Float32Array(this.hiddenUnits);
-      const dzG = new Float32Array(this.hiddenUnits);
 
       for (let k = 0; k < this.hiddenUnits; k++) {
         const tanhC = Math.tanh(c[k]);
@@ -515,8 +507,6 @@ export default class LSTM {
         dBg._data[k] += dzG[k];
       }
 
-      const dx_t = new Float32Array(this.units);
-      const dhPrev = new Float32Array(this.hiddenUnits);
       for (let j = 0; j < this.units; j++) {
         let val = 0;
         for (let k = 0; k < this.hiddenUnits; k++) {
@@ -525,7 +515,6 @@ export default class LSTM {
           val += this.Wxo._data[k * this.units + j] * dzO[k];
           val += this.Wxg._data[k * this.units + j] * dzG[k];
         }
-        dx_t[j] = val;
         dx[j * seqLen + t] = val;
       }
 
@@ -540,10 +529,13 @@ export default class LSTM {
         dhPrev[j] = val;
       }
 
-      const dcPrev = new Float32Array(this.hiddenUnits);
       for (let k = 0; k < this.hiddenUnits; k++) dcPrev[k] = dc[k] * f[k];
+      const prevDhNext = dhNext;
       dhNext = dhPrev;
+      dhPrev = prevDhNext;
+      const prevDcNext = dcNext;
       dcNext = dcPrev;
+      dcPrev = prevDcNext;
     }
 
     this.clipGradientsIfNeeded(dWxi, dWhi, dBi, dWxf, dWhf, dBf, dWxo, dWho, dBo, dWxg, dWhg, dBg);
@@ -591,6 +583,13 @@ export default class LSTM {
 
     let dhNext = new Float32Array(this.hiddenUnits * batchSize);
     let dcNext = new Float32Array(this.hiddenUnits * batchSize);
+    const dh = new Float32Array(this.hiddenUnits * batchSize);
+    const dzI = new Float32Array(this.hiddenUnits * batchSize);
+    const dzF = new Float32Array(this.hiddenUnits * batchSize);
+    const dzO = new Float32Array(this.hiddenUnits * batchSize);
+    const dzG = new Float32Array(this.hiddenUnits * batchSize);
+    let dcPrev = new Float32Array(this.hiddenUnits * batchSize);
+    let dhPrev = new Float32Array(this.hiddenUnits * batchSize);
 
     for (let t = seqLen - 1; t >= 0; t--) {
       const hPrev = this.batchHSeq[t];
@@ -602,14 +601,8 @@ export default class LSTM {
       const g = this.batchGSeq[t];
       const x_t = this.batchXSeq[t];
 
-      const dh = externalError[t].slice();
+      dh.set(externalError[t]);
       for (let idx = 0; idx < dh.length; idx++) dh[idx] += dhNext[idx];
-
-      const dzI = new Float32Array(this.hiddenUnits * batchSize);
-      const dzF = new Float32Array(this.hiddenUnits * batchSize);
-      const dzO = new Float32Array(this.hiddenUnits * batchSize);
-      const dzG = new Float32Array(this.hiddenUnits * batchSize);
-      const dcPrev = new Float32Array(this.hiddenUnits * batchSize);
 
       for (let idx = 0; idx < dh.length; idx++) {
         const tanhC = Math.tanh(c[idx]);
@@ -649,8 +642,13 @@ export default class LSTM {
       this.accumulateTransposeProduct(this.Whf, dzFMatrix, this.batchDhStepBuffer);
       this.accumulateTransposeProduct(this.Who, dzOMatrix, this.batchDhStepBuffer);
       this.accumulateTransposeProduct(this.Whg, dzGMatrix, this.batchDhStepBuffer);
-      dhNext = new Float32Array(this.batchDhStepBuffer._data);
+      dhPrev.set(this.batchDhStepBuffer._data);
+      const prevDhNext = dhNext;
+      dhNext = dhPrev;
+      dhPrev = prevDhNext;
+      const prevDcNext = dcNext;
       dcNext = dcPrev;
+      dcPrev = prevDcNext;
     }
 
     this.clipGradientsIfNeeded(dWxi, dWhi, dBi, dWxf, dWhf, dBf, dWxo, dWho, dBo, dWxg, dWhg, dBg);
@@ -690,7 +688,8 @@ export default class LSTM {
         `LSTM.backward: error shape mismatch, expected [${this.hiddenUnits},${outCols}], got [${effectiveErr._shape[0]},${effectiveErr._shape[1]}]`
       );
     }
-    const perStep: Float32Array[] = Array.from({ length: seqLen }, () => new Float32Array(this.hiddenUnits));
+    const perStep = this.buildStepViews(this.ensureErrorBuffer(seqLen * this.hiddenUnits), seqLen, this.hiddenUnits);
+    this.errorStepBuffer.fill(0, 0, seqLen * this.hiddenUnits);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         for (let i = 0; i < this.hiddenUnits; i++) perStep[t][i] = effectiveErr._data[i * seqLen + t];
@@ -719,13 +718,6 @@ export default class LSTM {
 
   private sigmoid(v: number): number {
     return 1 / (1 + Math.exp(-v));
-  }
-
-  private getColumn(m: Matrix, col: number): Float32Array {
-    const [rows, cols] = m._shape;
-    const out = new Float32Array(rows);
-    for (let i = 0; i < rows; i++) out[i] = m._data[i * cols + col];
-    return out;
   }
 
   private setColumnData(target: Float32Array, targetCols: number, col: number, data: Float32Array) {
@@ -795,10 +787,12 @@ export default class LSTM {
       );
     }
 
-    const perStep: Float32Array[] = Array.from(
-      { length: seqLen },
-      () => new Float32Array(this.hiddenUnits * batchSize)
+    const perStep = this.buildStepViews(
+      this.ensureBatchErrorBuffer(seqLen * this.hiddenUnits * batchSize),
+      seqLen,
+      this.hiddenUnits * batchSize
     );
+    this.batchErrorStepBuffer.fill(0, 0, seqLen * this.hiddenUnits * batchSize);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         this.copyColumnBlockToArray(effectiveErr, t * batchSize, batchSize, perStep[t]);
@@ -820,6 +814,68 @@ export default class LSTM {
     if (this.stateful && batchSize !== 1) {
       throw new Error("LSTM.forwardBatch: stateful=true only supports batchSize=1 in the current batched recurrent path.");
     }
+  }
+
+  private ensureSequenceStateBuffers(seqLen: number) {
+    this.xSeqBuffer = this.ensureCapacity(this.xSeqBuffer, seqLen * this.units);
+    this.hSeqBuffer = this.ensureCapacity(this.hSeqBuffer, (seqLen + 1) * this.hiddenUnits);
+    this.cSeqBuffer = this.ensureCapacity(this.cSeqBuffer, (seqLen + 1) * this.hiddenUnits);
+    this.iSeqBuffer = this.ensureCapacity(this.iSeqBuffer, seqLen * this.hiddenUnits);
+    this.fSeqBuffer = this.ensureCapacity(this.fSeqBuffer, seqLen * this.hiddenUnits);
+    this.oSeqBuffer = this.ensureCapacity(this.oSeqBuffer, seqLen * this.hiddenUnits);
+    this.gSeqBuffer = this.ensureCapacity(this.gSeqBuffer, seqLen * this.hiddenUnits);
+    this.xSeq = this.buildStepViews(this.xSeqBuffer, seqLen, this.units);
+    this.hSeq = this.buildStepViews(this.hSeqBuffer, seqLen + 1, this.hiddenUnits);
+    this.cSeq = this.buildStepViews(this.cSeqBuffer, seqLen + 1, this.hiddenUnits);
+    this.iSeq = this.buildStepViews(this.iSeqBuffer, seqLen, this.hiddenUnits);
+    this.fSeq = this.buildStepViews(this.fSeqBuffer, seqLen, this.hiddenUnits);
+    this.oSeq = this.buildStepViews(this.oSeqBuffer, seqLen, this.hiddenUnits);
+    this.gSeq = this.buildStepViews(this.gSeqBuffer, seqLen, this.hiddenUnits);
+  }
+
+  private ensureBatchSequenceStateBuffers(seqLen: number, batchSize: number) {
+    const inputWidth = this.units * batchSize;
+    const hiddenWidth = this.hiddenUnits * batchSize;
+    this.batchXSeqBuffer = this.ensureCapacity(this.batchXSeqBuffer, seqLen * inputWidth);
+    this.batchHSeqBuffer = this.ensureCapacity(this.batchHSeqBuffer, (seqLen + 1) * hiddenWidth);
+    this.batchCSeqBuffer = this.ensureCapacity(this.batchCSeqBuffer, (seqLen + 1) * hiddenWidth);
+    this.batchISeqBuffer = this.ensureCapacity(this.batchISeqBuffer, seqLen * hiddenWidth);
+    this.batchFSeqBuffer = this.ensureCapacity(this.batchFSeqBuffer, seqLen * hiddenWidth);
+    this.batchOSeqBuffer = this.ensureCapacity(this.batchOSeqBuffer, seqLen * hiddenWidth);
+    this.batchGSeqBuffer = this.ensureCapacity(this.batchGSeqBuffer, seqLen * hiddenWidth);
+    this.batchXSeq = this.buildStepViews(this.batchXSeqBuffer, seqLen, inputWidth);
+    this.batchHSeq = this.buildStepViews(this.batchHSeqBuffer, seqLen + 1, hiddenWidth);
+    this.batchCSeq = this.buildStepViews(this.batchCSeqBuffer, seqLen + 1, hiddenWidth);
+    this.batchISeq = this.buildStepViews(this.batchISeqBuffer, seqLen, hiddenWidth);
+    this.batchFSeq = this.buildStepViews(this.batchFSeqBuffer, seqLen, hiddenWidth);
+    this.batchOSeq = this.buildStepViews(this.batchOSeqBuffer, seqLen, hiddenWidth);
+    this.batchGSeq = this.buildStepViews(this.batchGSeqBuffer, seqLen, hiddenWidth);
+  }
+
+  private ensureErrorBuffer(expectedLen: number): Float32Array {
+    this.errorStepBuffer = this.ensureCapacity(this.errorStepBuffer, expectedLen);
+    return this.errorStepBuffer;
+  }
+
+  private ensureBatchErrorBuffer(expectedLen: number): Float32Array {
+    this.batchErrorStepBuffer = this.ensureCapacity(this.batchErrorStepBuffer, expectedLen);
+    return this.batchErrorStepBuffer;
+  }
+
+  private ensureCapacity(buffer: Float32Array, expectedLen: number): Float32Array {
+    if (buffer.length < expectedLen) {
+      return new Float32Array(Math.max(expectedLen, Math.max(1, buffer.length * 2)));
+    }
+    return buffer;
+  }
+
+  private buildStepViews(buffer: Float32Array, steps: number, width: number): Float32Array[] {
+    const views = new Array<Float32Array>(steps);
+    for (let step = 0; step < steps; step++) {
+      const start = step * width;
+      views[step] = buffer.subarray(start, start + width);
+    }
+    return views;
   }
 
   private assertBatchInputSupportedShape(batchSize: number, totalCols: number) {
@@ -907,6 +963,13 @@ export default class LSTM {
     for (let row = 0; row < rows; row++) {
       const srcOffset = row * cols + startCol;
       target.set(source._data.subarray(srcOffset, srcOffset + blockCols), row * blockCols);
+    }
+  }
+
+  private copyColumnToArray(source: Matrix, col: number, target: Float32Array) {
+    const [rows, cols] = source._shape;
+    for (let row = 0; row < rows; row++) {
+      target[row] = source._data[row * cols + col];
     }
   }
 

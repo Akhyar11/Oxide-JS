@@ -60,7 +60,10 @@ export default class MultiHeadAttention {
   private gradVBuffer: Matrix;
 
 
+  private attentionBuffer: Float32Array = new Float32Array(0);
   private attentionData: Float32Array = new Float32Array(0);
+  private errAttentionBuffer: Float32Array = new Float32Array(0);
+  private errScoreBuffer: Float32Array = new Float32Array(0);
   private errAttentionScratch: Float32Array;
   private errScoreScratch: Float32Array;
   private _effectiveSeqLen: number | null = null;
@@ -113,9 +116,9 @@ export default class MultiHeadAttention {
     this.gradVBuffer = mj.zeros([this.units, this.units]);
 
     this.params = 3 * this.units * this.units + this.wo.params;
-    this.errAttentionScratch = new Float32Array(this.seqLen * this.seqLen);
-    this.errScoreScratch = new Float32Array(this.seqLen * this.seqLen);
-    this.ensureSequenceBuffersForBatch(seqLen);
+    this.errAttentionScratch = new Float32Array(0);
+    this.errScoreScratch = new Float32Array(0);
+    this.ensureSequenceBuffersForBatch(seqLen, seqLen);
   }
 
   compile({ alpha, optimizer, error, clipGradient }: { alpha?: number; optimizer?: Optimzier; error?: Cost; clipGradient?: number | boolean }) {
@@ -157,7 +160,7 @@ export default class MultiHeadAttention {
     }
     const batchSize = totalCols / seqLen;
 
-    this.ensureSequenceBuffersForBatch(totalCols);
+    this.ensureSequenceBuffersForBatch(totalCols, seqLen);
 
     this.input = x;
     if (this.hasExternalPadMask && this.padMask.length === totalCols) {
@@ -217,6 +220,8 @@ export default class MultiHeadAttention {
     }
     const batchSize = totalCols / seqLen;
     const scale = 1 / Math.sqrt(this.headUnits);
+
+    this.ensureSequenceBuffersForBatch(totalCols, seqLen);
 
     if (isNativeAvailable()) {
       multiHeadAttentionBackwardNative(
@@ -314,12 +319,18 @@ export default class MultiHeadAttention {
     this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, this.alpha);
   }
 
-  private ensureSequenceBuffersForBatch(totalCols: number) {
-    const batchSize = Math.floor(totalCols / this.seqLen);
-    const expectedAttentionLen = this.heads * batchSize * this.seqLen * this.seqLen;
-    // `attentionData.length` dipakai sebagai cache validity signal karena buffer ini
-    // bergantung langsung pada kombinasi [heads, batchSize, seqLen].
-    if (this.Q._shape[1] === totalCols && this.attentionData.length === expectedAttentionLen) {
+  private ensureSequenceBuffersForBatch(totalCols: number, seqLen: number) {
+    const batchSize = Math.floor(totalCols / seqLen);
+    const expectedAttentionLen = this.heads * batchSize * seqLen * seqLen;
+    const expectedScratchLen = seqLen * seqLen;
+    // `attentionData` adalah exact-length view ke backing buffer agar native/fallback
+    // tetap menerima panjang yang sesuai tanpa harus realloc setiap kali kapasitas cukup.
+    if (
+      this.Q._shape[1] === totalCols &&
+      this.attentionData.length === expectedAttentionLen &&
+      this.errAttentionScratch.length === expectedScratchLen &&
+      this.errScoreScratch.length === expectedScratchLen
+    ) {
       return;
     }
 
@@ -337,7 +348,23 @@ export default class MultiHeadAttention {
     this.dKAll = mj.zeros([this.units, totalCols]);
     this.dVAll = mj.zeros([this.units, totalCols]);
 
-    this.attentionData = new Float32Array(this.heads * batchSize * this.seqLen * this.seqLen);
+    if (this.attentionBuffer.length < expectedAttentionLen) {
+      const nextCapacity = Math.max(expectedAttentionLen, Math.max(1, this.attentionBuffer.length * 2));
+      this.attentionBuffer = new Float32Array(nextCapacity);
+    }
+    this.attentionData = this.attentionBuffer.subarray(0, expectedAttentionLen);
+
+    if (this.errAttentionBuffer.length < expectedScratchLen) {
+      const nextCapacity = Math.max(expectedScratchLen, Math.max(1, this.errAttentionBuffer.length * 2));
+      this.errAttentionBuffer = new Float32Array(nextCapacity);
+    }
+    this.errAttentionScratch = this.errAttentionBuffer.subarray(0, expectedScratchLen);
+
+    if (this.errScoreBuffer.length < expectedScratchLen) {
+      const nextCapacity = Math.max(expectedScratchLen, Math.max(1, this.errScoreBuffer.length * 2));
+      this.errScoreBuffer = new Float32Array(nextCapacity);
+    }
+    this.errScoreScratch = this.errScoreBuffer.subarray(0, expectedScratchLen);
   }
 
   private loadLegacyHeads(headsData: Array<{ q: number[][]; k: number[][]; v: number[][] }>) {

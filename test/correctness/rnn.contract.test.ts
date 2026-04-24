@@ -46,6 +46,62 @@ type RecurrentFactory = {
   assertSerializedWeights: (layer: RecurrentLayer) => void;
 };
 
+function cloneRecurrentLayer(layer: RecurrentLayer): RecurrentLayer {
+  if (layer instanceof RNN) {
+    const cloned = new RNN({
+      units: layer.units,
+      hiddenUnits: layer.hiddenUnits,
+      activation: layer.activation,
+      returnSequences: layer.returnSequences,
+      returnState: layer.returnState,
+      stateful: layer.stateful,
+      alpha: layer.alpha,
+      status: layer.status,
+      clipGradient: layer.clipGradient,
+    });
+    cloned.load(layer.save() as any);
+    return cloned;
+  }
+  if (layer instanceof LSTM) {
+    const cloned = new LSTM({
+      units: layer.units,
+      hiddenUnits: layer.hiddenUnits,
+      returnSequences: layer.returnSequences,
+      returnState: layer.returnState,
+      stateful: layer.stateful,
+      alpha: layer.alpha,
+      status: layer.status,
+      clipGradient: layer.clipGradient,
+    });
+    cloned.load(layer.save() as any);
+    return cloned;
+  }
+  if (layer instanceof GRU) {
+    const cloned = new GRU({
+      units: layer.units,
+      hiddenUnits: layer.hiddenUnits,
+      returnSequences: layer.returnSequences,
+      returnState: layer.returnState,
+      stateful: layer.stateful,
+      bidirectional: layer.bidirectional,
+      alpha: layer.alpha,
+      status: layer.status,
+      clipGradient: layer.clipGradient,
+    });
+    cloned.load(layer.save() as any);
+    return cloned;
+  }
+  throw new Error("Unsupported recurrent layer type.");
+}
+
+function assertMatricesClose(actual: { _data: Float32Array; _shape: [number, number] }, expected: { _data: Float32Array; _shape: [number, number] }, epsilon = 1e-6) {
+  assert.deepEqual(actual._shape, expected._shape);
+  assert.equal(actual._data.length, expected._data.length);
+  for (let i = 0; i < actual._data.length; i++) {
+    approxEqual(actual._data[i], expected._data[i], epsilon);
+  }
+}
+
 function createDeterministicRNN(config: Partial<ConstructorParameters<typeof RNN>[0]> = {}) {
   const rnn = new RNN({
     units: 1,
@@ -202,6 +258,82 @@ for (const factory of recurrentFactories) {
     assertMatrixShape(dx, [2, 3]);
     for (const value of dx._data) {
       assert.ok(Number.isFinite(value), `${factory.family} backward produced non-finite gradient`);
+    }
+  });
+
+  test(`${factory.family} reuses recurrent buffers safely across varying single-sequence lengths`, () => {
+    const layer = factory.create({ returnSequences: true, status: "hidden" });
+    const inputs = [
+      mj.matrix([
+        [0.1, -0.2, 0.3, -0.4],
+        [0.5, 0.6, -0.7, 0.8],
+      ]),
+      mj.matrix([
+        [0.9, -1.0],
+        [0.2, 0.4],
+      ]),
+      mj.matrix([
+        [-0.3, 0.1, 0.7],
+        [0.6, -0.5, 0.2],
+      ]),
+    ];
+
+    for (const x of inputs) {
+      const expectedLayer = cloneRecurrentLayer(layer);
+      const out = layer.forward(x);
+      const expectedOut = expectedLayer.forward(x);
+      assertMatricesClose(out, expectedOut);
+
+      const zeroErr = mj.zeros([out._shape[0], out._shape[1]]);
+      const dx = layer.backward(mj.zeros([out._shape[0], out._shape[1]]), zeroErr);
+      const expectedDx = expectedLayer.backward(mj.zeros([expectedOut._shape[0], expectedOut._shape[1]]), zeroErr);
+      assertMatricesClose(dx, expectedDx);
+    }
+  });
+
+  test(`${factory.family} reuses recurrent buffers safely across varying batched sequence shapes`, () => {
+    if (factory.family === "GRU") {
+      return;
+    }
+    const layer = factory.create({ returnSequences: true, status: "hidden" }) as any;
+    const cases = [
+      {
+        batchSize: 2,
+        x: mj.matrix([
+          [0.1, 0.05, 0.08, 0.04, 0.06, 0.02],
+          [0.06, 0.03, 0.05, 0.02, 0.04, 0.01],
+        ]),
+      },
+      {
+        batchSize: 1,
+        x: mj.matrix([
+          [0.07, -0.01, 0.08],
+          [0.02, 0.04, -0.06],
+        ]),
+      },
+      {
+        batchSize: 3,
+        x: mj.matrix([
+          [0.09, 0.08, 0.07, -0.01, -0.02, -0.03],
+          [0.03, 0.01, -0.01, 0.05, 0.07, 0.09],
+        ]),
+      },
+    ];
+
+    for (const { batchSize, x } of cases) {
+      const expectedLayer = cloneRecurrentLayer(layer) as any;
+      const out = layer.forwardBatch(x, batchSize);
+      const expectedOut = expectedLayer.forwardBatch(x, batchSize);
+      assertMatricesClose(out, expectedOut);
+
+      const zeroErr = mj.zeros([out._shape[0], out._shape[1]]);
+      const dx = layer.backwardBatch(mj.zeros([out._shape[0], out._shape[1]]), zeroErr, batchSize);
+      const expectedDx = expectedLayer.backwardBatch(
+        mj.zeros([expectedOut._shape[0], expectedOut._shape[1]]),
+        zeroErr,
+        batchSize
+      );
+      assertMatricesClose(dx, expectedDx);
     }
   });
 
