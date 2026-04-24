@@ -64,7 +64,6 @@ export default class Transformers extends Sequential {
 
   private lastTokenBuffer: Matrix;
   private lossGradientBuffer: Matrix;
-  private invalidTokenIndexBuffer: Int32Array = new Int32Array(0);
   private lastInputTokens: Matrix = mj.matrix([]);
   private emptyErr: Matrix = mj.matrix([[]]);
   private padMaskBuffer: boolean[] = [];
@@ -252,22 +251,22 @@ export default class Transformers extends Sequential {
       const errFfn2 = block.ffn2.backward(this.emptyErr, errDrop2);
       const errDropFfn = block.dropFfn.backward(this.emptyErr, errFfn2);
       const errFfn1 = block.ffn1.backward(this.emptyErr, errDropFfn);
-      this.profileEnd("FFN backward", ffnBackwardStart);
+      this.profileEnd(`FFN backward [block ${blockIndex}]`, ffnBackwardStart);
 
       const layerNorm2BackwardStart = this.profileStart();
       const errLn2 = block.ln2.backward(this.emptyErr, errFfn1);
-      this.profileEnd("layer norm backward", layerNorm2BackwardStart);
+      this.profileEnd(`layer norm backward [block ${blockIndex}]`, layerNorm2BackwardStart);
 
       const res1Err = mj.addInto(blockErr, errLn2, block.errRes1Buf);
 
       const errDrop1 = block.drop1.backward(this.emptyErr, res1Err);
       const mhaBackwardStart = this.profileStart();
       const errMha = block.mha.backward(this.emptyErr, errDrop1);
-      this.profileEnd("MHA backward", mhaBackwardStart);
+      this.profileEnd(`MHA backward [block ${blockIndex}]`, mhaBackwardStart);
 
       const layerNorm1BackwardStart = this.profileStart();
       const errLn1 = block.ln1.backward(this.emptyErr, errMha);
-      this.profileEnd("layer norm backward", layerNorm1BackwardStart);
+      this.profileEnd(`layer norm backward [block ${blockIndex}]`, layerNorm1BackwardStart);
 
       // Reuse errRes2Buf block-local setelah blockErr sebelumnya tidak lagi dipakai.
       blockErr = mj.addInto(res1Err, errLn1, block.errRes2Buf);
@@ -308,27 +307,28 @@ export default class Transformers extends Sequential {
 
     // 3. Transformer Blocks
     let h = xPe;
-    for (const block of this.blocks) {
+    for (let blockIndex = 0; blockIndex < this.blocks.length; blockIndex++) {
+      const block = this.blocks[blockIndex];
       const layerNorm1ForwardStart = this.profileStart();
       const xLn1 = block.ln1.forward(h);
-      this.profileEnd("layer norm forward", layerNorm1ForwardStart);
+      this.profileEnd(`layer norm forward [block ${blockIndex}]`, layerNorm1ForwardStart);
 
       block.mha.setPadMask(this.padMaskBuffer);
       const mhaForwardStart = this.profileStart();
       const xMhaOut = block.mha.forward(xLn1);
-      this.profileEnd("MHA forward", mhaForwardStart);
+      this.profileEnd(`MHA forward [block ${blockIndex}]`, mhaForwardStart);
       const xDrop1Out = block.drop1.forward(xMhaOut);
       const res1 = mj.addInto(h, xDrop1Out, block.xRes1);
 
       const layerNorm2ForwardStart = this.profileStart();
       const xLn2 = block.ln2.forward(res1);
-      this.profileEnd("layer norm forward", layerNorm2ForwardStart);
+      this.profileEnd(`layer norm forward [block ${blockIndex}]`, layerNorm2ForwardStart);
       const ffnForwardStart = this.profileStart();
       const xFfn1Out = block.ffn1.forward(xLn2);
       const xDropFfnOut = block.dropFfn.forward(xFfn1Out);
       const xFfn2Out = block.ffn2.forward(xDropFfnOut);
       const xDrop2Out = block.drop2.forward(xFfn2Out);
-      this.profileEnd("FFN forward", ffnForwardStart);
+      this.profileEnd(`FFN forward [block ${blockIndex}]`, ffnForwardStart);
       h = mj.addInto(res1, xDrop2Out, block.xRes2);
     }
 
@@ -350,10 +350,6 @@ export default class Transformers extends Sequential {
     if (this.lossGradientBuffer._shape[0] !== this.vocabSize || this.lossGradientBuffer._shape[1] !== totalTokens) {
       this.lossGradientBuffer = mj.zeros([this.vocabSize, totalTokens]);
     }
-    if (this.invalidTokenIndexBuffer.length !== totalTokens) {
-      this.invalidTokenIndexBuffer = new Int32Array(totalTokens);
-    }
-
     if (isNativeAvailable()) {
       const result = maskedSparseSoftmaxCrossEntropyNative(
         logits._data,
@@ -381,8 +377,6 @@ export default class Transformers extends Sequential {
     const padTokenId = this.embedding.padTokenId;
     let totalLoss = 0;
     let validTokens = 0;
-    let invalidCount = 0;
-
     for (let b = 0; b < batchSize; b++) {
       for (let pos = 0; pos < seqLen; pos++) {
         const sourceIndex = pos * batchSize + b;
@@ -394,7 +388,9 @@ export default class Transformers extends Sequential {
           (padTokenId === null || (sourceToken !== padTokenId && targetToken !== padTokenId));
 
         if (!canTrainOnPosition) {
-          this.invalidTokenIndexBuffer[invalidCount++] = tokenIndex;
+          for (let vocabIndex = 0; vocabIndex < this.vocabSize; vocabIndex++) {
+            gradData[vocabIndex * totalTokens + tokenIndex] = 0;
+          }
           continue;
         }
         if (targetToken < 0 || targetToken >= this.vocabSize) {
@@ -407,13 +403,6 @@ export default class Transformers extends Sequential {
         const targetOffset = targetToken * totalTokens + tokenIndex;
         totalLoss -= Math.log(Math.max(epsilon, probsData[targetOffset]));
         gradData[targetOffset] -= 1;
-      }
-    }
-
-    for (let invalidIdx = 0; invalidIdx < invalidCount; invalidIdx++) {
-      const tokenIndex = this.invalidTokenIndexBuffer[invalidIdx];
-      for (let vocabIndex = 0; vocabIndex < this.vocabSize; vocabIndex++) {
-        gradData[vocabIndex * totalTokens + tokenIndex] = 0;
       }
     }
 
