@@ -209,6 +209,7 @@ export default class Embedding {
       }
     }
     this.inputIndices = this.orderedInputBuffer;
+    this.validateTokenIndices(totalTokens);
 
     const seqLen = totalTokens;
     this.inputShape = [rows, cols];
@@ -230,9 +231,6 @@ export default class Embedding {
 
     for (let j = 0; j < seqLen; j++) {
       const tokenIndex = Math.floor(this.inputIndices[j]);
-      if (tokenIndex < 0 || tokenIndex >= this.vocabSize) {
-        throw new Error(`Token index '${tokenIndex}' di luar kapasitas vocabulary (0 - ${this.vocabSize - 1})`);
-      }
       if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
         continue;
       }
@@ -242,5 +240,15 @@ export default class Embedding {
     }
 
     return this.outputBuffer;
+  }
+
+  private validateTokenIndices(seqLen: number): void {
+    for (let j = 0; j < seqLen; j++) {
+      const rawTokenIndex = this.inputIndices[j];
+      const tokenIndex = Math.floor(rawTokenIndex);
+      if (!Number.isFinite(rawTokenIndex) || tokenIndex < 0 || tokenIndex >= this.vocabSize) {
+        throw new Error(`Token index '${rawTokenIndex}' di luar kapasitas vocabulary (0 - ${this.vocabSize - 1})`);
+      }
+    }
   }
 }
