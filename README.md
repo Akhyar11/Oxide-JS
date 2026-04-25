@@ -62,17 +62,32 @@ docs/
 ```
 
 ## Installation
+
+Instal library menggunakan npm:
+
 ```bash
-npm install
+npm install @akhyar11/ml-v1
 ```
 
+### Prerequisites (Penting)
+Untuk menggunakan fitur **Native Rust Acceleration** (yang mempercepat operasi Matrix hingga 10x lipat), sistem Anda **WAJIB** memiliki:
+1.  **Rust Toolchain**: Instal via [rustup.rs](https://rustup.rs/).
+2.  **C/C++ Build Tools**: Diperlukan untuk kompilasi native binding.
+
+*Catatan: Jika Rust tidak terinstal, library akan tetap berjalan menggunakan **Pure JavaScript fallback**, namun performa akan jauh lebih lambat untuk model besar.*
+
 ## Build and setup
+Jika Anda melakukan cloning repo ini atau ingin melakukan kompilasi manual:
+
 ```bash
+# Install dependencies
+npm install
+
 # Build native Rust (release)
 npm run build:rust
 
-# Debug native build
-npm run build:rust:debug
+# Build TypeScript
+npm run build:publish
 ```
 
 ## Rust native backend
