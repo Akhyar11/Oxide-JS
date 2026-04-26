@@ -7,6 +7,10 @@ export interface MaskedSparseSoftmaxCrossEntropyResult {
   loss: number
   validTokens: number
 }
+export interface EmbeddingSparseBackwardResult {
+  uniqueIndices: Int32Array
+  grad: Float32Array
+}
 export declare function dotProduct(aData: Float32Array, aShape: Array<number>, bData: Float32Array, bShape: Array<number>, transA: boolean, transB: boolean): Float32Array
 export declare function dotProductInto(aData: Float32Array, aShape: Array<number>, bData: Float32Array, bShape: Array<number>, outData: Float32Array, transA: boolean, transB: boolean): void
 export declare function dotProductIntoDims(aData: Float32Array, aRows: number, aCols: number, bData: Float32Array, bRows: number, bCols: number, outData: Float32Array, transA: boolean, transB: boolean): void
@@ -22,11 +26,23 @@ export declare function reluNativeInto(input: Float32Array, outRes: Float32Array
 export declare function sigmoidNativeInto(input: Float32Array, outRes: Float32Array, outGrad: Float32Array): void
 export declare function tanhNativeInto(input: Float32Array, outRes: Float32Array, outGrad: Float32Array): void
 export declare function embeddingForwardNativeInto(indices: Array<number>, weightData: Float32Array, vocabSize: number, embeddingDim: number, padTokenId: number | undefined | null, out: Float32Array): void
+export declare function embeddingForwardNativeInt32Into(indices: Int32Array, weightData: Float32Array, vocabSize: number, embeddingDim: number, padTokenId: number | undefined | null, out: Float32Array): void
 export declare function embeddingBackwardNative(indices: Array<number>, errData: Float32Array, gradData: Float32Array, vocabSize: number, embeddingDim: number, padTokenId?: number | undefined | null): void
+export declare function embeddingBackwardNativeInt32(indices: Int32Array, errData: Float32Array, gradData: Float32Array, vocabSize: number, embeddingDim: number, padTokenId?: number | undefined | null): void
+export declare function embeddingBackwardSparseNative(indices: Int32Array, errData: Float32Array, embeddingDim: number, padTokenId?: number | undefined | null): EmbeddingSparseBackwardResult
 export declare function convolutionNativeInto(aData: Float32Array, aRows: number, aCols: number, kData: Float32Array, kRows: number, kCols: number, out: Float32Array): void
 export declare function convBackwardInputNativeInto(errData: Float32Array, errRows: number, errCols: number, inputData: Float32Array, inputRows: number, inputCols: number, outRows: number, outCols: number, out: Float32Array): void
 export declare function applyAttentionMaskNative(data: Float32Array, padMask: Array<boolean>, rows: number, cols: number, scale: number): void
 export declare function adamUpdateNative(grad: Float32Array, m: Float32Array, v: Float32Array, buffer: Float32Array, t: number, alpha: number, beta1: number, beta2: number, epsilon: number): void
+export declare function adamSparseUpdateNative(indices: Int32Array, grad: Float32Array, weight: Float32Array, m: Float32Array, v: Float32Array, t: number, alpha: number, beta1: number, beta2: number, epsilon: number, vocabSize: number, embeddingDim: number): void
+export declare function sgdUpdateNative(grad: Float32Array, out: Float32Array, alpha: number): void
+export declare function sgdSparseUpdateNative(indices: Int32Array, grad: Float32Array, weight: Float32Array, alpha: number, vocabSize: number, embeddingDim: number): void
+export declare function adagradUpdateNative(grad: Float32Array, sum: Float32Array, out: Float32Array, alpha: number, epsilon: number): void
+export declare function adagradSparseUpdateNative(indices: Int32Array, grad: Float32Array, weight: Float32Array, sum: Float32Array, alpha: number, epsilon: number, vocabSize: number, embeddingDim: number): void
+export declare function momentumUpdateNative(grad: Float32Array, v: Float32Array, out: Float32Array, alpha: number, beta: number): void
+export declare function momentumSparseUpdateNative(indices: Int32Array, grad: Float32Array, weight: Float32Array, v: Float32Array, alpha: number, beta: number, vocabSize: number, embeddingDim: number): void
+export declare function nagUpdateNative(grad: Float32Array, v: Float32Array, out: Float32Array, alpha: number, beta: number): void
+export declare function nagSparseUpdateNative(indices: Int32Array, grad: Float32Array, weight: Float32Array, v: Float32Array, alpha: number, beta: number, vocabSize: number, embeddingDim: number): void
 export declare function addInPlace(a: Float32Array, b: Float32Array): void
 export declare function subInPlace(a: Float32Array, b: Float32Array): void
 export declare function mulInPlace(a: Float32Array, b: Float32Array): void

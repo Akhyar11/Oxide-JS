@@ -443,7 +443,7 @@ For in-depth guides, see the official documentation:
 
 ## Versioning
 
-This project follows `MAJOR.MINOR.PATCH` semantic versioning. The current version is **`2.2.7`**.
+This project follows `MAJOR.MINOR.PATCH` semantic versioning. The current version is **`2.2.8`**.
 
 - **MAJOR** — breaking changes or major architectural shifts.
 - **MINOR** — new backward-compatible features or improvements.
@@ -453,6 +453,7 @@ This project follows `MAJOR.MINOR.PATCH` semantic versioning. The current versio
 
 | Version | Summary |
 |---|---|
+| `2.2.8` | Full Native Optimizer support (Adam, SGD, AdaGrad, Momentum, NAG) and Sparse Embedding native backend. |
 | `2.2.7` | Unicode-aware BPE pre-tokenizers and multilingual tokenizer documentation. |
 | `2.2.5` | Hot-path optimizations for training/validation, embedding lookup, and BPE tokenizer. |
 | `2.2.4` | `Transformers.predictMode` API ergonomics, docs sync, and correctness suite refactor. |

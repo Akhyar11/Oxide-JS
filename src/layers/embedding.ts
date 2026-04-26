@@ -2,7 +2,7 @@ import mj from "../math";
 import Matrix from "../matrix";
 import { Optimzier, OptimzierType, StatusLayer, matrix2d } from "../@types/type";
 import setOptimizer from "../utils/setOptimizer";
-import { isNativeAvailable, embeddingForwardNative, embeddingBackwardNative } from "../math/rust_backend";
+import { isNativeAvailable, embeddingForwardNative, embeddingBackwardSparseNative } from "../math/rust_backend";
 
 export interface EmbeddingLayerParams {
   vocabSize: number;
@@ -109,44 +109,57 @@ export default class Embedding {
   }
 
   backward(y: Matrix, err: Matrix): Matrix {
-    // `err` adalah error/gradien dari layer setelahnya bertipe [embeddingDim, seqLen]
-    if (!this.gradWeightBuffer || this.gradWeightBuffer._shape[1] !== this.vocabSize || this.gradWeightBuffer._shape[0] !== this.embeddingDim) {
-      this.gradWeightBuffer = mj.zeros([this.embeddingDim, this.vocabSize]);
-    } else {
-      this.gradWeightBuffer._data.fill(0);
-    }
-    const gradWeight = this.gradWeightBuffer;
+    // Optimization: Use sparse updates instead of a full [embeddingDim, vocabSize] matrix
     const seqLen = this.inputIndices.length;
-    if (isNativeAvailable()) {
-      embeddingBackwardNative(this.inputIndices, err._data, gradWeight._data, this.vocabSize, this.embeddingDim, this.padTokenId);
-    } else {
-      const gradData = gradWeight._data;
-      const errData = err._data;
-      const vocabSize = this.weight._shape[1];
+    const errData = err._data;
 
-      // Kumpulkan dan akumulasi nilai gradien setiap token ke index yang relevan pada `weight`
-      for (let i = 0; i < this.embeddingDim; i++) {
-        for (let j = 0; j < seqLen; j++) {
-          const tokenIndex = Math.floor(this.inputIndices[j]);
-          if (this.padTokenId !== null && tokenIndex === this.padTokenId) {
-            continue;
-          }
-          gradData[i * vocabSize + tokenIndex] += errData[i * seqLen + j];
+    let uniqueIndices: Int32Array;
+    let smallGrad: Matrix;
+
+    if (isNativeAvailable() && this.inputIndices instanceof Int32Array) {
+      const res = embeddingBackwardSparseNative(this.inputIndices, errData, this.embeddingDim, this.padTokenId);
+      uniqueIndices = res.uniqueIndices;
+      smallGrad = Matrix.fromFlat(res.grad, [this.embeddingDim, uniqueIndices.length]);
+    } else {
+      // 1. Identify unique tokens and their first occurrence
+      const uniqueIndicesArr: number[] = [];
+      const indexMap = new Map<number, number>();
+      for (let j = 0; j < seqLen; j++) {
+        const tokenIndex = this.inputIndices[j];
+        if (this.padTokenId !== null && tokenIndex === this.padTokenId) continue;
+        if (!indexMap.has(tokenIndex)) {
+          indexMap.set(tokenIndex, uniqueIndicesArr.length);
+          uniqueIndicesArr.push(tokenIndex);
+        }
+      }
+
+      uniqueIndices = new Int32Array(uniqueIndicesArr);
+      const numUnique = uniqueIndices.length;
+
+      // 2. Aggregate gradients into a small matrix [embeddingDim, numUnique]
+      smallGrad = mj.zeros([this.embeddingDim, numUnique]);
+      const smallGradData = smallGrad._data;
+
+      for (let j = 0; j < seqLen; j++) {
+        const tokenIndex = this.inputIndices[j];
+        if (this.padTokenId !== null && tokenIndex === this.padTokenId) continue;
+        const uIdx = indexMap.get(tokenIndex)!;
+        for (let i = 0; i < this.embeddingDim; i++) {
+          smallGradData[i * numUnique + uIdx] += errData[i * seqLen + j];
         }
       }
     }
 
-    // Update bobot kamus embedding menggunakan optimizer In-Place
-    const optimizerUpdate = this.optimizerWeight.calculate(gradWeight, this.alpha);
-    this.weight.subInPlace(optimizerUpdate);
+    // 3. Update only the used embeddings using the sparse optimizer method
+    this.optimizerWeight.updateSparse(this.weight, smallGrad, this.alpha, uniqueIndices);
 
     // Gradien dari inputnya index (x) tidak dapat diturunkan ulang ke depannya, 
     // Jadi dikembalikan dummy array zeros agar tidak crash. (Menggunakan buffer)
     // Shape matches the original input shape so downstream layers don't get a mismatch.
     const [inputRows, inputCols] = this.inputShape;
     if (!this.errOutputBuffer ||
-        this.errOutputBuffer._shape[0] !== inputRows ||
-        this.errOutputBuffer._shape[1] !== inputCols) {
+      this.errOutputBuffer._shape[0] !== inputRows ||
+      this.errOutputBuffer._shape[1] !== inputCols) {
       this.errOutputBuffer = mj.zeros([inputRows, inputCols]);
     } else {
       this.errOutputBuffer._data.fill(0);

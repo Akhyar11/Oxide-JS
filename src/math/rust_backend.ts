@@ -20,6 +20,11 @@ export type MaskedSparseSoftmaxCrossEntropyResult = {
   validTokens: number;
 };
 
+export interface EmbeddingSparseBackwardResult {
+  uniqueIndices: Int32Array;
+  grad: Float32Array;
+}
+
 export const setForceDisableNative = (v: boolean) => {
   forceDisable = v;
 };
@@ -334,6 +339,10 @@ export const multiHeadAttentionBackwardNative = (
   );
 };
 
+export const shouldUseNativeOptimizer = (length: number): boolean => {
+  return !forceDisable && length >= 2048;
+};
+
 export const adamUpdateNative = (
   grad: Float32Array,
   m: Float32Array,
@@ -347,6 +356,129 @@ export const adamUpdateNative = (
 ): void => {
   if (!native) throw new Error("Native backend not available");
   native.adamUpdateNative(grad, m, v, buffer, t, alpha, beta1, beta2, epsilon);
+};
+
+export const adamSparseUpdateNative = (
+  indices: Int32Array,
+  grad: Float32Array,
+  weight: Float32Array,
+  m: Float32Array,
+  v: Float32Array,
+  t: number,
+  alpha: number,
+  beta1: number,
+  beta2: number,
+  epsilon: number,
+  vocabSize: number,
+  embeddingDim: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.adamSparseUpdateNative(
+    indices,
+    grad,
+    weight,
+    m,
+    v,
+    t,
+    alpha,
+    beta1,
+    beta2,
+    epsilon,
+    vocabSize,
+    embeddingDim
+  );
+};
+
+export const sgdUpdateNative = (grad: Float32Array, out: Float32Array, alpha: number): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.sgdUpdateNative(grad, out, alpha);
+};
+
+export const sgdSparseUpdateNative = (
+  indices: Int32Array,
+  grad: Float32Array,
+  weight: Float32Array,
+  alpha: number,
+  vocabSize: number,
+  embeddingDim: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.sgdSparseUpdateNative(indices, grad, weight, alpha, vocabSize, embeddingDim);
+};
+
+export const adagradUpdateNative = (
+  grad: Float32Array,
+  sum: Float32Array,
+  out: Float32Array,
+  alpha: number,
+  epsilon: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.adagradUpdateNative(grad, sum, out, alpha, epsilon);
+};
+
+export const adagradSparseUpdateNative = (
+  indices: Int32Array,
+  grad: Float32Array,
+  weight: Float32Array,
+  sum: Float32Array,
+  alpha: number,
+  epsilon: number,
+  vocabSize: number,
+  embeddingDim: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.adagradSparseUpdateNative(indices, grad, weight, sum, alpha, epsilon, vocabSize, embeddingDim);
+};
+
+export const momentumUpdateNative = (
+  grad: Float32Array,
+  v: Float32Array,
+  out: Float32Array,
+  alpha: number,
+  beta: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.momentumUpdateNative(grad, v, out, alpha, beta);
+};
+
+export const momentumSparseUpdateNative = (
+  indices: Int32Array,
+  grad: Float32Array,
+  weight: Float32Array,
+  v: Float32Array,
+  alpha: number,
+  beta: number,
+  vocabSize: number,
+  embeddingDim: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.momentumSparseUpdateNative(indices, grad, weight, v, alpha, beta, vocabSize, embeddingDim);
+};
+
+export const nagUpdateNative = (
+  grad: Float32Array,
+  v: Float32Array,
+  out: Float32Array,
+  alpha: number,
+  beta: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.nagUpdateNative(grad, v, out, alpha, beta);
+};
+
+export const nagSparseUpdateNative = (
+  indices: Int32Array,
+  grad: Float32Array,
+  weight: Float32Array,
+  v: Float32Array,
+  alpha: number,
+  beta: number,
+  vocabSize: number,
+  embeddingDim: number
+): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.nagSparseUpdateNative(indices, grad, weight, v, alpha, beta, vocabSize, embeddingDim);
 };
 
 export const reluNative = (input: Float32Array, outRes: Float32Array, outGrad: Float32Array): void => {
@@ -399,6 +531,16 @@ export const embeddingBackwardNative = (
     return;
   }
   native.embeddingBackwardNative(Array.from(indices), errData, gradData, vocabSize, embeddingDim, padTokenId);
+};
+
+export const embeddingBackwardSparseNative = (
+  indices: Int32Array,
+  errData: Float32Array,
+  embeddingDim: number,
+  padTokenId: number | null
+): EmbeddingSparseBackwardResult => {
+  if (!native) throw new Error("Native backend not available");
+  return native.embeddingBackwardSparseNative(indices, errData, embeddingDim, padTokenId);
 };
 
 export const convolutionNative = (

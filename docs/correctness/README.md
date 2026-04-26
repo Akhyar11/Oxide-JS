@@ -45,10 +45,11 @@ npm test
 | [v2.2.5](./v2.2.5.md) | 2026-04-25 | `ffb55ff` + local patch | Correctness snapshot after optimizations for training/validation hot paths, embedding, and BPE tokenizer. |
 | [v2.2.6](#) | 2026-04-25 | `local-docs-trans` | Documented version bump after full English translation of documentation guides and API reference pages. |
 | [v2.2.7](#) | 2026-04-25 | `local-tokenizer-unicode` | Unicode-aware BPE pre-tokenizers and multilingual tokenizer correctness coverage. |
+| [v2.2.8](./v2.2.8.md) | 2026-04-27 | `local-sparse-native` | Correctness snapshot for Full Native Optimizer support and Sparse Embedding integration. |
 
 ## Versioning
 
-The current active version of the project is `2.2.7`.
+The current active version of the project is `2.2.8`.
 
 This project uses the `MAJOR.MINOR.PATCH` version format, such as `2.2.7`.
 
