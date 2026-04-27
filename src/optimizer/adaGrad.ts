@@ -2,20 +2,35 @@ import { MatrixShape } from "../@types/type";
 import mj from "../math";
 import Matrix from "../matrix";
 import { isNativeAvailable, adagradUpdateNative, adagradSparseUpdateNative, shouldUseNativeOptimizer } from "../math/rust_backend";
+import { MemoryManager } from "../utils/memory";
 
 export default class AdaGrad {
   shape: MatrixShape;
-  sumGradien: Matrix;
   epsilon: number = 0.1;
+  private sumGradienData: any = new Float32Array(0);
+  private updateBufferData: any = new Float32Array(0);
+  private sumGradien: Matrix;
   private updateBuffer: Matrix;
+
   constructor(shape: MatrixShape, epsilon: number) {
     this.shape = shape;
-    this.sumGradien = mj.zeros(this.shape);
-    this.updateBuffer = mj.zeros(this.shape);
     this.epsilon = epsilon;
+    this.sumGradien = mj.matrix([]);
+    this.updateBuffer = mj.matrix([]);
+  }
+
+  private ensureBuffers(size: number, shape: MatrixShape) {
+    this.sumGradienData = MemoryManager.ensureCapacity(this.sumGradienData, size) as any;
+    this.updateBufferData = MemoryManager.ensureCapacity(this.updateBufferData, size) as any;
+    
+    this.sumGradien = Matrix.fromFlat(this.sumGradienData.subarray(0, size) as any, shape);
+    this.updateBuffer = Matrix.fromFlat(this.updateBufferData.subarray(0, size) as any, shape);
   }
 
   calculate(a: Matrix, alpha: number) {
+    const size = a._data.length;
+    this.ensureBuffers(size, a._shape);
+
     const gradData = a._data;
     const sumData = this.sumGradien._data;
     const updateData = this.updateBuffer._data;
@@ -29,13 +44,23 @@ export default class AdaGrad {
       const grad = gradData[i];
       const accumulated = sumData[i] + grad * grad;
       sumData[i] = accumulated;
-      updateData[i] = alpha * grad / Math.sqrt(accumulated + this.epsilon);
+      updateData[i] = (alpha * grad) / Math.sqrt(accumulated + this.epsilon);
     }
 
     return this.updateBuffer;
   }
 
   updateSparse(target: Matrix, grad: Matrix, alpha: number, indices: Int32Array): void {
+    const vocabSize = target._shape[1];
+    const embeddingDim = target._shape[0];
+    const size = vocabSize * embeddingDim;
+    
+    // Untuk sparse update, kita perlu memastikan buffer sumGradien cukup besar untuk seluruh target
+    if (this.sumGradienData.length < size) {
+        this.sumGradienData = MemoryManager.ensureCapacity(this.sumGradienData, size) as any;
+        this.sumGradien = Matrix.fromFlat(this.sumGradienData.subarray(0, size) as any, target._shape);
+    }
+
     if (isNativeAvailable() && shouldUseNativeOptimizer(grad._data.length)) {
       adagradSparseUpdateNative(
         indices,
@@ -54,8 +79,6 @@ export default class AdaGrad {
     const gradData = grad._data;
     const sumData = this.sumGradien._data;
 
-    const vocabSize = target._shape[1];
-    const embeddingDim = target._shape[0];
     const numUnique = indices.length;
 
     for (let j = 0; j < numUnique; j++) {
@@ -70,5 +93,12 @@ export default class AdaGrad {
         targetData[fullIdx] -= alpha * g / Math.sqrt(accumulated + this.epsilon);
       }
     }
+  }
+
+  dispose(): void {
+    this.sumGradienData = new Float32Array(0);
+    this.updateBufferData = new Float32Array(0);
+    this.sumGradien = mj.matrix([]);
+    this.updateBuffer = mj.matrix([]);
   }
 }

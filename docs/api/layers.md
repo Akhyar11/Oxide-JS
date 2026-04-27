@@ -27,6 +27,16 @@ import {
 
 All layers share a common interface: `forward(input)` for the forward pass and `backward(grad)` for the backward pass. Layers are composable inside `Sequential`, `Transformers`, or `DimentionalityReduction` models, or they can be used standalone in a manual training loop.
 
+### Common Methods
+
+| Method | Description |
+|---|---|
+| `forward(input: Matrix, options?)` | Executes the forward pass. Returns the output `Matrix`. |
+| `backward(y: Matrix, err: Matrix)` | Executes the backward pass (BPTT for recurrent). Updates gradients internally. |
+| `dispose()` | **New in v2.3.0.** Explicitly releases memory for internal buffers and matrices. Use this to prevent memory growth in long-running processes. |
+| `releaseWorkspace()` | Releases temporary workspace buffers while keeping persistent weights. |
+| `resetLoss()` | Resets the accumulated loss counter for the layer. |
+
 ---
 
 ## API Reference

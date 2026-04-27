@@ -13,11 +13,13 @@ import { isNativeAvailable } from "@akhyar11/ml-v1"
 ML-V1 includes a Rust extension (via [napi-rs](https://napi.rs/)) that accelerates critical hot paths:
 
 - Matrix dot-product (GEMM)
-- Activation functions (sigmoid, relu, softmax, etc.)
+- Activation functions (sigmoid, relu, softmax, tanh)
 - Layer normalization
-- Embedding lookup
-- Attention computation
-- Adam and other optimizer weight updates
+- Embedding lookup (Standard and Sparse)
+- Attention computation (Self and Multi-Head)
+- Recurrent Layers (**RNN**, **LSTM**, **GRU**)
+- Optimizers (Adam, Momentum, NAG, AdaGrad, SGD) updates
+- **BPE Tokenizer** encoding (batch and single)
 
 When the native addon is not available, the library falls back transparently to pure JavaScript implementations. There is no API difference; the same functions work in both cases.
 

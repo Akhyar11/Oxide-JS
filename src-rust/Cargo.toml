@@ -11,6 +11,7 @@ napi = { version = "2.12.2", features = ["async", "napi4"] }
 napi-derive = "2.12.2"
 matrixmultiply = "0.3"
 rayon = "1.10"
+unicode-segmentation = "1.12"
 
 [build-dependencies]
 napi-build = "2.0.1"

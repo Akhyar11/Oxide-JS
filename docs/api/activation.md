@@ -20,15 +20,22 @@ import {
 } from "@akhyar11/ml-v1"
 ```
 
-## Overview
+In ML-V1, all activation functions follow a common signature: `(input: Matrix, out?: ActivationResult) => [Matrix, Matrix]`.
 
-In ML-V1, most activation functions return a tuple **`[Matrix, Matrix]`**:
+Providing an `out` object allows for **zero-allocation** hot paths by reusing existing buffers.
 
-1. **Forward output** — the activation result passed to the next layer.
-2. **Gradient/derivative** — used during backpropagation to compute weight updates.
+```ts
+type ActivationResult = {
+  result: Matrix;  // Destination for the forward output
+  dResult: Matrix; // Destination for the gradient/derivative
+}
+```
+
+1. **Forward output** (`result`) — the activation result passed to the next layer.
+2. **Gradient/derivative** (`dResult`) — used during backpropagation.
 
 > [!TIP]
-> When writing a manual training loop, save the second element of the tuple (the gradient matrix) for use when computing weight updates.
+> When using `MemoryManager` or persistent layer buffers, always pass the `out` parameter to prevent the creation of temporary matrices.
 
 ---
 

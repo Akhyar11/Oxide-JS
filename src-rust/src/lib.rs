@@ -1844,3 +1844,101 @@ pub fn multi_head_attention_backward_native_into(
             );
         });
 }
+
+use unicode_segmentation::UnicodeSegmentation;
+
+#[napi]
+pub struct NativeBPE {
+    vocab: HashMap<String, i32>,
+    merges: Vec<(String, String)>,
+    unk_token_id: i32,
+    word_boundary: String,
+}
+
+#[napi]
+impl NativeBPE {
+    #[napi(constructor)]
+    pub fn new(
+        vocab: HashMap<String, i32>,
+        merges: Vec<Vec<String>>,
+        unk_token_id: i32,
+        word_boundary: String,
+    ) -> Self {
+        let merges_vec = merges
+            .into_iter()
+            .filter_map(|m| {
+                if m.len() == 2 {
+                    Some((m[0].clone(), m[1].clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        NativeBPE {
+            vocab,
+            merges: merges_vec,
+            unk_token_id,
+            word_boundary,
+        }
+    }
+
+    #[napi]
+    pub fn encode(&self, tokens: Vec<String>) -> Vec<i32> {
+        let mut result_ids = Vec::with_capacity(tokens.len() * 2);
+        for full_word in tokens {
+            if let Some(&id) = self.vocab.get(&full_word) {
+                result_ids.push(id);
+                continue;
+            }
+
+            let mut symbols = self.create_initial_symbols(&full_word);
+            self.apply_merges(&mut symbols);
+
+            for sym in symbols {
+                let id = self.vocab.get(&sym).copied().unwrap_or(self.unk_token_id);
+                result_ids.push(id);
+            }
+        }
+        result_ids
+    }
+
+    fn create_initial_symbols(&self, token: &str) -> Vec<String> {
+        if token.starts_with(&self.word_boundary) {
+            let body = &token[self.word_boundary.len()..];
+            let mut symbols = vec![self.word_boundary.clone()];
+            symbols.extend(body.graphemes(true).map(|s| s.to_string()));
+            symbols
+        } else {
+            token.graphemes(true).map(|s| s.to_string()).collect()
+        }
+    }
+
+    fn apply_merges(&self, symbols: &mut Vec<String>) {
+        for (left, right) in &self.merges {
+            let mut read_idx = 0;
+            let mut write_idx = 0;
+            let mut changed = false;
+            let merged = format!("{}{}", left, right);
+
+            while read_idx < symbols.len() {
+                if read_idx + 1 < symbols.len()
+                    && &symbols[read_idx] == left
+                    && &symbols[read_idx + 1] == right
+                {
+                    symbols[write_idx] = merged.clone();
+                    write_idx += 1;
+                    read_idx += 2;
+                    changed = true;
+                } else {
+                    symbols[write_idx] = symbols[read_idx].clone();
+                    write_idx += 1;
+                    read_idx += 1;
+                }
+            }
+
+            if changed {
+                symbols.truncate(write_idx);
+            }
+        }
+    }
+}

@@ -1,19 +1,39 @@
 import mj from "../math";
 import Matrix from "../matrix";
 import { isNativeAvailable, sgdUpdateNative, sgdSparseUpdateNative, shouldUseNativeOptimizer } from "../math/rust_backend";
+import { MemoryManager } from "../utils/memory";
+import { MatrixShape } from "../@types/type";
 
 export default class SGD {
-  private updateBuffer: Matrix | null = null;
+  private updateBufferData: any = new Float32Array(0);
+  private updateBuffer: Matrix;
+
+  constructor() {
+    this.updateBuffer = mj.matrix([]);
+  }
+
+  private ensureBuffers(size: number, shape: MatrixShape) {
+    this.updateBufferData = MemoryManager.ensureCapacity(this.updateBufferData, size) as any;
+    this.updateBuffer = Matrix.fromFlat(this.updateBufferData.subarray(0, size) as any, shape);
+  }
 
   calculate(a: Matrix, alpha: number): Matrix {
-    if (isNativeAvailable() && shouldUseNativeOptimizer(a._data.length)) {
-      if (!this.updateBuffer || this.updateBuffer._data.length !== a._data.length) {
-        this.updateBuffer = mj.zeros(a._shape);
-      }
-      sgdUpdateNative(a._data, this.updateBuffer._data, alpha);
+    const size = a._data.length;
+    this.ensureBuffers(size, a._shape);
+
+    const gradData = a._data;
+    const updateData = this.updateBuffer._data;
+
+    if (isNativeAvailable() && shouldUseNativeOptimizer(size)) {
+      sgdUpdateNative(gradData, updateData, alpha);
       return this.updateBuffer;
     }
-    return mj.mul(a, alpha);
+
+    // fallback JS: update = gradient * alpha
+    for (let i = 0; i < size; i++) {
+        updateData[i] = gradData[i] * alpha;
+    }
+    return this.updateBuffer;
   }
 
   updateSparse(target: Matrix, grad: Matrix, alpha: number, indices: Int32Array): void {
@@ -43,5 +63,10 @@ export default class SGD {
         targetData[fullIdx] -= alpha * gradData[gradIdx];
       }
     }
+  }
+
+  dispose(): void {
+    this.updateBufferData = new Float32Array(0);
+    this.updateBuffer = mj.matrix([]);
   }
 }

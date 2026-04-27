@@ -1,23 +1,31 @@
 import { StatusLayer } from "../@types/type";
 import mj from "../math";
 import Matrix from "../matrix";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 export default class Dropout {
   name: string = "dropout layer";
   rate: number;
-  mask: Matrix = mj.matrix([]);
   status: StatusLayer;
   private training: boolean = false;
 
   inputShape: [number, number] = [0, 0];
   outputShape: [number, number] = [0, 0];
   params: number = 0;
-  private outputBuffer: Matrix = mj.matrix([]);
+  memoryConfig: WorkspaceConfig = {};
+  private outputBufferData: any = new Float32Array(0);
+  private maskData: any = new Float32Array(0);
+  private outputBuffer: Matrix;
+  private mask: Matrix;
+  private evalBuffers: Record<string, any> = {};
 
-  constructor({ rate = 0.5, status = "input" }: { rate?: number; status?: StatusLayer }) {
+  constructor({ rate = 0.5, status = "input", memoryConfig = {} }: { rate?: number; status?: StatusLayer; memoryConfig?: WorkspaceConfig }) {
     this.rate = rate;
     this.status = status;
+    this.memoryConfig = memoryConfig;
     this.applyStatusTraining(status);
+    this.outputBuffer = mj.matrix([]);
+    this.mask = mj.matrix([]);
   }
 
   save() {
@@ -34,7 +42,7 @@ export default class Dropout {
     this.applyStatusTraining(status);
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     this.inputShape = [x._shape[0], x._shape[1]];
     this.outputShape = [x._shape[0], x._shape[1]];
 
@@ -44,19 +52,18 @@ export default class Dropout {
       return x;
     }
 
+    const required = x._data.length;
+    this.ensureForwardBuffers(required, x._shape, options?.workspace);
+
+    const data = this.outputBufferData;
+    const maskData = this.maskData;
+    const xData = x._data;
+
     const scale = 1 / (1 - this.rate);
-    if (this.outputBuffer._shape[0] !== x._shape[0] || this.outputBuffer._shape[1] !== x._shape[1]) {
-      this.outputBuffer = Matrix.fromFlat(new Float32Array(x._data.length), x._shape);
-      this.mask = Matrix.fromFlat(new Float32Array(x._data.length), x._shape);
-    }
-
-    const data = this.outputBuffer._data;
-    const maskData = this.mask._data;
-
-    for (let i = 0; i < x._data.length; i++) {
+    for (let i = 0; i < required; i++) {
       if (Math.random() >= this.rate) {
         maskData[i] = scale;
-        data[i] = x._data[i] * scale;
+        data[i] = xData[i] * scale;
       } else {
         maskData[i] = 0;
         data[i] = 0;
@@ -64,6 +71,33 @@ export default class Dropout {
     }
 
     return this.outputBuffer;
+  }
+
+  private ensureForwardBuffers(size: number, shape: [number, number], workspace: "train" | "eval" = "train") {
+    if (workspace === "eval") {
+      this.evalBuffers.outputData = MemoryManager.ensureCapacity(this.evalBuffers.outputData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.evalBuffers.maskData = MemoryManager.ensureCapacity(this.evalBuffers.maskData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.outputBufferData = this.evalBuffers.outputData;
+      this.maskData = this.evalBuffers.maskData;
+    } else {
+      this.outputBufferData = MemoryManager.ensureCapacity(this.outputBufferData, size, this.memoryConfig) as any;
+      this.maskData = MemoryManager.ensureCapacity(this.maskData, size, this.memoryConfig) as any;
+    }
+
+    this.outputBuffer = Matrix.fromFlat(this.outputBufferData.subarray(0, size) as any, shape);
+    this.mask = Matrix.fromFlat(this.maskData.subarray(0, size) as any, shape);
+  }
+
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.outputBufferData = new Float32Array(0);
+    this.maskData = new Float32Array(0);
+    this.outputBuffer = mj.matrix([]);
+    this.mask = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
   }
 
   backward(y: Matrix, err: Matrix): Matrix {

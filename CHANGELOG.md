@@ -1,11 +1,19 @@
 # Changelog
 
+## 2.3.0-alpha.1
+
+### Patch Changes
+
+- Implemented Neural Memory Management (Bounded Workspace Policy), refactored optimizers and cost functions for zero-allocation buffer reuse, and fixed native backend stability issues in Embedding and Dense layers.
+- **BPE Tokenizer Fixes**: Resolved decode space issues and multi-codepoint grapheme sanitation bugs.
+- **Native BPE Acceleration**: Added Rust implementation for BPE encoding with `unicode-segmentation` for grapheme-level parity.
+
 ## [2.3.0-alpha.0] - 2026-04-27
 
 ### Added
 
-- **Full Native Recurrent Backend**: Implementasi native backend (Rust) untuk keluarga layer recurrent (**RNN, LSTM, dan GRU**) dengan dukungan penuh untuk pemrosesan sekuens terkompresi (*time-major batching*).
-- **Native GRU Implementation**: Menambahkan fungsi *forward* dan *backward* native untuk layer GRU guna mencapai paritas performa dengan RNN dan LSTM.
+- **Full Native Recurrent Backend**: Implementasi native backend (Rust) untuk keluarga layer recurrent (**RNN, LSTM, dan GRU**) dengan dukungan penuh untuk pemrosesan sekuens terkompresi (_time-major batching_).
+- **Native GRU Implementation**: Menambahkan fungsi _forward_ dan _backward_ native untuk layer GRU guna mencapai paritas performa dengan RNN dan LSTM.
 - **Batching Optimization**: Seluruh layer recurrent kini dioptimalkan untuk mengeksekusi iterasi batch secara native di backend Rust.
 
 ### Changed

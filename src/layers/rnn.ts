@@ -5,6 +5,7 @@ import mj from "../math";
 import Matrix from "../matrix";
 import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 export interface RNNLayerConfig {
   units: number;
@@ -18,6 +19,7 @@ export interface RNNLayerConfig {
   clipGradient?: number | boolean;
   stateful?: boolean;
   loss?: Cost;
+  memoryConfig?: WorkspaceConfig;
 }
 
 export default class RNN {
@@ -35,6 +37,7 @@ export default class RNN {
   status: StatusLayer;
   alpha: number;
   clipGradient: number | boolean;
+  memoryConfig: WorkspaceConfig;
 
   Wxh: Matrix;
   Whh: Matrix;
@@ -66,14 +69,15 @@ export default class RNN {
   private batchOuterInputBuffer: Matrix = mj.matrix([]);
   private batchOuterHiddenBuffer: Matrix = mj.matrix([]);
   private batchBiasGradBuffer: Matrix = mj.matrix([]);
-  private inputSequenceBuffer: Float32Array = new Float32Array(0);
-  private hiddenSequenceBuffer: Float32Array = new Float32Array(0);
-  private activationGradientsBuffer: Float32Array = new Float32Array(0);
-  private batchInputSequenceBuffer: Float32Array = new Float32Array(0);
-  private batchHiddenSequenceBuffer: Float32Array = new Float32Array(0);
-  private batchActivationGradientBuffer: Float32Array = new Float32Array(0);
-  private errorStepBuffer: Float32Array = new Float32Array(0);
-  private batchErrorStepBuffer: Float32Array = new Float32Array(0);
+  private inputSequenceBuffer: any = new Float32Array(0);
+  private hiddenSequenceBuffer: any = new Float32Array(0);
+  private activationGradientsBuffer: any = new Float32Array(0);
+  private batchInputSequenceBuffer: any = new Float32Array(0);
+  private batchHiddenSequenceBuffer: any = new Float32Array(0);
+  private batchActivationGradientBuffer: any = new Float32Array(0);
+  private errorStepBuffer: any = new Float32Array(0);
+  private batchErrorStepBuffer: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
 
   private bTensors?: {
     dWxh: Matrix;
@@ -108,7 +112,9 @@ export default class RNN {
     clipGradient = 5.0,
     stateful = false,
     loss = "mse",
+    memoryConfig = {},
   }: RNNLayerConfig) {
+    this.memoryConfig = memoryConfig;
     this.units = units;
     this.hiddenUnits = hiddenUnits;
     this.activation = activation;
@@ -222,7 +228,7 @@ export default class RNN {
     return this.h_stateful.clone();
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     if (this.returnState) {
       throw new Error("RNN.forward: returnState=true is not supported yet. Disable returnState for RNN.");
     }
@@ -242,7 +248,7 @@ export default class RNN {
 
     this.inputShape = [this.units, seqLen];
     this.outputShape = [this.hiddenUnits, outCols];
-    this.ensureSequenceStateBuffers(seqLen);
+    this.ensureSequenceStateBuffers(seqLen, options?.workspace);
 
     const prev = this.hiddenSequence[0];
     prev.fill(0);
@@ -315,7 +321,7 @@ export default class RNN {
     return this.resultBuffer;
   }
 
-  forwardBatch(x: Matrix, batchSize: number): Matrix {
+  forwardBatch(x: Matrix, batchSize: number, options?: { workspace?: "train" | "eval" }): Matrix {
     this.assertBatchInputSupported(x, batchSize);
     const totalCols = x._shape[1];
     const seqLen = totalCols / batchSize;
@@ -488,9 +494,10 @@ export default class RNN {
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
     this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
     this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
+    this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
     this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
 
-    return Matrix.fromFlat(dxData, [this.units, seqLen]);
+    return Matrix.fromFlat(dxData.subarray(0, this.units * seqLen), [this.units, seqLen]);
   }
 
   backwardBatch(y: Matrix, err: Matrix, batchSize: number): Matrix {
@@ -702,52 +709,46 @@ export default class RNN {
     }
   }
 
-  private ensureSequenceStateBuffers(seqLen: number) {
+  private ensureSequenceStateBuffers(seqLen: number, workspace: "train" | "eval" = "train") {
     const inputWidth = this.units;
     const hiddenWidth = this.hiddenUnits;
     const inputLen = seqLen * inputWidth;
     const hiddenLen = (seqLen + 1) * hiddenWidth;
     const activationLen = seqLen * hiddenWidth;
 
-    if (this.inputSequenceBuffer.length < inputLen) {
-      this.inputSequenceBuffer = new Float32Array(Math.max(inputLen, Math.max(1, this.inputSequenceBuffer.length * 2)));
+    if (workspace === "eval") {
+      this.evalBuffers.inputSequenceBuffer = MemoryManager.ensureCapacity(this.evalBuffers.inputSequenceBuffer || new Float32Array(0), inputLen, this.memoryConfig) as any;
+      this.evalBuffers.hiddenSequenceBuffer = MemoryManager.ensureCapacity(this.evalBuffers.hiddenSequenceBuffer || new Float32Array(0), hiddenLen, this.memoryConfig) as any;
+      this.inputSequenceBuffer = this.evalBuffers.inputSequenceBuffer;
+      this.hiddenSequenceBuffer = this.evalBuffers.hiddenSequenceBuffer;
+    } else {
+      this.inputSequenceBuffer = MemoryManager.ensureCapacity(this.inputSequenceBuffer, inputLen, this.memoryConfig) as any;
+      this.hiddenSequenceBuffer = MemoryManager.ensureCapacity(this.hiddenSequenceBuffer, hiddenLen, this.memoryConfig) as any;
     }
-    if (this.hiddenSequenceBuffer.length < hiddenLen) {
-      this.hiddenSequenceBuffer = new Float32Array(Math.max(hiddenLen, Math.max(1, this.hiddenSequenceBuffer.length * 2)));
-    }
-    if (this.activationGradientsBuffer.length < activationLen) {
-      this.activationGradientsBuffer = new Float32Array(
-        Math.max(activationLen, Math.max(1, this.activationGradientsBuffer.length * 2))
-      );
-    }
+    this.activationGradientsBuffer = MemoryManager.ensureCapacity(this.activationGradientsBuffer, activationLen, this.memoryConfig) as any;
 
     this.inputSequence = this.buildStepViews(this.inputSequenceBuffer, seqLen, inputWidth);
     this.hiddenSequence = this.buildStepViews(this.hiddenSequenceBuffer, seqLen + 1, hiddenWidth);
     this.activationGradients = this.buildStepViews(this.activationGradientsBuffer, seqLen, hiddenWidth);
   }
 
-  private ensureBatchSequenceStateBuffers(seqLen: number, batchSize: number) {
+  private ensureBatchSequenceStateBuffers(seqLen: number, batchSize: number, workspace: "train" | "eval" = "train") {
     const inputWidth = this.units * batchSize;
     const hiddenWidth = this.hiddenUnits * batchSize;
     const inputLen = seqLen * inputWidth;
     const hiddenLen = (seqLen + 1) * hiddenWidth;
     const activationLen = seqLen * hiddenWidth;
 
-    if (this.batchInputSequenceBuffer.length < inputLen) {
-      this.batchInputSequenceBuffer = new Float32Array(
-        Math.max(inputLen, Math.max(1, this.batchInputSequenceBuffer.length * 2))
-      );
+    if (workspace === "eval") {
+      this.evalBuffers.batchInputSequenceBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchInputSequenceBuffer || new Float32Array(0), inputLen, this.memoryConfig) as any;
+      this.evalBuffers.batchHiddenSequenceBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchHiddenSequenceBuffer || new Float32Array(0), hiddenLen, this.memoryConfig) as any;
+      this.batchInputSequenceBuffer = this.evalBuffers.batchInputSequenceBuffer;
+      this.batchHiddenSequenceBuffer = this.evalBuffers.batchHiddenSequenceBuffer;
+    } else {
+      this.batchInputSequenceBuffer = MemoryManager.ensureCapacity(this.batchInputSequenceBuffer, inputLen, this.memoryConfig) as any;
+      this.batchHiddenSequenceBuffer = MemoryManager.ensureCapacity(this.batchHiddenSequenceBuffer, hiddenLen, this.memoryConfig) as any;
     }
-    if (this.batchHiddenSequenceBuffer.length < hiddenLen) {
-      this.batchHiddenSequenceBuffer = new Float32Array(
-        Math.max(hiddenLen, Math.max(1, this.batchHiddenSequenceBuffer.length * 2))
-      );
-    }
-    if (this.batchActivationGradientBuffer.length < activationLen) {
-      this.batchActivationGradientBuffer = new Float32Array(
-        Math.max(activationLen, Math.max(1, this.batchActivationGradientBuffer.length * 2))
-      );
-    }
+    this.batchActivationGradientBuffer = MemoryManager.ensureCapacity(this.batchActivationGradientBuffer, activationLen, this.memoryConfig) as any;
 
     this.batchInputSequence = this.buildStepViews(this.batchInputSequenceBuffer, seqLen, inputWidth);
     this.batchHiddenSequence = this.buildStepViews(this.batchHiddenSequenceBuffer, seqLen + 1, hiddenWidth);
@@ -756,18 +757,12 @@ export default class RNN {
 
   private ensureErrorStepBuffers(seqLen: number) {
     const expectedLen = seqLen * this.hiddenUnits;
-    if (this.errorStepBuffer.length < expectedLen) {
-      this.errorStepBuffer = new Float32Array(Math.max(expectedLen, Math.max(1, this.errorStepBuffer.length * 2)));
-    }
+    this.errorStepBuffer = MemoryManager.ensureCapacity(this.errorStepBuffer, expectedLen, this.memoryConfig) as any;
   }
 
   private ensureBatchErrorStepBuffers(seqLen: number, batchSize: number) {
     const expectedLen = seqLen * this.hiddenUnits * batchSize;
-    if (this.batchErrorStepBuffer.length < expectedLen) {
-      this.batchErrorStepBuffer = new Float32Array(
-        Math.max(expectedLen, Math.max(1, this.batchErrorStepBuffer.length * 2))
-      );
-    }
+    this.batchErrorStepBuffer = MemoryManager.ensureCapacity(this.batchErrorStepBuffer, expectedLen, this.memoryConfig) as any;
   }
 
   private buildStepViews(buffer: Float32Array, steps: number, width: number): Float32Array[] {
@@ -847,5 +842,52 @@ export default class RNN {
       const srcOffset = row * blockCols;
       target._data.set(data.subarray(srcOffset, srcOffset + blockCols), row * cols + startCol);
     }
+  }
+
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.inputSequence = [];
+    this.hiddenSequence = [];
+    this.activationGradients = [];
+
+    this.inputSequenceBuffer = new Float32Array(0);
+    this.hiddenSequenceBuffer = new Float32Array(0);
+    this.activationGradientsBuffer = new Float32Array(0);
+    this.errorStepBuffer = new Float32Array(0);
+
+    this.batchInputSequence = [];
+    this.batchHiddenSequence = [];
+    this.batchActivationGradients = [];
+    this.batchInputSequenceBuffer = new Float32Array(0);
+    this.batchHiddenSequenceBuffer = new Float32Array(0);
+    this.batchActivationGradientBuffer = new Float32Array(0);
+    this.batchErrorStepBuffer = new Float32Array(0);
+
+    this.bTensors = undefined;
+    this.bBatchTensors = undefined;
+
+    this.resultBuffer = mj.matrix([]);
+    this.batchInputProjectionBuffer = mj.matrix([]);
+    this.batchInputSliceBuffer = mj.matrix([]);
+    this.batchProjectionSliceBuffer = mj.matrix([]);
+    this.batchRecurrentBuffer = mj.matrix([]);
+    this.batchDxStepBuffer = mj.matrix([]);
+    this.batchDhStepBuffer = mj.matrix([]);
+    this.batchOuterInputBuffer = mj.matrix([]);
+    this.batchOuterHiddenBuffer = mj.matrix([]);
+    this.batchBiasGradBuffer = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    this.optimizerWxh?.dispose?.();
+    this.optimizerWhh?.dispose?.();
+    this.optimizerBh?.dispose?.();
+    (this as any).Wxh = null;
+    (this as any).Whh = null;
+    (this as any).bh = null;
+    (this as any).optimizerWxh = null;
+    (this as any).optimizerWhh = null;
+    (this as any).optimizerBh = null;
   }
 }

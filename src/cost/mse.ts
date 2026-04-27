@@ -4,16 +4,30 @@ import { isNativeAvailable, mseNative } from "../math/rust_backend";
 
 export default function MeanSquerError(
   yTrue: Matrix,
-  yPred: Matrix
+  yPred: Matrix,
+  dResult?: Matrix
 ): [number, Matrix] {
-  let result: number;
+  const yTrueData = yTrue._data;
+  const yPredData = yPred._data;
+  const n = yTrueData.length;
+
+  let loss = 0;
   if (isNativeAvailable()) {
-    result = mseNative(yTrue._data, yPred._data)[0];
+    loss = mseNative(yTrueData, yPredData)[0];
   } else {
-    result = mj.mean(mj.map(mj.sub(yTrue, yPred), (v) => v ** 2));
+    for (let i = 0; i < n; i++) {
+        const diff = yTrueData[i] - yPredData[i];
+        loss += diff * diff;
+    }
+    loss /= n;
   }
   
-  const n = yTrue._shape[0] * yTrue._shape[1];
-  const dResult = mj.mul(2 / n, mj.sub(yPred, yTrue));
-  return [result, dResult];
+  const grad = dResult || mj.zeros(yTrue._shape);
+  const gradData = grad._data;
+  const factor = 2 / n;
+  for (let i = 0; i < n; i++) {
+      gradData[i] = factor * (yPredData[i] - yTrueData[i]);
+  }
+  
+  return [loss, grad];
 }

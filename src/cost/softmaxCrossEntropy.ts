@@ -22,24 +22,29 @@ import { softmaxOnly } from "../activation";
  */
 export default function SoftmaxCrossEntropy(
   yTrue: Matrix,
-  logits: Matrix
+  logits: Matrix,
+  dResult?: Matrix,
+  tempProbs?: Matrix
 ): [number, Matrix] {
   // logits shape: [numClasses, batchSize]
   // yTrue shape: [1, batchSize] (sparse) or [numClasses, batchSize] (one-hot)
   
   const [numClasses, batchSize] = logits._shape;
-  const probs = softmaxOnly(logits, false);
-  const epsilon = 1e-15;
+  const grad = dResult || mj.zeros(logits._shape);
+  
+  // Hitung softmax langsung ke dResult buffer karena grad = probs - y
+  const probs = softmaxOnly(logits, false, grad);
   const pData = probs._data;
-  const gradData = new Float32Array(pData);
+  
+  const epsilon = 1e-15;
   const isSparseTarget = yTrue._shape[0] === 1;
 
   let totalLoss = 0;
 
   if (isSparseTarget) {
-    // Sparse case: yTrue is [1, batchSize]
+    const yData = yTrue._data;
     for (let b = 0; b < batchSize; b++) {
-      const classIndex = Math.floor(yTrue._data[b]);
+      const classIndex = Math.floor(yData[b]);
       if (classIndex < 0 || classIndex >= numClasses) {
         throw new Error(`Class index '${classIndex}' at batch ${b} di luar range logits (0 - ${numClasses - 1})`);
       }
@@ -48,10 +53,9 @@ export default function SoftmaxCrossEntropy(
       totalLoss -= Math.log(p);
       
       // Gradient: probs - y (y is 1 for the target class)
-      gradData[classIndex * batchSize + b] -= 1;
+      pData[classIndex * batchSize + b] -= 1;
     }
   } else {
-    // One-hot case: yTrue is [numClasses, batchSize]
     const yData = yTrue._data;
     for (let i = 0; i < yData.length; i++) {
       const y = yData[i];
@@ -59,11 +63,9 @@ export default function SoftmaxCrossEntropy(
       
       const p = Math.max(epsilon, pData[i]);
       totalLoss -= y * Math.log(p);
-      gradData[i] -= y;
+      pData[i] -= y;
     }
   }
 
-  // Rata-ratakan loss berdasarkan batch size
-  const finalGrad = Matrix.fromFlat(gradData, [numClasses, batchSize]);
-  return [totalLoss / batchSize, finalGrad];
+  return [totalLoss / batchSize, grad];
 }

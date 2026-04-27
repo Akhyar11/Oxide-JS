@@ -4,6 +4,7 @@ import { isNativeAvailable, lstmForwardNative, lstmBackwardNative } from "../mat
 import Matrix from "../matrix";
 import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 export interface LSTMLayerConfig {
   units: number;
@@ -16,6 +17,7 @@ export interface LSTMLayerConfig {
   status?: StatusLayer;
   clipGradient?: number | boolean;
   loss?: Cost;
+  memoryConfig?: WorkspaceConfig;
 }
 
 export default class LSTM {
@@ -32,6 +34,7 @@ export default class LSTM {
   status: StatusLayer;
   alpha: number;
   clipGradient: number | boolean;
+  memoryConfig: WorkspaceConfig;
 
   Wxi: Matrix;
   Whi: Matrix;
@@ -102,24 +105,25 @@ export default class LSTM {
   private batchOuterHiddenBuffer: Matrix = mj.matrix([]);
   private batchBiasGradBuffer: Matrix = mj.matrix([]);
   private batchTransposeProductBuffer: Matrix = mj.matrix([]);
-  private xSeqBuffer: Float32Array = new Float32Array(0);
-  private hSeqBuffer: Float32Array = new Float32Array(0);
-  private cSeqBuffer: Float32Array = new Float32Array(0);
-  private iSeqBuffer: Float32Array = new Float32Array(0);
-  private fSeqBuffer: Float32Array = new Float32Array(0);
-  private oSeqBuffer: Float32Array = new Float32Array(0);
-  private gSeqBuffer: Float32Array = new Float32Array(0);
-  private batchXSeqBuffer: Float32Array = new Float32Array(0);
-  private batchHSeqBuffer: Float32Array = new Float32Array(0);
-  private batchCSeqBuffer: Float32Array = new Float32Array(0);
-  private batchISeqBuffer: Float32Array = new Float32Array(0);
-  private batchFSeqBuffer: Float32Array = new Float32Array(0);
-  private batchOSeqBuffer: Float32Array = new Float32Array(0);
-  private batchGSeqBuffer: Float32Array = new Float32Array(0);
-  private errorStepBuffer: Float32Array = new Float32Array(0);
-  private batchErrorStepBuffer: Float32Array = new Float32Array(0);
+  private xSeqBuffer: any = new Float32Array(0);
+  private hSeqBuffer: any = new Float32Array(0);
+  private cSeqBuffer: any = new Float32Array(0);
+  private iSeqBuffer: any = new Float32Array(0);
+  private fSeqBuffer: any = new Float32Array(0);
+  private oSeqBuffer: any = new Float32Array(0);
+  private gSeqBuffer: any = new Float32Array(0);
+  private batchXSeqBuffer: any = new Float32Array(0);
+  private batchHSeqBuffer: any = new Float32Array(0);
+  private batchCSeqBuffer: any = new Float32Array(0);
+  private batchISeqBuffer: any = new Float32Array(0);
+  private batchFSeqBuffer: any = new Float32Array(0);
+  private batchOSeqBuffer: any = new Float32Array(0);
+  private batchGSeqBuffer: any = new Float32Array(0);
+  private errorStepBuffer: any = new Float32Array(0);
+  private batchErrorStepBuffer: any = new Float32Array(0);
   private errorStepViews: Float32Array[] = [];
   private batchErrorStepViews: Float32Array[] = [];
+  private evalBuffers: Record<string, any> = {};
 
   private bTensors?: {
     dWxi: Matrix; dWhi: Matrix; dBi: Matrix;
@@ -154,7 +158,9 @@ export default class LSTM {
     status = "input",
     clipGradient = 5.0,
     loss = "mse",
+    memoryConfig = {},
   }: LSTMLayerConfig) {
+    this.memoryConfig = memoryConfig;
     this.units = units;
     this.hiddenUnits = hiddenUnits;
     this.returnSequences = returnSequences;
@@ -301,7 +307,7 @@ export default class LSTM {
     return { h: this.h_stateful.clone(), c: this.c_stateful.clone() };
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     if (this.returnState) {
       throw new Error("LSTM.forward: returnState=true is not supported yet. Disable returnState for LSTM.");
     }
@@ -321,7 +327,7 @@ export default class LSTM {
 
     this.inputShape = [this.units, seqLen];
     this.outputShape = [this.hiddenUnits, outCols];
-    this.ensureSequenceStateBuffers(seqLen);
+    this.ensureSequenceStateBuffers(seqLen, options?.workspace);
 
     const h0 = this.hSeq[0];
     const c0 = this.cSeq[0];
@@ -407,7 +413,7 @@ export default class LSTM {
     return this.resultBuffer;
   }
 
-  forwardBatch(x: Matrix, batchSize: number): Matrix {
+  forwardBatch(x: Matrix, batchSize: number, options?: { workspace?: "train" | "eval" }): Matrix {
     this.assertBatchInputSupported(x, batchSize);
     const totalCols = x._shape[1];
     const seqLen = totalCols / batchSize;
@@ -430,7 +436,7 @@ export default class LSTM {
 
     this.inputShape = [this.units, totalCols];
     this.outputShape = [this.hiddenUnits, outCols];
-    this.ensureBatchSequenceStateBuffers(seqLen, batchSize);
+    this.ensureBatchSequenceStateBuffers(seqLen, batchSize, options?.workspace);
 
     const h0 = this.batchHSeq[0];
     const c0 = this.batchCSeq[0];
@@ -1056,58 +1062,82 @@ export default class LSTM {
     }
   }
 
-  private ensureSequenceStateBuffers(seqLen: number) {
-    let rebuild = false;
-    if (this.xSeqBuffer.length < seqLen * this.units) rebuild = true;
-    if (this.hSeqBuffer.length < (seqLen + 1) * this.hiddenUnits) rebuild = true;
-    if (this.xSeq.length !== seqLen) rebuild = true;
+  private ensureSequenceStateBuffers(seqLen: number, workspace: "train" | "eval" = "train") {
+    const inputLen = seqLen * this.units;
+    const hiddenLen = (seqLen + 1) * this.hiddenUnits;
+    const activationLen = seqLen * this.hiddenUnits;
 
-    this.xSeqBuffer = this.ensureCapacity(this.xSeqBuffer, seqLen * this.units);
-    this.hSeqBuffer = this.ensureCapacity(this.hSeqBuffer, (seqLen + 1) * this.hiddenUnits);
-    this.cSeqBuffer = this.ensureCapacity(this.cSeqBuffer, (seqLen + 1) * this.hiddenUnits);
-    this.iSeqBuffer = this.ensureCapacity(this.iSeqBuffer, seqLen * this.hiddenUnits);
-    this.fSeqBuffer = this.ensureCapacity(this.fSeqBuffer, seqLen * this.hiddenUnits);
-    this.oSeqBuffer = this.ensureCapacity(this.oSeqBuffer, seqLen * this.hiddenUnits);
-    this.gSeqBuffer = this.ensureCapacity(this.gSeqBuffer, seqLen * this.hiddenUnits);
-
-    if (rebuild) {
-      this.xSeq = this.buildStepViews(this.xSeqBuffer, seqLen, this.units);
-      this.hSeq = this.buildStepViews(this.hSeqBuffer, seqLen + 1, this.hiddenUnits);
-      this.cSeq = this.buildStepViews(this.cSeqBuffer, seqLen + 1, this.hiddenUnits);
-      this.iSeq = this.buildStepViews(this.iSeqBuffer, seqLen, this.hiddenUnits);
-      this.fSeq = this.buildStepViews(this.fSeqBuffer, seqLen, this.hiddenUnits);
-      this.oSeq = this.buildStepViews(this.oSeqBuffer, seqLen, this.hiddenUnits);
-      this.gSeq = this.buildStepViews(this.gSeqBuffer, seqLen, this.hiddenUnits);
+    if (workspace === "eval") {
+      this.evalBuffers.xSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.xSeqBuffer || new Float32Array(0), inputLen, this.memoryConfig) as any;
+      this.evalBuffers.hSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.hSeqBuffer || new Float32Array(0), hiddenLen, this.memoryConfig) as any;
+      this.evalBuffers.cSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.cSeqBuffer || new Float32Array(0), hiddenLen, this.memoryConfig) as any;
+      this.evalBuffers.iSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.iSeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.evalBuffers.fSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.fSeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.evalBuffers.oSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.oSeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.evalBuffers.gSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.gSeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.xSeqBuffer = this.evalBuffers.xSeqBuffer;
+      this.hSeqBuffer = this.evalBuffers.hSeqBuffer;
+      this.cSeqBuffer = this.evalBuffers.cSeqBuffer;
+      this.iSeqBuffer = this.evalBuffers.iSeqBuffer;
+      this.fSeqBuffer = this.evalBuffers.fSeqBuffer;
+      this.oSeqBuffer = this.evalBuffers.oSeqBuffer;
+      this.gSeqBuffer = this.evalBuffers.gSeqBuffer;
+    } else {
+      this.xSeqBuffer = MemoryManager.ensureCapacity(this.xSeqBuffer, inputLen, this.memoryConfig) as any;
+      this.hSeqBuffer = MemoryManager.ensureCapacity(this.hSeqBuffer, hiddenLen, this.memoryConfig) as any;
+      this.cSeqBuffer = MemoryManager.ensureCapacity(this.cSeqBuffer, hiddenLen, this.memoryConfig) as any;
+      this.iSeqBuffer = MemoryManager.ensureCapacity(this.iSeqBuffer, activationLen, this.memoryConfig) as any;
+      this.fSeqBuffer = MemoryManager.ensureCapacity(this.fSeqBuffer, activationLen, this.memoryConfig) as any;
+      this.oSeqBuffer = MemoryManager.ensureCapacity(this.oSeqBuffer, activationLen, this.memoryConfig) as any;
+      this.gSeqBuffer = MemoryManager.ensureCapacity(this.gSeqBuffer, activationLen, this.memoryConfig) as any;
     }
+
+    this.xSeq = this.buildStepViews(this.xSeqBuffer, seqLen, this.units);
+    this.hSeq = this.buildStepViews(this.hSeqBuffer, seqLen + 1, this.hiddenUnits);
+    this.cSeq = this.buildStepViews(this.cSeqBuffer, seqLen + 1, this.hiddenUnits);
+    this.iSeq = this.buildStepViews(this.iSeqBuffer, seqLen, this.hiddenUnits);
+    this.fSeq = this.buildStepViews(this.fSeqBuffer, seqLen, this.hiddenUnits);
+    this.oSeq = this.buildStepViews(this.oSeqBuffer, seqLen, this.hiddenUnits);
+    this.gSeq = this.buildStepViews(this.gSeqBuffer, seqLen, this.hiddenUnits);
   }
 
-  private ensureBatchSequenceStateBuffers(seqLen: number, batchSize: number) {
-    const inputWidth = this.units * batchSize;
-    const hiddenWidth = this.hiddenUnits * batchSize;
+  private ensureBatchSequenceStateBuffers(seqLen: number, batchSize: number, workspace: "train" | "eval" = "train") {
+    const inputLen = seqLen * this.units * batchSize;
+    const hiddenLen = (seqLen + 1) * this.hiddenUnits * batchSize;
+    const activationLen = seqLen * this.hiddenUnits * batchSize;
 
-    let rebuild = false;
-    if (this.batchXSeqBuffer.length < seqLen * inputWidth) rebuild = true;
-    if (this.batchHSeqBuffer.length < (seqLen + 1) * hiddenWidth) rebuild = true;
-    if (this.batchXSeq.length !== seqLen) rebuild = true;
-    if (this.batchXSeq.length > 0 && this.batchXSeq[0].length !== inputWidth) rebuild = true;
-
-    this.batchXSeqBuffer = this.ensureCapacity(this.batchXSeqBuffer, seqLen * inputWidth);
-    this.batchHSeqBuffer = this.ensureCapacity(this.batchHSeqBuffer, (seqLen + 1) * hiddenWidth);
-    this.batchCSeqBuffer = this.ensureCapacity(this.batchCSeqBuffer, (seqLen + 1) * hiddenWidth);
-    this.batchISeqBuffer = this.ensureCapacity(this.batchISeqBuffer, seqLen * hiddenWidth);
-    this.batchFSeqBuffer = this.ensureCapacity(this.batchFSeqBuffer, seqLen * hiddenWidth);
-    this.batchOSeqBuffer = this.ensureCapacity(this.batchOSeqBuffer, seqLen * hiddenWidth);
-    this.batchGSeqBuffer = this.ensureCapacity(this.batchGSeqBuffer, seqLen * hiddenWidth);
-
-    if (rebuild) {
-      this.batchXSeq = this.buildStepViews(this.batchXSeqBuffer, seqLen, inputWidth);
-      this.batchHSeq = this.buildStepViews(this.batchHSeqBuffer, seqLen + 1, hiddenWidth);
-      this.batchCSeq = this.buildStepViews(this.batchCSeqBuffer, seqLen + 1, hiddenWidth);
-      this.batchISeq = this.buildStepViews(this.batchISeqBuffer, seqLen, hiddenWidth);
-      this.batchFSeq = this.buildStepViews(this.batchFSeqBuffer, seqLen, hiddenWidth);
-      this.batchOSeq = this.buildStepViews(this.batchOSeqBuffer, seqLen, hiddenWidth);
-      this.batchGSeq = this.buildStepViews(this.batchGSeqBuffer, seqLen, hiddenWidth);
+    if (workspace === "eval") {
+      this.evalBuffers.batchXSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchXSeqBuffer || new Float32Array(0), inputLen, this.memoryConfig) as any;
+      this.evalBuffers.batchHSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchHSeqBuffer || new Float32Array(0), hiddenLen, this.memoryConfig) as any;
+      this.evalBuffers.batchCSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchCSeqBuffer || new Float32Array(0), hiddenLen, this.memoryConfig) as any;
+      this.evalBuffers.batchISeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchISeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.evalBuffers.batchFSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchFSeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.evalBuffers.batchOSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchOSeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.evalBuffers.batchGSeqBuffer = MemoryManager.ensureCapacity(this.evalBuffers.batchGSeqBuffer || new Float32Array(0), activationLen, this.memoryConfig) as any;
+      this.batchXSeqBuffer = this.evalBuffers.batchXSeqBuffer;
+      this.batchHSeqBuffer = this.evalBuffers.batchHSeqBuffer;
+      this.batchCSeqBuffer = this.evalBuffers.batchCSeqBuffer;
+      this.batchISeqBuffer = this.evalBuffers.batchISeqBuffer;
+      this.batchFSeqBuffer = this.evalBuffers.batchFSeqBuffer;
+      this.batchOSeqBuffer = this.evalBuffers.batchOSeqBuffer;
+      this.batchGSeqBuffer = this.evalBuffers.batchGSeqBuffer;
+    } else {
+      this.batchXSeqBuffer = MemoryManager.ensureCapacity(this.batchXSeqBuffer, inputLen, this.memoryConfig) as any;
+      this.batchHSeqBuffer = MemoryManager.ensureCapacity(this.batchHSeqBuffer, hiddenLen, this.memoryConfig) as any;
+      this.batchCSeqBuffer = MemoryManager.ensureCapacity(this.batchCSeqBuffer, hiddenLen, this.memoryConfig) as any;
+      this.batchISeqBuffer = MemoryManager.ensureCapacity(this.batchISeqBuffer, activationLen, this.memoryConfig) as any;
+      this.batchFSeqBuffer = MemoryManager.ensureCapacity(this.batchFSeqBuffer, activationLen, this.memoryConfig) as any;
+      this.batchOSeqBuffer = MemoryManager.ensureCapacity(this.batchOSeqBuffer, activationLen, this.memoryConfig) as any;
+      this.batchGSeqBuffer = MemoryManager.ensureCapacity(this.batchGSeqBuffer, activationLen, this.memoryConfig) as any;
     }
+
+    this.batchXSeq = this.buildStepViews(this.batchXSeqBuffer, seqLen, this.units * batchSize);
+    this.batchHSeq = this.buildStepViews(this.batchHSeqBuffer, seqLen + 1, this.hiddenUnits * batchSize);
+    this.batchCSeq = this.buildStepViews(this.batchCSeqBuffer, seqLen + 1, this.hiddenUnits * batchSize);
+    this.batchISeq = this.buildStepViews(this.batchISeqBuffer, seqLen, this.hiddenUnits * batchSize);
+    this.batchFSeq = this.buildStepViews(this.batchFSeqBuffer, seqLen, this.hiddenUnits * batchSize);
+    this.batchOSeq = this.buildStepViews(this.batchOSeqBuffer, seqLen, this.hiddenUnits * batchSize);
+    this.batchGSeq = this.buildStepViews(this.batchGSeqBuffer, seqLen, this.hiddenUnits * batchSize);
   }
 
   private ensureErrorBuffer(expectedLen: number): Float32Array {
@@ -1237,5 +1267,86 @@ export default class LSTM {
       const srcOffset = row * blockCols;
       target._data.set(data.subarray(srcOffset, srcOffset + blockCols), row * cols + startCol);
     }
+  }
+
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.xSeq = [];
+    this.hSeq = [];
+    this.cSeq = [];
+    this.iSeq = [];
+    this.fSeq = [];
+    this.oSeq = [];
+    this.gSeq = [];
+
+    this.xSeqBuffer = new Float32Array(0);
+    this.hSeqBuffer = new Float32Array(0);
+    this.cSeqBuffer = new Float32Array(0);
+    this.iSeqBuffer = new Float32Array(0);
+    this.fSeqBuffer = new Float32Array(0);
+    this.oSeqBuffer = new Float32Array(0);
+    this.gSeqBuffer = new Float32Array(0);
+
+    this.batchXSeq = [];
+    this.batchHSeq = [];
+    this.batchCSeq = [];
+    this.batchISeq = [];
+    this.batchFSeq = [];
+    this.batchOSeq = [];
+    this.batchGSeq = [];
+
+    this.batchXSeqBuffer = new Float32Array(0);
+    this.batchHSeqBuffer = new Float32Array(0);
+    this.batchCSeqBuffer = new Float32Array(0);
+    this.batchISeqBuffer = new Float32Array(0);
+    this.batchFSeqBuffer = new Float32Array(0);
+    this.batchOSeqBuffer = new Float32Array(0);
+    this.batchGSeqBuffer = new Float32Array(0);
+
+    this.errorStepBuffer = new Float32Array(0);
+    this.batchErrorStepBuffer = new Float32Array(0);
+    this.errorStepViews = [];
+    this.batchErrorStepViews = [];
+
+    this.bTensors = undefined;
+    this.bBatchTensors = undefined;
+
+    this.resultBuffer = mj.matrix([]);
+    this.batchInputSliceBuffer = mj.matrix([]);
+    this.batchGateXIBuffer = mj.matrix([]);
+    this.batchGateXFBuffer = mj.matrix([]);
+    this.batchGateXOBuffer = mj.matrix([]);
+    this.batchGateXGBuffer = mj.matrix([]);
+    this.batchGateSliceIBuffer = mj.matrix([]);
+    this.batchGateSliceFBuffer = mj.matrix([]);
+    this.batchGateSliceOBuffer = mj.matrix([]);
+    this.batchGateSliceGBuffer = mj.matrix([]);
+    this.batchRecIBuffer = mj.matrix([]);
+    this.batchRecFBuffer = mj.matrix([]);
+    this.batchRecOBuffer = mj.matrix([]);
+    this.batchRecGBuffer = mj.matrix([]);
+    this.batchDxStepBuffer = mj.matrix([]);
+    this.batchDhStepBuffer = mj.matrix([]);
+    this.batchOuterInputBuffer = mj.matrix([]);
+    this.batchOuterHiddenBuffer = mj.matrix([]);
+    this.batchBiasGradBuffer = mj.matrix([]);
+    this.batchTransposeProductBuffer = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    this.optimizerWxi?.dispose?.(); this.optimizerWhi?.dispose?.(); this.optimizerBi?.dispose?.();
+    this.optimizerWxf?.dispose?.(); this.optimizerWhf?.dispose?.(); this.optimizerBf?.dispose?.();
+    this.optimizerWxo?.dispose?.(); this.optimizerWho?.dispose?.(); this.optimizerBo?.dispose?.();
+    this.optimizerWxg?.dispose?.(); this.optimizerWhg?.dispose?.(); this.optimizerBg?.dispose?.();
+
+    (this as any).Wxi = null; (this as any).Whi = null; (this as any).bi = null;
+    (this as any).Wxf = null; (this as any).Whf = null; (this as any).bf = null;
+    (this as any).Wxo = null; (this as any).Who = null; (this as any).bo = null;
+    (this as any).Wxg = null; (this as any).Whg = null; (this as any).bg = null;
+    (this as any).optimizerWxi = null; (this as any).optimizerWhi = null; (this as any).optimizerBi = null;
+    (this as any).optimizerWxf = null; (this as any).optimizerWhf = null; (this as any).optimizerBf = null;
+    (this as any).optimizerWxo = null; (this as any).optimizerWho = null; (this as any).optimizerBo = null;
+    (this as any).optimizerWxg = null; (this as any).optimizerWhg = null; (this as any).optimizerBg = null;
   }
 }

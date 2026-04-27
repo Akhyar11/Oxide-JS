@@ -8,13 +8,15 @@ import Matrix from "../matrix";
  */
 export function BinaryCrossEntropy(
   yTrue: Matrix,
-  yPred: Matrix
+  yPred: Matrix,
+  dResult?: Matrix
 ): [number, Matrix] {
   const n = yTrue._shape[0] * yTrue._shape[1];
   const epsilon = 1e-15; // hindari log(0)
   const yData = yTrue._data;
   const pData = yPred._data;
-  const gradData = new Float32Array(yData.length);
+  const grad = dResult || mj.zeros(yTrue._shape);
+  const gradData = grad._data;
 
   let loss = 0;
   for (let i = 0; i < yData.length; i++) {
@@ -25,7 +27,7 @@ export function BinaryCrossEntropy(
   }
   loss /= n;
 
-  return [loss, Matrix.fromFlat(gradData, [yTrue._shape[0], yTrue._shape[1]])];
+  return [loss, grad];
 }
 
 /**
@@ -36,13 +38,15 @@ export function BinaryCrossEntropy(
  */
 export default function CategoricalCrossEntropy(
   yTrue: Matrix,
-  yPred: Matrix
+  yPred: Matrix,
+  dResult?: Matrix
 ): [number, Matrix] {
   const n = yTrue._shape[0] * yTrue._shape[1];
   const epsilon = 1e-15;
   const yData = yTrue._data;
   const pData = yPred._data;
-  const gradData = new Float32Array(yData.length);
+  const grad = dResult || mj.zeros(yTrue._shape);
+  const gradData = grad._data;
 
   let loss = 0;
   for (let i = 0; i < yData.length; i++) {
@@ -53,5 +57,5 @@ export default function CategoricalCrossEntropy(
   }
   loss /= n;
 
-  return [loss, Matrix.fromFlat(gradData, [yTrue._shape[0], yTrue._shape[1]])];
+  return [loss, grad];
 }

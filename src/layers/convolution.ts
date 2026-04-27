@@ -13,6 +13,7 @@ import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
 import { CompileDenseLayers } from "./dense";
 import { isNativeAvailable, convBackwardInputNative } from "../math/rust_backend";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 interface ConvolutionLayers {
   kernelSize: [number, number];
@@ -23,6 +24,7 @@ interface ConvolutionLayers {
   optimizer?: Optimzier;
   loss?: Cost;
   clipGradient?: number | boolean;
+  memoryConfig?: WorkspaceConfig;
 }
 
 export default class Convolution {
@@ -39,15 +41,32 @@ export default class Convolution {
   params: number;
   inputShape: [number, number];
   outputShape: [number, number];
+  memoryConfig: WorkspaceConfig;
+
   private sumLoss: number = 0;
   private index: number = 0;
   private activation: Function;
   private lossFunc: Function;
   private optimizerKernel: OptimzierType;
   private optimizerBias: OptimzierType;
+
   private input: Matrix = mj.matrix([]);
-  private result: Matrix = mj.matrix([]);
-  private dResult: Matrix = mj.matrix([]);
+  private result: Matrix;
+  private dResult: Matrix;
+  private convBuffer: Matrix;
+  private backwardInputBuffer: Matrix;
+  private errActivationBuffer: Matrix;
+  private errKernelBuffer: Matrix;
+
+  private outputData: any = new Float32Array(0);
+  private dResultData: any = new Float32Array(0);
+  private convBufferData: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
+
+  private backwardInputData: any = new Float32Array(0);
+  private errActivationData: any = new Float32Array(0);
+  private errKernelData: any = new Float32Array(0);
+
   constructor({
     kernelSize,
     inputShape,
@@ -57,6 +76,7 @@ export default class Convolution {
     optimizer = "sgd",
     loss = "mse",
     clipGradient = 5.0,
+    memoryConfig = {},
   }: ConvolutionLayers) {
     this.kernel = mj.random(kernelSize);
     this.bias = mj.zeros([
@@ -76,15 +96,23 @@ export default class Convolution {
     this.clipGradient = clipGradient;
     this.activation = setActivation(this.activationName);
     this.lossFunc = setLoss(this.lossName);
-    this.optimizerKernel = setOptimizer(this.optimizerName, kernelSize, 1e-5);
+    this.memoryConfig = memoryConfig;
+    this.optimizerKernel = setOptimizer(this.optimizerName, this.kernel._shape, 1e-5);
     this.optimizerBias = setOptimizer(
       this.optimizerName,
-      [inputShape[0] - kernelSize[0] + 1, inputShape[1] - kernelSize[1] + 1],
+      this.bias._shape,
       1e-5
     );
     this.params =
-      kernelSize[0] * kernelSize[1] +
+      this.kernel._shape[0] * this.kernel._shape[1] +
       this.bias._shape[0] * this.bias._shape[1];
+
+    this.result = mj.matrix([]);
+    this.dResult = mj.matrix([]);
+    this.convBuffer = mj.matrix([]);
+    this.backwardInputBuffer = mj.matrix([]);
+    this.errActivationBuffer = mj.matrix([]);
+    this.errKernelBuffer = mj.matrix([]);
   }
 
   save() {
@@ -162,15 +190,21 @@ export default class Convolution {
     return matrix;
   }
 
-  forward(x: Matrix) {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }) {
     this.input = x;
-    const calculateWeightBias = mj.add(
-      mj.convolution(x, this.kernel),
-      this.bias
-    );
-    [this.result, this.dResult] = this.activation(calculateWeightBias);
+    const outShape = this.bias._shape;
+    this.ensureForwardBuffers(outShape[0] * outShape[1], options?.workspace);
+
+    mj.convolution(x, this.kernel, this.convBuffer);
+    this.convBuffer.addInPlace(this.bias);
+
+    this.activation(this.convBuffer, { result: this.result, dResult: this.dResult });
+
     let result = this.result;
     if (this.status === "convOutput") {
+      // Flatten is handled by view if possible, but sequential model might expect a new Matrix object.
+      // For simplicity, we return the reshaped result matrix.
+      // Sequential.ts needs to handle this.
       result = mj.reshape(result, [
         this.bias._shape[0] * this.bias._shape[1],
         1,
@@ -190,26 +224,30 @@ export default class Convolution {
       this.loss = this.sumLoss / this.index;
     }
 
-    const errActivation = mj.mul(e, this.dResult);
-    
+    this.ensureBackwardBuffers();
+    this.errActivationBuffer.copyFrom(e);
+    this.errActivationBuffer.mulInPlace(this.dResult);
+
     // [New] Gradient Clipping
     if (this.clipGradient !== false) {
       const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
-      mj.clipGradients(errActivation, limit);
+      mj.clipGradients(this.errActivationBuffer, limit);
     }
 
-    const errKernel = mj.convolution(this.input, errActivation);
+    mj.convolution(this.input, this.errActivationBuffer, this.errKernelBuffer);
+    
     const optimizerKernel = this.optimizerKernel.calculate(
-      errKernel,
+      this.errKernelBuffer,
       this.alpha
     );
     const optimizerBias = this.optimizerBias.calculate(
-      errActivation,
+      this.errActivationBuffer,
       this.alpha
     );
-    const errOutput = this.calculateErrInput(errActivation, this.kernel);
-    this.kernel = mj.sub(this.kernel, optimizerKernel);
-    this.bias = mj.sub(this.bias, optimizerBias);
+    const errOutput = this.calculateErrInput(this.errActivationBuffer, this.kernel);
+    
+    this.kernel.subInPlace(optimizerKernel);
+    this.bias.subInPlace(optimizerBias);
     return errOutput;
   }
 
@@ -218,5 +256,62 @@ export default class Convolution {
     this.sumLoss = 0;
     this.index = 0;
     this.loss = 0;
+  }
+
+  private ensureForwardBuffers(n: number, workspace: "train" | "eval" = "train"): void {
+    if (workspace === "eval") {
+      this.evalBuffers.outputData = MemoryManager.ensureCapacity(this.evalBuffers.outputData || new Float32Array(0), n, this.memoryConfig) as any;
+      this.evalBuffers.dResultData = MemoryManager.ensureCapacity(this.evalBuffers.dResultData || new Float32Array(0), n, this.memoryConfig) as any;
+      this.evalBuffers.convBufferData = MemoryManager.ensureCapacity(this.evalBuffers.convBufferData || new Float32Array(0), n, this.memoryConfig) as any;
+
+      this.outputData = this.evalBuffers.outputData;
+      this.dResultData = this.evalBuffers.dResultData;
+      this.convBufferData = this.evalBuffers.convBufferData;
+    } else {
+      this.outputData = MemoryManager.ensureCapacity(this.outputData, n, this.memoryConfig) as any;
+      this.dResultData = MemoryManager.ensureCapacity(this.dResultData, n, this.memoryConfig) as any;
+      this.convBufferData = MemoryManager.ensureCapacity(this.convBufferData, n, this.memoryConfig) as any;
+    }
+
+    this.result = Matrix.fromFlat(this.outputData.subarray(0, n) as any, this.bias._shape);
+    this.dResult = Matrix.fromFlat(this.dResultData.subarray(0, n) as any, this.bias._shape);
+    this.convBuffer = Matrix.fromFlat(this.convBufferData.subarray(0, n) as any, this.bias._shape);
+  }
+
+  private ensureBackwardBuffers(): void {
+    const n = this.bias._shape[0] * this.bias._shape[1];
+    const kn = this.kernel._shape[0] * this.kernel._shape[1];
+    this.errActivationData = MemoryManager.ensureCapacity(this.errActivationData, n, this.memoryConfig) as any;
+    this.errKernelData = MemoryManager.ensureCapacity(this.errKernelData, kn, this.memoryConfig) as any;
+
+    this.errActivationBuffer = Matrix.fromFlat(this.errActivationData.subarray(0, n) as any, this.bias._shape);
+    this.errKernelBuffer = Matrix.fromFlat(this.errKernelData.subarray(0, kn) as any, this.kernel._shape);
+  }
+
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.outputData = new Float32Array(0);
+    this.dResultData = new Float32Array(0);
+    this.convBufferData = new Float32Array(0);
+    this.backwardInputData = new Float32Array(0);
+    this.errActivationData = new Float32Array(0);
+    this.errKernelData = new Float32Array(0);
+
+    this.result = mj.matrix([]);
+    this.dResult = mj.matrix([]);
+    this.convBuffer = mj.matrix([]);
+    this.backwardInputBuffer = mj.matrix([]);
+    this.errActivationBuffer = mj.matrix([]);
+    this.errKernelBuffer = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    this.optimizerKernel?.dispose?.();
+    this.optimizerBias?.dispose?.();
+    (this as any).kernel = null;
+    (this as any).bias = null;
+    (this as any).optimizerKernel = null;
+    (this as any).optimizerBias = null;
   }
 }

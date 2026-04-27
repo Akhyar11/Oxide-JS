@@ -2,24 +2,23 @@ import { MatrixShape } from "../@types/type";
 import mj from "../math";
 import Matrix from "../matrix";
 import { isNativeAvailable, adamUpdateNative, adamSparseUpdateNative, shouldUseNativeAdam } from "../math/rust_backend";
+import { MemoryManager } from "../utils/memory";
 
 /**
  * Adam Optimizer (Adaptive Moment Estimation)
- * Formula:
- *   m_t = β1 * m_{t-1} + (1-β1) * g_t         ← first moment (mean)
- *   v_t = β2 * v_{t-1} + (1-β2) * g_t²         ← second moment (variance)
- *   m̂_t = m_t / (1 - β1^t)                     ← bias-corrected mean
- *   v̂_t = v_t / (1 - β2^t)                     ← bias-corrected variance
- *   θ_t = θ_{t-1} - α * m̂_t / (sqrt(v̂_t) + ε)
  */
 export default class Adam {
+  private mData: any = new Float32Array(0);
+  private vData: any = new Float32Array(0);
+  private updateBufferData: any = new Float32Array(0);
+  
   private m: Matrix;       // first moment (mean)
   private v: Matrix;       // second moment (variance)
   private t: number = 0;  // timestep
   private beta1: number;
   private beta2: number;
   private epsilon: number;
-  private updateBuffer: Matrix; // Buffer untuk menampung hasil update (REUSE)
+  private updateBuffer: Matrix; 
 
   constructor(
     shape: MatrixShape,
@@ -27,20 +26,34 @@ export default class Adam {
     beta2: number = 0.999,
     epsilon: number = 1e-8
   ) {
-    this.m = mj.zeros(shape);
-    this.v = mj.zeros(shape);
-    this.updateBuffer = mj.zeros(shape);
     this.beta1 = beta1;
     this.beta2 = beta2;
     this.epsilon = epsilon;
+    this.m = mj.matrix([]);
+    this.v = mj.matrix([]);
+    this.updateBuffer = mj.matrix([]);
+  }
+
+  private ensureBuffers(size: number, shape: MatrixShape) {
+    this.mData = MemoryManager.ensureCapacity(this.mData, size) as any;
+    this.vData = MemoryManager.ensureCapacity(this.vData, size) as any;
+    this.updateBufferData = MemoryManager.ensureCapacity(this.updateBufferData, size) as any;
+
+    this.m = Matrix.fromFlat(this.mData.subarray(0, size) as any, shape);
+    this.v = Matrix.fromFlat(this.vData.subarray(0, size) as any, shape);
+    this.updateBuffer = Matrix.fromFlat(this.updateBufferData.subarray(0, size) as any, shape);
   }
 
   calculate(a: Matrix, alpha: number): Matrix {
     this.t++;
+    const size = a._data.length;
+    this.ensureBuffers(size, a._shape);
+
     const gradData = a._data;
     const mData = this.m._data;
     const vData = this.v._data;
     const bufferData = this.updateBuffer._data;
+    
     if (isNativeAvailable() && shouldUseNativeAdam(gradData.length)) {
       adamUpdateNative(
         gradData,
@@ -77,13 +90,21 @@ export default class Adam {
   }
 
   updateSparse(target: Matrix, grad: Matrix, alpha: number, indices: Int32Array): void {
+    const vocabSize = target._shape[1];
+    const embeddingDim = target._shape[0];
+    const size = vocabSize * embeddingDim;
+
+    if (this.mData.length < size) {
+        this.mData = MemoryManager.ensureCapacity(this.mData, size) as any;
+        this.vData = MemoryManager.ensureCapacity(this.vData, size) as any;
+        this.m = Matrix.fromFlat(this.mData.subarray(0, size) as any, target._shape);
+        this.v = Matrix.fromFlat(this.vData.subarray(0, size) as any, target._shape);
+    }
+
     const targetData = target._data;
     const gradData = grad._data;
     const mData = this.m._data;
     const vData = this.v._data;
-
-    const vocabSize = target._shape[1];
-    const embeddingDim = target._shape[0];
 
     if (isNativeAvailable() && shouldUseNativeAdam(gradData.length)) {
       adamSparseUpdateNative(
@@ -128,5 +149,14 @@ export default class Adam {
         targetData[fullIdx] -= alpha * mHat / (Math.sqrt(vHat) + this.epsilon);
       }
     }
+  }
+
+  dispose(): void {
+    this.mData = new Float32Array(0);
+    this.vData = new Float32Array(0);
+    this.updateBufferData = new Float32Array(0);
+    this.m = mj.matrix([]);
+    this.v = mj.matrix([]);
+    this.updateBuffer = mj.matrix([]);
   }
 }

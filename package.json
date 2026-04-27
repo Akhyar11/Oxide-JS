@@ -1,6 +1,6 @@
 {
   "name": "@akhyar11/ml-v1",
-  "version": "2.3.0-alpha.0",
+  "version": "2.3.0-alpha.1",
   "description": "TypeScript + Rust Native machine learning library. Matrix ops, layers (Dense, Embedding, RNN, LSTM, GRU, MultiHeadAttention, etc), models (Sequential, Transformers), dan BPE tokenizer.",
   "napi": {
     "name": "ml-native"

@@ -62,13 +62,13 @@ export default class Sequential {
     }
   }
 
-  forward(x: Matrix, batchSize = 1): Matrix {
+  forward(x: Matrix, batchSize = 1, options?: { workspace?: "train" | "eval" }): Matrix {
     let input = x;
     for (let layer of this.layers) {
       if (batchSize > 1 && typeof (layer as any).forwardBatch === "function") {
-        input = (layer as any).forwardBatch(input, batchSize);
+        input = (layer as any).forwardBatch(input, batchSize, options);
       } else {
-        input = layer.forward(input);
+        input = (layer as any).forward(input, options);
       }
     }
     return input;
@@ -626,5 +626,25 @@ export default class Sequential {
       rowCount: seqLen - firstUsefulPos,
       positionOffset: firstUsefulPos,
     };
+  }
+
+  releaseWorkspace(): void {
+    for (const layer of this.layers) {
+      if (typeof (layer as any).releaseWorkspace === "function") {
+        (layer as any).releaseWorkspace();
+      }
+    }
+    this.batchInputBufferData = new Float32Array(0);
+    this.batchTargetBufferData = new Float32Array(0);
+  }
+
+  dispose(): void {
+    for (const layer of this.layers) {
+      if (typeof (layer as any).dispose === "function") {
+        (layer as any).dispose();
+      }
+    }
+    this.layers = [];
+    this.releaseWorkspace();
   }
 }

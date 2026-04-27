@@ -4,6 +4,7 @@ import { isNativeAvailable, multiHeadAttentionBackwardNative, multiHeadAttention
 import Matrix from "../matrix";
 import setOptimizer from "../utils/setOptimizer";
 import Dense from "./dense";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 interface MultiHeadAttentionLayer {
   units: number;
@@ -12,6 +13,7 @@ interface MultiHeadAttentionLayer {
   alpha?: number;
   status?: StatusLayer;
   clipGradient?: number | boolean;
+  memoryConfig?: WorkspaceConfig;
 }
 
 export default class MultiHeadAttention {
@@ -33,6 +35,7 @@ export default class MultiHeadAttention {
   outputShape: [number, number];
   params: number;
   loss: number = 0;
+  memoryConfig: WorkspaceConfig;
 
   private input: Matrix = mj.matrix([]);
   private padMask: boolean[] = [];
@@ -44,40 +47,43 @@ export default class MultiHeadAttention {
   private optimizerV: OptimzierType;
   private optimizerName: Optimzier = "sgd";
 
+  private QData: any = new Float32Array(0);
+  private KData: any = new Float32Array(0);
+  private VData: any = new Float32Array(0);
+  private concatenatedData: any = new Float32Array(0);
+  private attentionBuffer: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
+
+  private dQAllData: any = new Float32Array(0);
+  private dKAllData: any = new Float32Array(0);
+  private dVAllData: any = new Float32Array(0);
+  private gradInputData: any = new Float32Array(0);
+  private gradContributionData: any = new Float32Array(0);
+
+  private errAttentionData: any = new Float32Array(0);
+  private errScoreData: any = new Float32Array(0);
+
   private Q: Matrix;
   private K: Matrix;
   private V: Matrix;
   private concatenated: Matrix;
-  private qBuffer: Float32Array = new Float32Array(0);
-  private kBuffer: Float32Array = new Float32Array(0);
-  private vBuffer: Float32Array = new Float32Array(0);
-  private concatenatedBuffer: Float32Array = new Float32Array(0);
+  private attentionData: Float32Array = new Float32Array(0);
 
   private gradInputBuffer: Matrix;
   private gradContributionBuffer: Matrix;
   private dQAll: Matrix;
   private dKAll: Matrix;
   private dVAll: Matrix;
-  private gradInputDataBuffer: Float32Array = new Float32Array(0);
-  private gradContributionDataBuffer: Float32Array = new Float32Array(0);
-  private dQAllBuffer: Float32Array = new Float32Array(0);
-  private dKAllBuffer: Float32Array = new Float32Array(0);
-  private dVAllBuffer: Float32Array = new Float32Array(0);
 
   private gradQBuffer: Matrix;
   private gradKBuffer: Matrix;
   private gradVBuffer: Matrix;
 
-
-  private attentionBuffer: Float32Array = new Float32Array(0);
-  private attentionData: Float32Array = new Float32Array(0);
-  private errAttentionBuffer: Float32Array = new Float32Array(0);
-  private errScoreBuffer: Float32Array = new Float32Array(0);
   private errAttentionScratch: Float32Array;
   private errScoreScratch: Float32Array;
   private _effectiveSeqLen: number | null = null;
 
-  constructor({ units, heads, seqLen, alpha = 0.1, status = "input", clipGradient = 5.0 }: MultiHeadAttentionLayer) {
+  constructor({ units, heads, seqLen, alpha = 0.1, status = "input", clipGradient = 5.0, memoryConfig = {} }: MultiHeadAttentionLayer) {
     this.units = units;
     this.heads = heads;
     this.seqLen = seqLen;
@@ -103,31 +109,32 @@ export default class MultiHeadAttention {
       activation: "linear",
       alpha,
       clipGradient,
+      memoryConfig,
     });
 
+    this.memoryConfig = memoryConfig;
     this.optimizerQ = setOptimizer(this.optimizerName, this.q._shape, alpha);
     this.optimizerK = setOptimizer(this.optimizerName, this.k._shape, alpha);
     this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, alpha);
 
-    this.Q = mj.zeros([this.units, seqLen]);
-    this.K = mj.zeros([this.units, seqLen]);
-    this.V = mj.zeros([this.units, seqLen]);
-    this.concatenated = mj.zeros([this.units, seqLen]);
+    this.Q = mj.matrix([]);
+    this.K = mj.matrix([]);
+    this.V = mj.matrix([]);
+    this.concatenated = mj.matrix([]);
 
-    this.gradInputBuffer = mj.zeros([this.units, seqLen]);
-    this.gradContributionBuffer = mj.zeros([this.units, seqLen]);
-    this.dQAll = mj.zeros([this.units, seqLen]);
-    this.dKAll = mj.zeros([this.units, seqLen]);
-    this.dVAll = mj.zeros([this.units, seqLen]);
+    this.gradInputBuffer = mj.matrix([]);
+    this.gradContributionBuffer = mj.matrix([]);
+    this.dQAll = mj.matrix([]);
+    this.dKAll = mj.matrix([]);
+    this.dVAll = mj.matrix([]);
 
-    this.gradQBuffer = mj.zeros([this.units, this.units]);
-    this.gradKBuffer = mj.zeros([this.units, this.units]);
-    this.gradVBuffer = mj.zeros([this.units, this.units]);
+    this.gradQBuffer = mj.matrix([]);
+    this.gradKBuffer = mj.matrix([]);
+    this.gradVBuffer = mj.matrix([]);
 
     this.params = 3 * this.units * this.units + this.wo.params;
     this.errAttentionScratch = new Float32Array(0);
     this.errScoreScratch = new Float32Array(0);
-    this.ensureSequenceBuffersForBatch(seqLen, seqLen);
   }
 
   compile({ alpha, optimizer, error, clipGradient }: { alpha?: number; optimizer?: Optimzier; error?: Cost; clipGradient?: number | boolean }) {
@@ -162,7 +169,7 @@ export default class MultiHeadAttention {
     this._effectiveSeqLen = null;
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     const totalCols = x._shape[1];
     const seqLen = this._effectiveSeqLen ?? this.seqLen;
     if (totalCols % seqLen !== 0) {
@@ -170,7 +177,7 @@ export default class MultiHeadAttention {
     }
     const batchSize = totalCols / seqLen;
 
-    this.ensureSequenceBuffersForBatch(totalCols, seqLen);
+    this.ensureForwardBuffers(totalCols, seqLen, options?.workspace);
 
     this.input = x;
     if (this.hasExternalPadMask && this.padMask.length === totalCols) {
@@ -218,7 +225,7 @@ export default class MultiHeadAttention {
     }
 
     this.outputShape = [this.concatenated._shape[0], this.concatenated._shape[1]];
-    return this.wo.forward(this.concatenated);
+    return this.wo.forward(this.concatenated, options);
   }
 
   backward(y: Matrix, err: Matrix): Matrix {
@@ -231,7 +238,7 @@ export default class MultiHeadAttention {
     const batchSize = totalCols / seqLen;
     const scale = 1 / Math.sqrt(this.headUnits);
 
-    this.ensureSequenceBuffersForBatch(totalCols, seqLen);
+    this.ensureBackwardBuffers(totalCols, seqLen);
 
     if (isNativeAvailable()) {
       multiHeadAttentionBackwardNative(
@@ -329,76 +336,110 @@ export default class MultiHeadAttention {
     this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, this.alpha);
   }
 
-  private ensureSequenceBuffersForBatch(totalCols: number, seqLen: number) {
+  private ensureForwardBuffers(totalCols: number, seqLen: number, workspace: "train" | "eval" = "train") {
     const batchSize = Math.floor(totalCols / seqLen);
     const expectedAttentionLen = this.heads * batchSize * seqLen * seqLen;
-    const expectedScratchLen = seqLen * seqLen;
-    // `attentionData` adalah exact-length view ke backing buffer agar native/fallback
-    // tetap menerima panjang yang sesuai tanpa harus realloc setiap kali kapasitas cukup.
-    if (
-      this.Q._shape[1] === totalCols &&
-      this.attentionData.length === expectedAttentionLen &&
-      this.errAttentionScratch.length === expectedScratchLen &&
-      this.errScoreScratch.length === expectedScratchLen
-    ) {
-      return;
+    const requiredLength = this.units * totalCols;
+
+    if (workspace === "eval") {
+      this.evalBuffers.QData = MemoryManager.ensureCapacity(this.evalBuffers.QData || new Float32Array(0), requiredLength, this.memoryConfig) as any;
+      this.evalBuffers.KData = MemoryManager.ensureCapacity(this.evalBuffers.KData || new Float32Array(0), requiredLength, this.memoryConfig) as any;
+      this.evalBuffers.VData = MemoryManager.ensureCapacity(this.evalBuffers.VData || new Float32Array(0), requiredLength, this.memoryConfig) as any;
+      this.evalBuffers.concatenatedData = MemoryManager.ensureCapacity(this.evalBuffers.concatenatedData || new Float32Array(0), requiredLength, this.memoryConfig) as any;
+      this.evalBuffers.attentionBuffer = MemoryManager.ensureCapacity(this.evalBuffers.attentionBuffer || new Float32Array(0), expectedAttentionLen, this.memoryConfig) as any;
+
+      this.QData = this.evalBuffers.QData;
+      this.KData = this.evalBuffers.KData;
+      this.VData = this.evalBuffers.VData;
+      this.concatenatedData = this.evalBuffers.concatenatedData;
+      this.attentionBuffer = this.evalBuffers.attentionBuffer;
+    } else {
+      this.QData = MemoryManager.ensureCapacity(this.QData, requiredLength, this.memoryConfig) as any;
+      this.KData = MemoryManager.ensureCapacity(this.KData, requiredLength, this.memoryConfig) as any;
+      this.VData = MemoryManager.ensureCapacity(this.VData, requiredLength, this.memoryConfig) as any;
+      this.concatenatedData = MemoryManager.ensureCapacity(this.concatenatedData, requiredLength, this.memoryConfig) as any;
+      this.attentionBuffer = MemoryManager.ensureCapacity(this.attentionBuffer, expectedAttentionLen, this.memoryConfig) as any;
     }
 
-    this.inputShape = [this.units, totalCols];
-    this.outputShape = [this.units, totalCols];
-    this.Q = this.bindSequenceMatrix("qBuffer", totalCols);
-    this.K = this.bindSequenceMatrix("kBuffer", totalCols);
-    this.V = this.bindSequenceMatrix("vBuffer", totalCols);
-    this.concatenated = this.bindSequenceMatrix("concatenatedBuffer", totalCols);
-
-    this.gradInputBuffer = this.bindSequenceMatrix("gradInputDataBuffer", totalCols);
-    this.gradContributionBuffer = this.bindSequenceMatrix("gradContributionDataBuffer", totalCols);
-    this.dQAll = this.bindSequenceMatrix("dQAllBuffer", totalCols);
-    this.dKAll = this.bindSequenceMatrix("dKAllBuffer", totalCols);
-    this.dVAll = this.bindSequenceMatrix("dVAllBuffer", totalCols);
-
-    if (this.attentionBuffer.length < expectedAttentionLen) {
-      const nextCapacity = Math.max(expectedAttentionLen, Math.max(1, this.attentionBuffer.length * 2));
-      this.attentionBuffer = new Float32Array(nextCapacity);
-    }
+    this.Q = Matrix.fromFlat(this.QData.subarray(0, requiredLength), [this.units, totalCols]);
+    this.K = Matrix.fromFlat(this.KData.subarray(0, requiredLength), [this.units, totalCols]);
+    this.V = Matrix.fromFlat(this.VData.subarray(0, requiredLength), [this.units, totalCols]);
+    this.concatenated = Matrix.fromFlat(this.concatenatedData.subarray(0, requiredLength), [this.units, totalCols]);
     this.attentionData = this.attentionBuffer.subarray(0, expectedAttentionLen);
-
-    if (this.errAttentionBuffer.length < expectedScratchLen) {
-      const nextCapacity = Math.max(expectedScratchLen, Math.max(1, this.errAttentionBuffer.length * 2));
-      this.errAttentionBuffer = new Float32Array(nextCapacity);
-    }
-    this.errAttentionScratch = this.errAttentionBuffer.subarray(0, expectedScratchLen);
-
-    if (this.errScoreBuffer.length < expectedScratchLen) {
-      const nextCapacity = Math.max(expectedScratchLen, Math.max(1, this.errScoreBuffer.length * 2));
-      this.errScoreBuffer = new Float32Array(nextCapacity);
-    }
-    this.errScoreScratch = this.errScoreBuffer.subarray(0, expectedScratchLen);
   }
 
-  private bindSequenceMatrix(
-    bufferKey:
-      | "qBuffer"
-      | "kBuffer"
-      | "vBuffer"
-      | "concatenatedBuffer"
-      | "gradInputDataBuffer"
-      | "gradContributionDataBuffer"
-      | "dQAllBuffer"
-      | "dKAllBuffer"
-      | "dVAllBuffer",
-    totalCols: number
-  ): Matrix {
+  private ensureBackwardBuffers(totalCols: number, seqLen: number) {
     const requiredLength = this.units * totalCols;
-    let buffer = this[bufferKey];
+    const expectedScratchLen = seqLen * seqLen;
 
-    if (buffer.length < requiredLength) {
-      const nextCapacity = Math.max(requiredLength, Math.max(1, buffer.length * 2));
-      buffer = new Float32Array(nextCapacity);
-      this[bufferKey] = buffer;
+    this.dQAllData = MemoryManager.ensureCapacity(this.dQAllData, requiredLength, this.memoryConfig) as any;
+    this.dKAllData = MemoryManager.ensureCapacity(this.dKAllData, requiredLength, this.memoryConfig) as any;
+    this.dVAllData = MemoryManager.ensureCapacity(this.dVAllData, requiredLength, this.memoryConfig) as any;
+    this.gradInputData = MemoryManager.ensureCapacity(this.gradInputData, requiredLength, this.memoryConfig) as any;
+    this.gradContributionData = MemoryManager.ensureCapacity(this.gradContributionData, requiredLength, this.memoryConfig) as any;
+
+    this.errAttentionData = MemoryManager.ensureCapacity(this.errAttentionData, expectedScratchLen, this.memoryConfig) as any;
+    this.errScoreData = MemoryManager.ensureCapacity(this.errScoreData, expectedScratchLen, this.memoryConfig) as any;
+
+    this.dQAll = Matrix.fromFlat(this.dQAllData.subarray(0, requiredLength), [this.units, totalCols]);
+    this.dKAll = Matrix.fromFlat(this.dKAllData.subarray(0, requiredLength), [this.units, totalCols]);
+    this.dVAll = Matrix.fromFlat(this.dVAllData.subarray(0, requiredLength), [this.units, totalCols]);
+    this.gradInputBuffer = Matrix.fromFlat(this.gradInputData.subarray(0, requiredLength), [this.units, totalCols]);
+    this.gradContributionBuffer = Matrix.fromFlat(this.gradContributionData.subarray(0, requiredLength), [this.units, totalCols]);
+
+    this.errAttentionScratch = this.errAttentionData.subarray(0, expectedScratchLen);
+    this.errScoreScratch = this.errScoreData.subarray(0, expectedScratchLen);
+
+    if (this.gradQBuffer._shape[0] !== this.units) {
+      this.gradQBuffer = mj.zeros([this.units, this.units]);
+      this.gradKBuffer = mj.zeros([this.units, this.units]);
+      this.gradVBuffer = mj.zeros([this.units, this.units]);
     }
+  }
 
-    return Matrix.fromFlat(buffer.subarray(0, requiredLength), [this.units, totalCols]);
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.QData = new Float32Array(0);
+    this.KData = new Float32Array(0);
+    this.VData = new Float32Array(0);
+    this.concatenatedData = new Float32Array(0);
+    this.attentionBuffer = new Float32Array(0);
+
+    this.dQAllData = new Float32Array(0);
+    this.dKAllData = new Float32Array(0);
+    this.dVAllData = new Float32Array(0);
+    this.gradInputData = new Float32Array(0);
+    this.gradContributionData = new Float32Array(0);
+
+    this.errAttentionData = new Float32Array(0);
+    this.errScoreData = new Float32Array(0);
+
+    this.Q = mj.matrix([]);
+    this.K = mj.matrix([]);
+    this.V = mj.matrix([]);
+    this.concatenated = mj.matrix([]);
+
+    this.dQAll = mj.matrix([]);
+    this.dKAll = mj.matrix([]);
+    this.dVAll = mj.matrix([]);
+    this.gradInputBuffer = mj.matrix([]);
+    this.gradContributionBuffer = mj.matrix([]);
+    this.gradQBuffer = mj.matrix([]);
+    this.gradKBuffer = mj.matrix([]);
+    this.gradVBuffer = mj.matrix([]);
+
+    this.wo.releaseWorkspace();
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    this.optimizerQ?.dispose?.();
+    this.optimizerK?.dispose?.();
+    this.optimizerV?.dispose?.();
+    (this as any).q = null;
+    (this as any).k = null;
+    (this as any).v = null;
+    this.wo.dispose();
   }
 
   private loadLegacyHeads(headsData: Array<{ q: number[][]; k: number[][]; v: number[][] }>) {

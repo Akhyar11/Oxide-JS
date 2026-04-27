@@ -5,6 +5,7 @@ import Matrix from "../matrix";
 import { setLoss } from "../utils";
 import setOptimizer from "../utils/setOptimizer";
 import { isNativeAvailable, applyAttentionMaskNative } from "../math/rust_backend";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 interface SelfAttentionLayer {
   units: number;
@@ -30,24 +31,35 @@ export default class SelfAttention {
   loss: number = 0;
   status: StatusLayer = "input";
   clipGradient: number | boolean = 5.0;
+  memoryConfig: WorkspaceConfig;
   private lossFunc: Function;
   private input: Matrix = mj.matrix([]);
-  private output: Matrix = mj.matrix([]);
   private attention: Matrix = mj.matrix([]);
   private padMask: boolean[] = [];
-  private Q: Matrix = mj.matrix([]);
-  private K: Matrix = mj.matrix([]);
-  private V: Matrix = mj.matrix([]);
   private optimizerQ: OptimzierType;
   private optimizerK: OptimzierType;
   private optimizerV: OptimzierType;
   private optimizerName: Optimzier = "sgd";
-  
-  // Buffers untuk mengurangi load GC
-  private oldQBuffer: Matrix | null = null;
-  private oldKBuffer: Matrix | null = null;
-  private oldVBuffer: Matrix | null = null;
-  private qkBuffer: Matrix | null = null;
+
+  private QData: any = new Float32Array(0);
+  private KData: any = new Float32Array(0);
+  private VData: any = new Float32Array(0);
+  private qkData: any = new Float32Array(0);
+  private outputData: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
+
+  private oldQData: any = new Float32Array(0);
+  private oldKData: any = new Float32Array(0);
+  private oldVData: any = new Float32Array(0);
+
+  private Q: Matrix;
+  private K: Matrix;
+  private V: Matrix;
+  private output: Matrix;
+  private qkBuffer: Matrix;
+  private oldQBuffer: Matrix;
+  private oldKBuffer: Matrix;
+  private oldVBuffer: Matrix;
   
   constructor({
     units,
@@ -57,7 +69,8 @@ export default class SelfAttention {
     loss = "mse",
     status = "input",
     clipGradient = 5.0,
-  }: SelfAttentionLayer) {
+    memoryConfig = {},
+  }: SelfAttentionLayer & { memoryConfig?: WorkspaceConfig }) {
     this.units = units;
     this.outputUnits = outputUnits ?? units;
     this.inputShape = [units, seqLen];
@@ -72,10 +85,20 @@ export default class SelfAttention {
     this.alpha = alpha;
     this.clipGradient = clipGradient;
 
+    this.memoryConfig = memoryConfig;
     // Initialize optimizers
     this.optimizerQ = setOptimizer(this.optimizerName, this.q._shape, alpha);
     this.optimizerK = setOptimizer(this.optimizerName, this.k._shape, alpha);
     this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, alpha);
+
+    this.Q = mj.matrix([]);
+    this.K = mj.matrix([]);
+    this.V = mj.matrix([]);
+    this.output = mj.matrix([]);
+    this.qkBuffer = mj.matrix([]);
+    this.oldQBuffer = mj.matrix([]);
+    this.oldKBuffer = mj.matrix([]);
+    this.oldVBuffer = mj.matrix([]);
   }
 
   compile({ alpha, optimizer, clipGradient }: { alpha?: number; optimizer?: Optimzier; clipGradient?: number | boolean }) {
@@ -112,23 +135,17 @@ export default class SelfAttention {
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     this.inputShape = [x._shape[0], x._shape[1]];
     this.padMask = SelfAttention.detectPadColumns(x, this.padMask);
     
-    if (this.Q._shape[0] !== this.q._shape[0] || this.Q._shape[1] !== x._shape[1]) {
-        this.Q = mj.zeros([this.q._shape[0], x._shape[1]]);
-        this.K = mj.zeros([this.k._shape[0], x._shape[1]]);
-        this.V = mj.zeros([this.v._shape[0], x._shape[1]]);
-    }
+    this.ensureForwardBuffers(this.outputUnits, x._shape[1], options?.workspace);
     
     const wq = mj.dotProduct(this.q, x, this.Q);
     const wk = mj.dotProduct(this.k, x, this.K);
     const wv = mj.dotProduct(this.v, x, this.V);
 
-    if (!this.qkBuffer || this.qkBuffer._shape[0] !== wk._shape[1] || this.qkBuffer._shape[1] !== wq._shape[1]) {
-        this.qkBuffer = mj.zeros([wk._shape[1], wq._shape[1]]);
-    }
+    // qkBuffer is already ensured in ensureForwardBuffers
     const qk = mj.dotProduct(wk, wq, this.qkBuffer, true, false);
     const scale = 1 / Math.sqrt(this.outputUnits);
     if (isNativeAvailable()) {
@@ -142,16 +159,13 @@ export default class SelfAttention {
       SelfAttention.applyMasks(qkData, qk._shape[0], qk._shape[1], this.padMask);
       this.attention = softmaxOnly(qk);
     }
-    if (this.output._shape[0] !== wv._shape[0] || this.output._shape[1] !== this.attention._shape[1]) {
-      this.output = mj.zeros([wv._shape[0], this.attention._shape[1]]);
-    }
+    // output buffer is already ensured in ensureForwardBuffers
     const output = mj.dotProduct(wv, this.attention, this.output);
     SelfAttention.zeroMaskedColumnsInPlace(output, this.padMask);
 
     this.outputShape = [output._shape[0], output._shape[1]];
 
     this.input = x;
-    this.output = output;
     return output;
   }
 
@@ -183,9 +197,7 @@ export default class SelfAttention {
     const gradV = mj.dotProduct(errV, this.input, undefined, false, true);
 
     // Simpan bobot lama SEBELUM update menggunakan pre-allocated buffer
-    if (!this.oldQBuffer) this.oldQBuffer = mj.zeros(this.q._shape);
-    if (!this.oldKBuffer) this.oldKBuffer = mj.zeros(this.k._shape);
-    if (!this.oldVBuffer) this.oldVBuffer = mj.zeros(this.v._shape);
+    this.ensureBackwardBuffers();
     
     this.oldQBuffer.copyFrom(this.q);
     this.oldKBuffer.copyFrom(this.k);
@@ -228,7 +240,6 @@ export default class SelfAttention {
     }
   }
 
-
   private static detectPadColumns(matrix: Matrix, reuse?: boolean[]): boolean[] {
     const [rows, cols] = matrix._shape;
     const mask = reuse && reuse.length === cols ? reuse : new Array<boolean>(cols);
@@ -245,7 +256,7 @@ export default class SelfAttention {
   }
 
   private static applyMasks(
-    scoreData: Float32Array | Float64Array,
+    scoreData: any,
     rows: number,
     cols: number,
     padMask: boolean[]
@@ -277,5 +288,78 @@ export default class SelfAttention {
         out[i * cols + j] = 0;
       }
     }
+  }
+
+  private ensureForwardBuffers(outputUnits: number, seqLen: number, workspace: "train" | "eval" = "train"): void {
+    const size = outputUnits * seqLen;
+    const qkSize = seqLen * seqLen;
+
+    if (workspace === "eval") {
+      this.evalBuffers.QData = MemoryManager.ensureCapacity(this.evalBuffers.QData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.evalBuffers.KData = MemoryManager.ensureCapacity(this.evalBuffers.KData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.evalBuffers.VData = MemoryManager.ensureCapacity(this.evalBuffers.VData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.evalBuffers.qkData = MemoryManager.ensureCapacity(this.evalBuffers.qkData || new Float32Array(0), qkSize, this.memoryConfig) as any;
+      this.evalBuffers.outputData = MemoryManager.ensureCapacity(this.evalBuffers.outputData || new Float32Array(0), size, this.memoryConfig) as any;
+
+      this.QData = this.evalBuffers.QData;
+      this.KData = this.evalBuffers.KData;
+      this.VData = this.evalBuffers.VData;
+      this.qkData = this.evalBuffers.qkData;
+      this.outputData = this.evalBuffers.outputData;
+    } else {
+      this.QData = MemoryManager.ensureCapacity(this.QData, size, this.memoryConfig) as any;
+      this.KData = MemoryManager.ensureCapacity(this.KData, size, this.memoryConfig) as any;
+      this.VData = MemoryManager.ensureCapacity(this.VData, size, this.memoryConfig) as any;
+      this.qkData = MemoryManager.ensureCapacity(this.qkData, qkSize, this.memoryConfig) as any;
+      this.outputData = MemoryManager.ensureCapacity(this.outputData, size, this.memoryConfig) as any;
+    }
+
+    this.Q = Matrix.fromFlat(this.QData.subarray(0, size) as any, [outputUnits, seqLen]);
+    this.K = Matrix.fromFlat(this.KData.subarray(0, size) as any, [outputUnits, seqLen]);
+    this.V = Matrix.fromFlat(this.VData.subarray(0, size) as any, [outputUnits, seqLen]);
+    this.qkBuffer = Matrix.fromFlat(this.qkData.subarray(0, qkSize) as any, [seqLen, seqLen]);
+    this.output = Matrix.fromFlat(this.outputData.subarray(0, size) as any, [outputUnits, seqLen]);
+  }
+
+  private ensureBackwardBuffers(): void {
+    const size = this.outputUnits * this.units;
+    this.oldQData = MemoryManager.ensureCapacity(this.oldQData, size, this.memoryConfig) as any;
+    this.oldKData = MemoryManager.ensureCapacity(this.oldKData, size, this.memoryConfig) as any;
+    this.oldVData = MemoryManager.ensureCapacity(this.oldVData, size, this.memoryConfig) as any;
+
+    this.oldQBuffer = Matrix.fromFlat(this.oldQData.subarray(0, size) as any, this.q._shape);
+    this.oldKBuffer = Matrix.fromFlat(this.oldKData.subarray(0, size) as any, this.k._shape);
+    this.oldVBuffer = Matrix.fromFlat(this.oldVData.subarray(0, size) as any, this.v._shape);
+  }
+
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.QData = new Float32Array(0);
+    this.KData = new Float32Array(0);
+    this.VData = new Float32Array(0);
+    this.qkData = new Float32Array(0);
+    this.outputData = new Float32Array(0);
+    this.oldQData = new Float32Array(0);
+    this.oldKData = new Float32Array(0);
+    this.oldVData = new Float32Array(0);
+
+    this.Q = mj.matrix([]);
+    this.K = mj.matrix([]);
+    this.V = mj.matrix([]);
+    this.output = mj.matrix([]);
+    this.qkBuffer = mj.matrix([]);
+    this.oldQBuffer = mj.matrix([]);
+    this.oldKBuffer = mj.matrix([]);
+    this.oldVBuffer = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    this.optimizerQ?.dispose?.();
+    this.optimizerK?.dispose?.();
+    this.optimizerV?.dispose?.();
+    (this as any).q = null;
+    (this as any).k = null;
+    (this as any).v = null;
   }
 }

@@ -11,6 +11,7 @@ import {
 import setActivation from "../utils/setActivation";
 import Matrix from "../matrix";
 import setOptimizer from "../utils/setOptimizer";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 import setLoss from "../utils/setLoss";
 import {
   denseLinearBackwardNative,
@@ -31,6 +32,8 @@ interface DenseLayers {
   optimizer?: Optimzier;
   status?: StatusLayer;
   clipGradient?: number | boolean;
+  bias?: boolean;
+  memoryConfig?: WorkspaceConfig;
 }
 
 export interface CompileDenseLayers {
@@ -57,20 +60,30 @@ export default class Dense {
   private index: number = 0;
   private optimizerWeight: OptimzierType;
   private optimizerBias: OptimzierType;
+  memoryConfig: WorkspaceConfig;
+
+  private zData: any = new Float32Array(0);
+  private resultData: any = new Float32Array(0);
+  private dInputData: any = new Float32Array(0);
+  private errorData: any = new Float32Array(0);
+  private prevLayerErrData: any = new Float32Array(0);
+  private lastTokenProjectBufferData: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
+
+  private z: Matrix;
+  private result: Matrix;
+  private dInput: Matrix;
+  private err: Matrix;
   private activationName: ActivationType;
   private optimizerName: Optimzier;
   private lossName: Cost;
   private input: Matrix = mj.matrix([]);
-  private dInput: Matrix;
-  private result: Matrix;
   private lossFunc: Function;
-  private activation: (a: Matrix) => [Matrix, Matrix];
+  private activation: (a: Matrix, out?: { result: Matrix; dResult: Matrix }) => [Matrix, Matrix];
 
   // Pre-allocated buffers for speed (REUSE)
-  private z: Matrix;
   private errWeightBuffer: Matrix;
   private errBiasBuffer: Matrix;
-  private errActivationBuffer: Matrix;
   private prevLayerErrBuffer: Matrix;
   private lastTokenProjectBuffer: Matrix;
 
@@ -83,7 +96,17 @@ export default class Dense {
     alpha = 0.1,
     loss = "mse",
     clipGradient = 5.0,
+    memoryConfig = {},
   }: DenseLayers) {
+    this.memoryConfig = memoryConfig;
+    this.z = mj.matrix([]);
+    this.result = mj.matrix([]);
+    this.err = mj.matrix([]);
+    this.dInput = mj.matrix([]);
+    this.errWeightBuffer = mj.matrix([]);
+    this.errBiasBuffer = mj.matrix([]);
+    this.prevLayerErrBuffer = mj.matrix([]);
+    this.lastTokenProjectBuffer = mj.matrix([]);
     // Guard: combining softmax activation with softmaxCrossEntropy loss applies softmax twice,
     // which produces incorrect gradients. Users should set activation='linear' when using
     // softmaxCrossEntropy loss.
@@ -107,7 +130,6 @@ export default class Dense {
     this.dInput = mj.zeros([outputUnits, 1]); // Buffer grad aktivasi
     this.errWeightBuffer = mj.zeros([outputUnits, units]); // Buffer for errWeight
     this.errBiasBuffer = mj.zeros([outputUnits, 1]);
-    this.errActivationBuffer = mj.zeros([outputUnits, 1]);
     this.prevLayerErrBuffer = mj.zeros([units, 1]);
     this.lastTokenProjectBuffer = mj.zeros([outputUnits, 1]);
     this.activation = setActivation(activation);
@@ -158,7 +180,6 @@ export default class Dense {
     this.dInput = mj.zeros([this.outputUnits, 1]);
     this.errWeightBuffer = mj.zeros([this.outputUnits, this.units]);
     this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
-    this.errActivationBuffer = mj.zeros([this.outputUnits, 1]);
     this.prevLayerErrBuffer = mj.zeros([this.units, 1]);
     this.lastTokenProjectBuffer = mj.zeros([this.outputUnits, 1]);
     this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, 1e-5);
@@ -186,11 +207,11 @@ export default class Dense {
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     const [, seqLen] = x._shape;
     this.input = x;
 
-    this.ensureForwardBuffers(seqLen);
+    this.ensureForwardBuffers(seqLen, options?.workspace);
 
     // 1. MatMul weight * input -> simpan di this.z 
     // [outputUnits, units] * [units, seqLen] -> [outputUnits, seqLen]
@@ -277,14 +298,14 @@ export default class Dense {
       return this.result;
     }
 
-    const [result, dResult] = this.activation(this.z);
-    this.dInput = dResult;
-    this.result = result;
+    this.activation(this.z, { result: this.result, dResult: this.dInput });
     return this.result;
   }
 
   backward(y: Matrix, err: Matrix): Matrix {
     const [rows, seqLen] = this.result._shape;
+    this.ensureBackwardBuffers(seqLen);
+
     let e: Matrix = mj.matrix([]);
     let lossValue = 0;
     const hasExternalError = err._data.length > 0;
@@ -293,11 +314,13 @@ export default class Dense {
       // dan loss function saat ini adalah MSE, maka PASTI akan error shape.
       // Paksa gunakan SoftmaxCrossEntropy untuk kasus klasifikasi sparse.
       const isSparseTarget = y._shape[0] === 1 && this.result._shape[0] > 1;
+      const SoftmaxCrossEntropy = require("../cost/softmaxCrossEntropy").default;
       if (isSparseTarget && this.lossName === "mse") {
-        const SoftmaxCrossEntropy = require("../cost/softmaxCrossEntropy").default;
-        [lossValue, e] = SoftmaxCrossEntropy(y, this.result);
+        [lossValue, e] = SoftmaxCrossEntropy(y, this.result, this.err);
+      } else if (this.lossName === "softmaxCrossEntropy") {
+        [lossValue, e] = SoftmaxCrossEntropy(y, this.result, this.err);
       } else {
-        [lossValue, e] = this.lossFunc(y, this.result);
+        [lossValue, e] = (this.lossFunc as any)(y, this.result, this.err);
       }
       this.index++;
       this.sumLoss += lossValue;
@@ -312,15 +335,9 @@ export default class Dense {
     } else if (this.activationName === "linear") {
       errActivation = e;
     } else {
-      if (this.errActivationBuffer._shape[0] !== e._shape[0] || this.errActivationBuffer._shape[1] !== seqLen) {
-        this.errActivationBuffer = mj.zeros([e._shape[0], seqLen]);
-      }
-      errActivation = mj.mul(e, this.dInput, this.errActivationBuffer);
+      errActivation = mj.mul(e, this.dInput, this.err);
     }
 
-    if (this.prevLayerErrBuffer._shape[0] !== this.units || this.prevLayerErrBuffer._shape[1] !== seqLen) {
-      this.prevLayerErrBuffer = mj.zeros([this.units, seqLen]);
-    }
     if (this.errBiasBuffer._shape[0] !== this.outputUnits) {
       this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
     }
@@ -441,13 +458,17 @@ export default class Dense {
     return this.result;
   }
 
-  projectLastTokenFromSequence(sequence: Matrix, seqLen: number, batchSize: number): Matrix {
+  projectLastTokenFromSequence(sequence: Matrix, seqLen: number, batchSize: number, options?: { workspace?: "train" | "eval" }): Matrix {
     if (this.activationName !== "linear") {
       throw new Error("Dense.projectLastTokenFromSequence hanya mendukung activation='linear'.");
     }
 
-    if (this.lastTokenProjectBuffer._shape[0] !== this.outputUnits || this.lastTokenProjectBuffer._shape[1] !== batchSize) {
-      this.lastTokenProjectBuffer = mj.zeros([this.outputUnits, batchSize]);
+    if (options?.workspace === "eval") {
+      this.evalBuffers.lastTokenProjectBufferData = MemoryManager.ensureCapacity(this.evalBuffers.lastTokenProjectBufferData || new Float32Array(0), this.outputUnits * batchSize, this.memoryConfig) as any;
+      this.lastTokenProjectBuffer = Matrix.fromFlat(this.evalBuffers.lastTokenProjectBufferData.subarray(0, this.outputUnits * batchSize) as any, [this.outputUnits, batchSize]);
+    } else {
+      this.lastTokenProjectBufferData = MemoryManager.ensureCapacity(this.lastTokenProjectBufferData, this.outputUnits * batchSize, this.memoryConfig) as any;
+      this.lastTokenProjectBuffer = Matrix.fromFlat(this.lastTokenProjectBufferData.subarray(0, this.outputUnits * batchSize) as any, [this.outputUnits, batchSize]);
     }
 
     if (isNativeAvailable()) {
@@ -485,15 +506,55 @@ export default class Dense {
     return this.lastTokenProjectBuffer;
   }
 
-  private ensureForwardBuffers(seqLen: number): void {
-    if (this.z._shape[0] !== this.outputUnits || this.z._shape[1] !== seqLen) {
-      this.z = mj.zeros([this.outputUnits, seqLen]);
+  private ensureForwardBuffers(seqLen: number, workspace: "train" | "eval" = "train"): void {
+    const required = this.outputUnits * seqLen;
+    if (workspace === "eval") {
+      this.evalBuffers.zData = MemoryManager.ensureCapacity(this.evalBuffers.zData || new Float32Array(0), required, this.memoryConfig) as any;
+      this.evalBuffers.resultData = MemoryManager.ensureCapacity(this.evalBuffers.resultData || new Float32Array(0), required, this.memoryConfig) as any;
+      this.evalBuffers.dInputData = MemoryManager.ensureCapacity(this.evalBuffers.dInputData || new Float32Array(0), required, this.memoryConfig) as any;
+      this.zData = this.evalBuffers.zData;
+      this.resultData = this.evalBuffers.resultData;
+      this.dInputData = this.evalBuffers.dInputData;
+    } else {
+      this.zData = MemoryManager.ensureCapacity(this.zData, required, this.memoryConfig) as any;
+      this.resultData = MemoryManager.ensureCapacity(this.resultData, required, this.memoryConfig) as any;
+      this.dInputData = MemoryManager.ensureCapacity(this.dInputData, required, this.memoryConfig) as any;
     }
-    if (this.result._shape[0] !== this.outputUnits || this.result._shape[1] !== seqLen) {
-      this.result = mj.zeros([this.outputUnits, seqLen]);
-    }
-    if (this.dInput._shape[0] !== this.outputUnits || this.dInput._shape[1] !== seqLen) {
-      this.dInput = mj.zeros([this.outputUnits, seqLen]);
-    }
+
+    this.z = Matrix.fromFlat(this.zData.subarray(0, required) as any, [this.outputUnits, seqLen]);
+    this.result = Matrix.fromFlat(this.resultData.subarray(0, required) as any, [this.outputUnits, seqLen]);
+    this.dInput = Matrix.fromFlat(this.dInputData.subarray(0, required) as any, [this.outputUnits, seqLen]);
+  }
+
+  private ensureBackwardBuffers(seqLen: number): void {
+    const required = this.outputUnits * seqLen;
+    const prevRequired = this.units * seqLen;
+
+    this.errorData = MemoryManager.ensureCapacity(this.errorData, required, this.memoryConfig) as any;
+    this.err = Matrix.fromFlat(this.errorData.subarray(0, required) as any, [this.outputUnits, seqLen]);
+
+    this.prevLayerErrData = MemoryManager.ensureCapacity(this.prevLayerErrData, prevRequired, this.memoryConfig) as any;
+    this.prevLayerErrBuffer = Matrix.fromFlat(this.prevLayerErrData.subarray(0, prevRequired) as any, [this.units, seqLen]);
+  }
+
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.zData = new Float32Array(0);
+    this.resultData = new Float32Array(0);
+    this.errorData = new Float32Array(0);
+    this.prevLayerErrData = new Float32Array(0);
+    this.z = mj.matrix([]);
+    this.result = mj.matrix([]);
+    this.err = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    this.optimizerWeight?.dispose?.();
+    this.optimizerBias?.dispose?.();
+    (this as any).weight = null;
+    (this as any).bias = null;
+    (this as any).optimizerWeight = null;
+    (this as any).optimizerBias = null;
   }
 }

@@ -79,8 +79,12 @@ const update = optimizer.calculate(grad, 0.001);
 Every optimizer implements:
 
 ```ts
-calculate(grad, alpha): Matrix
+calculate(grad: Matrix, alpha: number): Matrix
+dispose(): void
 ```
+
+- `calculate()` returns an update matrix.
+- `dispose()` **(New in v2.3.0)** explicitly releases memory for internal moment and state buffers.
 
 `calculate()` returns an update matrix. Layers subtract that update from their parameters:
 

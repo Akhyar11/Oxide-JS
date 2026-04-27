@@ -3,6 +3,7 @@ import mj from "../math";
 import Matrix from "../matrix";
 import setActivation from "../utils/setActivation";
 import setLoss from "../utils/setLoss";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 export default class Activation {
   name: string = "activation layer";
@@ -15,10 +16,14 @@ export default class Activation {
   status: StatusLayer;
   activationName: ActivationType;
   lossName: Cost;
-  private result: Matrix = mj.matrix([]);
-  private dResult: Matrix = mj.matrix([]);
+  private resultData: any = new Float32Array(0);
+  private dResultData: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
+  private result: Matrix;
+  private dResult: Matrix;
   private sumLoss: number = 0;
   private index: number = 0;
+  memoryConfig: WorkspaceConfig = {};
   constructor({
     activation,
     status = "input",
@@ -33,6 +38,8 @@ export default class Activation {
     this.status = status;
     this.lossFunc = setLoss(loss);
     this.lossName = loss;
+    this.result = mj.matrix([]);
+    this.dResult = mj.matrix([]);
   }
 
   save() {
@@ -61,9 +68,28 @@ export default class Activation {
     this.status = status;
   }
 
-  forward(x: Matrix) {
-    [this.result, this.dResult] = this.activation(x);
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }) {
+    const required = x._data.length;
+    this.ensureForwardBuffers(required, x._shape, options?.workspace);
+
+    this.activation(x, { result: this.result, dResult: this.dResult });
     return this.result;
+  }
+
+  private ensureForwardBuffers(size: number, shape: [number, number], workspace: "train" | "eval" = "train") {
+    if (workspace === "eval") {
+      this.evalBuffers.resultData = MemoryManager.ensureCapacity(this.evalBuffers.resultData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.evalBuffers.dResultData = MemoryManager.ensureCapacity(this.evalBuffers.dResultData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.resultData = this.evalBuffers.resultData;
+      this.dResultData = this.evalBuffers.dResultData;
+    } else {
+      this.resultData = MemoryManager.ensureCapacity(this.resultData, size, this.memoryConfig) as any;
+      this.dResultData = MemoryManager.ensureCapacity(this.dResultData, size, this.memoryConfig) as any;
+    }
+
+    // Wrap matrices around the buffers
+    this.result = Matrix.fromFlat(this.resultData.subarray(0, size) as any, shape);
+    this.dResult = Matrix.fromFlat(this.dResultData.subarray(0, size) as any, shape);
   }
 
   backward(y: Matrix, err: Matrix) {

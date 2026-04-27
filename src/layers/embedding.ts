@@ -3,6 +3,7 @@ import Matrix from "../matrix";
 import { Optimzier, OptimzierType, StatusLayer, matrix2d } from "../@types/type";
 import setOptimizer from "../utils/setOptimizer";
 import { isNativeAvailable, embeddingForwardNative, embeddingBackwardSparseNative } from "../math/rust_backend";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 export interface EmbeddingLayerParams {
   vocabSize: number;
@@ -11,6 +12,7 @@ export interface EmbeddingLayerParams {
   status?: StatusLayer;
   optimizer?: Optimzier;
   padTokenId?: number | null;
+  memoryConfig?: WorkspaceConfig;
 }
 
 /**
@@ -29,16 +31,20 @@ export default class Embedding {
   params: number;
   inputShape: [number, number] = [0, 0];
   outputShape: [number, number] = [0, 0];
+  memoryConfig: WorkspaceConfig;
+  private lastSeqLen: number = 0;
 
   // State for backprop
   loss: number = 0;
   private inputIndices: Int32Array = new Int32Array(0);
 
   // Buffers
+  private outputBufferData: any = new Float32Array(0);
+  private evalOutputBufferData: any = new Float32Array(0);
   private outputBuffer: Matrix | null = null;
   private gradWeightBuffer: Matrix | null = null;
   private errOutputBuffer: Matrix | null = null;
-  private orderedInputBuffer: Int32Array = new Int32Array(0);
+  private orderedInputBuffer = new Int32Array(0);
 
   constructor({
     vocabSize,
@@ -47,7 +53,9 @@ export default class Embedding {
     status = "input",
     optimizer = "adam",
     padTokenId = null,
+    memoryConfig = {},
   }: EmbeddingLayerParams) {
+    this.memoryConfig = memoryConfig;
     this.vocabSize = vocabSize;
     this.embeddingDim = embeddingDim;
     this.status = status;
@@ -100,24 +108,28 @@ export default class Embedding {
     }
   }
 
-  forward(x: Matrix): Matrix {
-    return this.forwardWithLayout(x, "sample-major");
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
+    return this.forwardWithLayout(x, "sample-major", options);
   }
 
-  forwardTimeMajor(x: Matrix): Matrix {
-    return this.forwardWithLayout(x, "time-major");
+  forwardBatch(x: Matrix, _batchSize: number, options?: { workspace?: "train" | "eval" }): Matrix {
+    return this.forwardWithLayout(x, "sample-major", options);
+  }
+
+  forwardTimeMajor(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
+    return this.forwardWithLayout(x, "time-major", options);
   }
 
   backward(y: Matrix, err: Matrix): Matrix {
     // Optimization: Use sparse updates instead of a full [embeddingDim, vocabSize] matrix
-    const seqLen = this.inputIndices.length;
+    const seqLen = this.lastSeqLen;
     const errData = err._data;
 
     let uniqueIndices: Int32Array;
     let smallGrad: Matrix;
 
     if (isNativeAvailable() && this.inputIndices instanceof Int32Array) {
-      const res = embeddingBackwardSparseNative(this.inputIndices, errData, this.embeddingDim, this.padTokenId);
+      const res = embeddingBackwardSparseNative(this.inputIndices.subarray(0, seqLen), errData, this.embeddingDim, this.padTokenId);
       uniqueIndices = res.uniqueIndices;
       smallGrad = Matrix.fromFlat(res.grad, [this.embeddingDim, uniqueIndices.length]);
     } else {
@@ -201,11 +213,11 @@ export default class Embedding {
     this.loss = 0;
   }
 
-  private forwardWithLayout(x: Matrix, layout: "sample-major" | "time-major"): Matrix {
+  private forwardWithLayout(x: Matrix, layout: "sample-major" | "time-major", options?: { workspace?: "train" | "eval" }): Matrix {
     const [rows, cols] = x._shape;
     const totalTokens = rows * cols;
-    if (this.orderedInputBuffer.length !== totalTokens) {
-      this.orderedInputBuffer = new Int32Array(totalTokens);
+    if (this.orderedInputBuffer.length < totalTokens) {
+      this.orderedInputBuffer = new Int32Array(Math.max(totalTokens, this.orderedInputBuffer.length * 2 || 1024));
     }
 
     if (layout === "sample-major") {
@@ -224,16 +236,15 @@ export default class Embedding {
     this.inputIndices = this.orderedInputBuffer;
 
     const seqLen = totalTokens;
+    this.lastSeqLen = seqLen;
     this.inputShape = [rows, cols];
     this.outputShape = [this.embeddingDim, seqLen];
 
-    if (!this.outputBuffer || this.outputBuffer._shape[0] !== this.embeddingDim || this.outputBuffer._shape[1] !== seqLen) {
-      this.outputBuffer = mj.zeros([this.embeddingDim, seqLen]);
-    }
+    this.outputBuffer = this.ensureOutputBuffer(this.embeddingDim, seqLen, options?.workspace);
     const outputData = this.outputBuffer._data;
 
     if (isNativeAvailable()) {
-      embeddingForwardNative(this.inputIndices, this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);
+      embeddingForwardNative(this.inputIndices.subarray(0, seqLen), this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);
       return this.outputBuffer;
     }
     outputData.fill(0);
@@ -260,5 +271,47 @@ export default class Embedding {
       throw new Error(`Token index '${rawTokenIndex}' di luar kapasitas vocabulary (0 - ${this.vocabSize - 1})`);
     }
     return tokenIndex;
+  }
+
+  private ensureOutputBuffer(rows: number, cols: number, workspace: "train" | "eval" = "train"): Matrix {
+    const required = rows * cols;
+    if (workspace === "eval") {
+      this.evalOutputBufferData = MemoryManager.ensureCapacity(
+        this.evalOutputBufferData,
+        required,
+        this.memoryConfig
+      ) as any;
+      return Matrix.fromFlat(this.evalOutputBufferData.subarray(0, required) as any, [rows, cols]);
+    }
+
+    this.outputBufferData = MemoryManager.ensureCapacity(
+      this.outputBufferData,
+      required,
+      this.memoryConfig
+    ) as any;
+
+    this.outputBuffer = Matrix.fromFlat(
+      this.outputBufferData.subarray(0, required) as any,
+      [rows, cols]
+    );
+
+    return this.outputBuffer;
+  }
+
+  releaseWorkspace(): void {
+    this.outputBufferData = new Float32Array(0);
+    this.evalOutputBufferData = new Float32Array(0);
+    this.outputBuffer = null;
+    this.inputIndices = new Int32Array(0);
+    this.orderedInputBuffer = new Int32Array(0);
+    this.errOutputBuffer = null;
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    // Clear weights and optimizer if needed, but usually dispose means model-level cleanup
+    this.optimizerWeight?.dispose?.();
+    (this as any).weight = null;
+    (this as any).optimizerWeight = null;
   }
 }

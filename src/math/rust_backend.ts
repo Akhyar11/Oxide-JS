@@ -549,14 +549,15 @@ export const convolutionNative = (
   aCols: number,
   kData: Float32Array,
   kRows: number,
-  kCols: number
+  kCols: number,
+  out?: Float32Array
 ): Float32Array => {
   if (!native) throw new Error("Native backend not available");
   const outRows = aRows - kRows + 1;
   const outCols = aCols - kCols + 1;
-  const out = new Float32Array(outRows * outCols);
-  native.convolutionNativeInto(aData, aRows, aCols, kData, kRows, kCols, out);
-  return out;
+  const result = out || new Float32Array(outRows * outCols);
+  native.convolutionNativeInto(aData, aRows, aCols, kData, kRows, kCols, result);
+  return result;
 };
 
 export const convBackwardInputNative = (
@@ -567,12 +568,13 @@ export const convBackwardInputNative = (
   inputRows: number,
   inputCols: number,
   outRows: number,
-  outCols: number
+  outCols: number,
+  out?: Float32Array
 ): Float32Array => {
   if (!native) throw new Error("Native backend not available");
-  const out = new Float32Array(outRows * outCols);
-  native.convBackwardInputNativeInto(errData, errRows, errCols, inputData, inputRows, inputCols, outRows, outCols, out);
-  return out;
+  const result = out || new Float32Array(outRows * outCols);
+  native.convBackwardInputNativeInto(errData, errRows, errCols, inputData, inputRows, inputCols, outRows, outCols, result);
+  return result;
 };
 export const addBiasNative = (data: Float32Array, bias: Float32Array, rows: number, cols: number): void => {
   if (!native) throw new Error("Native backend not available");
@@ -910,4 +912,14 @@ export const gruBackwardNative = (
     dbhData,
     dxData
   );
+};
+
+export const createNativeBPE = (
+  vocab: Record<string, number>,
+  merges: [string, string][],
+  unkTokenId: number,
+  wordBoundary: string
+): any => {
+  if (!native) throw new Error("Native backend not available");
+  return new native.NativeBPE(vocab, merges, unkTokenId, wordBoundary);
 };

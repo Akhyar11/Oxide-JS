@@ -22,6 +22,18 @@ ML-V1 provides three model classes:
 | `Transformers` | Multi-block causal language model with full-sequence training and configurable inference modes. |
 | `DimentionalityReduction` | Extends `Sequential` with an encoder/decoder split for autoencoder scenarios. |
 
+### Common Methods
+
+All models share these standard methods:
+
+| Method | Description |
+|---|---|
+| `train()` | Switches to training mode (enables Dropout, etc.). |
+| `eval()` | Switches to evaluation mode (disables Dropout, etc.). |
+| `save(path: string)` | Persists model weights and configuration to a JSON file. |
+| `load(path: string)` | Restores model weights from a JSON file. |
+| `dispose()` | **New in v2.3.0.** Recursively releases memory from all layers and optimizers. Use this for cleanup. |
+
 ---
 
 ## API Reference

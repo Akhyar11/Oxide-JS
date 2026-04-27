@@ -3,6 +3,7 @@ import mj from "../math";
 import Matrix from "../matrix";
 import { isNativeAvailable, layerNormNative, layerNormBackwardNative } from "../math/rust_backend";
 import setOptimizer from "../utils/setOptimizer";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 /**
  * Layer Normalization
@@ -23,20 +24,32 @@ export default class LayerNormalization {
   outputShape: [number, number] = [0, 0];
   loss: number = 0;
   clipGradient: number | boolean = 5.0;
+  memoryConfig: WorkspaceConfig;
 
   private epsilon = 1e-5;
   private input: Matrix = mj.matrix([]);
-  private normalized: Matrix = mj.matrix([]);
-  private std: Matrix = mj.matrix([]);
-  private mean: Matrix = mj.matrix([]);
   private alpha: number = 0.01;
   private optimizerName: Optimzier = "sgd";
   private optimizerGamma: OptimzierType;
   private optimizerBeta: OptimzierType;
-  private resultBuffer: Matrix = mj.matrix([]);
-  private dGammaBuffer: Matrix = mj.matrix([]);
-  private dBetaBuffer: Matrix = mj.matrix([]);
-  private dxBuffer: Matrix = mj.matrix([]);
+
+  private resultData: any = new Float32Array(0);
+  private normalizedData: any = new Float32Array(0);
+  private meanData: any = new Float32Array(0);
+  private stdData: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
+
+  private dGammaData: any = new Float32Array(0);
+  private dBetaData: any = new Float32Array(0);
+  private dxData: any = new Float32Array(0);
+
+  private resultBuffer: Matrix;
+  private normalized: Matrix;
+  private mean: Matrix;
+  private std: Matrix;
+  private dGammaBuffer: Matrix;
+  private dBetaBuffer: Matrix;
+  private dxBuffer: Matrix;
 
   constructor({
     units,
@@ -44,12 +57,14 @@ export default class LayerNormalization {
     alpha = 0.01,
     optimizer = "sgd",
     clipGradient,
+    memoryConfig = {},
   }: {
     units: number;
     status?: StatusLayer;
     alpha?: number;
     optimizer?: Optimzier;
     clipGradient?: number | boolean;
+    memoryConfig?: WorkspaceConfig;
   }) {
     this.units = units;
     this.status = status;
@@ -61,6 +76,14 @@ export default class LayerNormalization {
     this.params = units * 2;
     this.optimizerGamma = setOptimizer(this.optimizerName, this.gamma._shape, this.alpha);
     this.optimizerBeta = setOptimizer(this.optimizerName, this.beta._shape, this.alpha);
+    this.memoryConfig = memoryConfig;
+    this.resultBuffer = mj.matrix([]);
+    this.normalized = mj.matrix([]);
+    this.mean = mj.matrix([]);
+    this.std = mj.matrix([]);
+    this.dGammaBuffer = mj.matrix([]);
+    this.dBetaBuffer = mj.matrix([]);
+    this.dxBuffer = mj.matrix([]);
   }
 
   save() {
@@ -86,12 +109,12 @@ export default class LayerNormalization {
     this.optimizerBeta = setOptimizer(this.optimizerName, this.beta._shape, this.alpha);
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     const [rows, cols] = x._shape;
     this.input = x;
     this.inputShape = [rows, cols];
     this.outputShape = [rows, cols];
-    this.ensureForwardBuffers(rows, cols);
+    this.ensureForwardBuffers(rows, cols, options?.workspace);
 
     if (isNativeAvailable()) {
       layerNormNative(
@@ -157,13 +180,7 @@ export default class LayerNormalization {
     if (rows !== fwdRows || cols !== fwdCols) {
       throw new Error(`LayerNormalization.backward: err shape [${rows}x${cols}] does not match forward input shape [${fwdRows}x${fwdCols}]`);
     }
-    if (this.dGammaBuffer._shape[0] !== this.units) {
-      this.dGammaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
-      this.dBetaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
-    }
-    if (this.dxBuffer._shape[0] !== rows || this.dxBuffer._shape[1] !== cols) {
-      this.dxBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
-    }
+    this.ensureBackwardBuffers(rows, cols);
 
     const dGamma = this.dGammaBuffer._data;
     const dBeta = this.dBetaBuffer._data;
@@ -247,14 +264,40 @@ export default class LayerNormalization {
     }
   }
 
-  private ensureForwardBuffers(rows: number, cols: number): void {
-    if (this.resultBuffer._shape[0] === rows && this.resultBuffer._shape[1] === cols) {
-      return;
+  private ensureForwardBuffers(rows: number, cols: number, workspace: "train" | "eval" = "train"): void {
+    const size = rows * cols;
+    if (workspace === "eval") {
+      this.evalBuffers.resultData = MemoryManager.ensureCapacity(this.evalBuffers.resultData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.evalBuffers.normalizedData = MemoryManager.ensureCapacity(this.evalBuffers.normalizedData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.evalBuffers.meanData = MemoryManager.ensureCapacity(this.evalBuffers.meanData || new Float32Array(0), cols, this.memoryConfig) as any;
+      this.evalBuffers.stdData = MemoryManager.ensureCapacity(this.evalBuffers.stdData || new Float32Array(0), cols, this.memoryConfig) as any;
+
+      this.resultData = this.evalBuffers.resultData;
+      this.normalizedData = this.evalBuffers.normalizedData;
+      this.meanData = this.evalBuffers.meanData;
+      this.stdData = this.evalBuffers.stdData;
+    } else {
+      this.resultData = MemoryManager.ensureCapacity(this.resultData, size, this.memoryConfig) as any;
+      this.normalizedData = MemoryManager.ensureCapacity(this.normalizedData, size, this.memoryConfig) as any;
+      this.meanData = MemoryManager.ensureCapacity(this.meanData, cols, this.memoryConfig) as any;
+      this.stdData = MemoryManager.ensureCapacity(this.stdData, cols, this.memoryConfig) as any;
     }
-    this.resultBuffer = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
-    this.normalized = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
-    this.mean = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
-    this.std = Matrix.fromFlat(new Float32Array(cols), [1, cols]);
+
+    this.resultBuffer = Matrix.fromFlat(this.resultData.subarray(0, size) as any, [rows, cols]);
+    this.normalized = Matrix.fromFlat(this.normalizedData.subarray(0, size) as any, [rows, cols]);
+    this.mean = Matrix.fromFlat(this.meanData.subarray(0, cols) as any, [1, cols]);
+    this.std = Matrix.fromFlat(this.stdData.subarray(0, cols) as any, [1, cols]);
+  }
+
+  private ensureBackwardBuffers(rows: number, cols: number): void {
+    const size = rows * cols;
+    this.dGammaData = MemoryManager.ensureCapacity(this.dGammaData, this.units, this.memoryConfig) as any;
+    this.dBetaData = MemoryManager.ensureCapacity(this.dBetaData, this.units, this.memoryConfig) as any;
+    this.dxData = MemoryManager.ensureCapacity(this.dxData, size, this.memoryConfig) as any;
+
+    this.dGammaBuffer = Matrix.fromFlat(this.dGammaData.subarray(0, this.units) as any, [this.units, 1]);
+    this.dBetaBuffer = Matrix.fromFlat(this.dBetaData.subarray(0, this.units) as any, [this.units, 1]);
+    this.dxBuffer = Matrix.fromFlat(this.dxData.subarray(0, size) as any, [rows, cols]);
   }
 
   compile({ alpha, optimizer, error, clipGradient }: { alpha?: number; optimizer?: Optimzier; error?: Cost; clipGradient?: number | boolean }) {
@@ -267,7 +310,32 @@ export default class LayerNormalization {
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
   }
 
-  resetLoss(): void {
-    this.loss = 0;
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.resultData = new Float32Array(0);
+    this.normalizedData = new Float32Array(0);
+    this.meanData = new Float32Array(0);
+    this.stdData = new Float32Array(0);
+    this.dGammaData = new Float32Array(0);
+    this.dBetaData = new Float32Array(0);
+    this.dxData = new Float32Array(0);
+
+    this.resultBuffer = mj.matrix([]);
+    this.normalized = mj.matrix([]);
+    this.mean = mj.matrix([]);
+    this.std = mj.matrix([]);
+    this.dGammaBuffer = mj.matrix([]);
+    this.dBetaBuffer = mj.matrix([]);
+    this.dxBuffer = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    this.optimizerGamma?.dispose?.();
+    this.optimizerBeta?.dispose?.();
+    (this as any).gamma = null;
+    (this as any).beta = null;
+    (this as any).optimizerGamma = null;
+    (this as any).optimizerBeta = null;
   }
 }

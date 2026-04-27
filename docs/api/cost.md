@@ -27,6 +27,8 @@ Available string identifiers for `compile()`:
 
 ## API Reference
 
+All cost functions follow the same signature: `(yTrue: Matrix, yPred: Matrix, dResult?: Matrix): [number, Matrix]`.
+
 ### `MeanSquerError`
 
 Mean Squared Error. Measures the average of the squared differences between predictions and targets.
@@ -36,11 +38,14 @@ Mean Squared Error. Measures the average of the squared differences between pred
 ```ts
 import { MeanSquerError } from "@akhyar11/ml-v1"
 
-const loss = new MeanSquerError();
-// Used internally by layers when loss: "mse" is configured
+// Manual usage:
+const [loss, gradient] = MeanSquerError(yTrue, yPred);
+
+// Performance usage (reusing gradient buffer):
+MeanSquerError(yTrue, yPred, persistentBuffer);
 ```
 
-> **Note:** The export name is `MeanSquerError` (matching the source code spelling). Do not rename it to `MeanSquareError`.
+> **Note:** The export name is `MeanSquerError` (matching the source code spelling).
 
 ---
 
@@ -48,27 +53,11 @@ const loss = new MeanSquerError();
 
 Cross-entropy loss for multi-class classification with one-hot encoded targets.
 
-**Best for:** Multi-class classification where targets are probability distributions or one-hot vectors.
-
-```ts
-import { CategoricalCrossEntropy } from "@akhyar11/ml-v1"
-
-const loss = new CategoricalCrossEntropy();
-```
-
 ---
 
 ### `BinaryCrossEntropy`
 
 Binary cross-entropy loss for two-class classification.
-
-**Best for:** Binary classification (single sigmoid output unit).
-
-```ts
-import { BinaryCrossEntropy } from "@akhyar11/ml-v1"
-
-const loss = new BinaryCrossEntropy();
-```
 
 ---
 
@@ -77,12 +66,6 @@ const loss = new BinaryCrossEntropy();
 Combined softmax activation + cross-entropy loss. Numerically more stable than applying them separately. Works with **sparse integer class indices** as targets.
 
 **Best for:** Multi-class and token classification tasks (including Transformer LM training).
-
-```ts
-import { SoftmaxCrossEntropy } from "@akhyar11/ml-v1"
-
-const loss = new SoftmaxCrossEntropy();
-```
 
 Typical usage in a `Dense` output layer:
 

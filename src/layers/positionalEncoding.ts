@@ -1,6 +1,7 @@
 import mj from "../math";
 import Matrix from "../matrix";
 import { StatusLayer } from "../@types/type";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 /**
  * Positional Encoding Layer
@@ -23,24 +24,30 @@ export default class PositionalEncoding {
   params: number = 0;   // Tidak ada parameter trainable
   status: StatusLayer;
   loss: number = 0;
+  memoryConfig: WorkspaceConfig;
 
   // Tabel PE yang sudah diprecompute: [dModel, maxSeqLen]
   private peTable: Matrix;
-  private resultBuffer: Matrix | null = null;
+  private outputData: any = new Float32Array(0);
+  private evalBuffers: Record<string, any> = {};
+  private resultBuffer: Matrix;
   private inferredPadMask: boolean[] = [];
 
   constructor({
     dModel,
     maxSeqLen = 512,
     status = "norm",
+    memoryConfig = {},
   }: {
     dModel: number;
     maxSeqLen?: number;
     status?: StatusLayer;
+    memoryConfig?: WorkspaceConfig;
   }) {
     this.dModel = dModel;
     this.maxSeqLen = maxSeqLen;
     this.status = status;
+    this.memoryConfig = memoryConfig;
     this.inputShape = [dModel, 0];
     this.outputShape = [dModel, 0];
 
@@ -59,6 +66,7 @@ export default class PositionalEncoding {
       }
     }
     this.peTable = new Matrix({ array: pe });
+    this.resultBuffer = mj.matrix([]);
   }
 
   save() {
@@ -83,7 +91,7 @@ export default class PositionalEncoding {
    *   positions within a sequence.  Defaults to maxSeqLen (original behavior).
    * @param padMask - optional sample-major mask where true means the whole token column is PAD.
    */
-  forward(x: Matrix, positionOffset = 0, seqLen?: number, padMask?: boolean[]): Matrix {
+  forward(x: Matrix, positionOffset = 0, seqLen?: number, padMask?: boolean[], options?: { workspace?: "train" | "eval" }): Matrix {
     const actualTotalTokens = x._shape[1];
     const cycleLen = seqLen ?? this.maxSeqLen;
     this.inputShape = [this.dModel, actualTotalTokens];
@@ -91,9 +99,7 @@ export default class PositionalEncoding {
 
     const cols = actualTotalTokens;
 
-    if (!this.resultBuffer || this.resultBuffer._shape[0] !== this.dModel || this.resultBuffer._shape[1] !== actualTotalTokens) {
-      this.resultBuffer = mj.zeros([this.dModel, actualTotalTokens]);
-    }
+    this.ensureForwardBuffers(this.dModel, actualTotalTokens, options?.workspace);
     const result = this.resultBuffer._data;
     result.fill(0);
 
@@ -152,5 +158,29 @@ export default class PositionalEncoding {
     }
 
     return this.inferredPadMask;
+  }
+
+  private ensureForwardBuffers(dModel: number, totalTokens: number, workspace: "train" | "eval" = "train"): void {
+    const size = dModel * totalTokens;
+
+    if (workspace === "eval") {
+      this.evalBuffers.outputData = MemoryManager.ensureCapacity(this.evalBuffers.outputData || new Float32Array(0), size, this.memoryConfig) as any;
+      this.outputData = this.evalBuffers.outputData;
+    } else {
+      this.outputData = MemoryManager.ensureCapacity(this.outputData, size, this.memoryConfig) as any;
+    }
+
+    this.resultBuffer = Matrix.fromFlat(this.outputData.subarray(0, size) as any, [dModel, totalTokens]);
+  }
+
+  releaseWorkspace(): void {
+    this.evalBuffers = {};
+    this.outputData = new Float32Array(0);
+    this.resultBuffer = mj.matrix([]);
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    (this as any).peTable = null;
   }
 }

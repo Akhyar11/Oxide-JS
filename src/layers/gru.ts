@@ -4,6 +4,7 @@ import { isNativeAvailable, gruForwardNative, gruBackwardNative } from "../math/
 import Matrix from "../matrix";
 import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
+import { MemoryManager, WorkspaceConfig } from "../utils/memory";
 
 export interface GRULayerConfig {
   units: number;
@@ -17,6 +18,7 @@ export interface GRULayerConfig {
   status?: StatusLayer;
   clipGradient?: number | boolean;
   loss?: Cost;
+  memoryConfig?: WorkspaceConfig;
 }
 
 type DirectionParams = {
@@ -44,11 +46,12 @@ type DirectionParams = {
   rSeq: Float32Array[];
   zSeq: Float32Array[];
   nSeq: Float32Array[];
-  xSeqBuffer: Float32Array;
-  hSeqBuffer: Float32Array;
-  rSeqBuffer: Float32Array;
-  zSeqBuffer: Float32Array;
-  nSeqBuffer: Float32Array;
+  xSeqBuffer: any;
+  hSeqBuffer: any;
+  rSeqBuffer: any;
+  zSeqBuffer: any;
+  nSeqBuffer: any;
+  evalBuffers?: Record<string, any>;
 };
 
 export default class GRU {
@@ -66,6 +69,7 @@ export default class GRU {
   status: StatusLayer;
   alpha: number;
   clipGradient: number | boolean;
+  memoryConfig: WorkspaceConfig;
 
   private optimizerName: Optimzier;
   private lossName: Cost;
@@ -91,14 +95,14 @@ export default class GRU {
   private batchOuterHiddenBuffer: Matrix = mj.matrix([]);
   private batchBiasGradBuffer: Matrix = mj.matrix([]);
   private batchTransposeProductBuffer: Matrix = mj.matrix([]);
-  private errorStepBuffer: Float32Array = new Float32Array(0);
-  private batchErrorStepBuffer: Float32Array = new Float32Array(0);
+  private errorStepBuffer: any = new Float32Array(0);
+  private batchErrorStepBuffer: any = new Float32Array(0);
   private bTensors?: any;
   private bBatchTensors?: any;
-  private splitForwardErrorBuffer: Float32Array = new Float32Array(0);
-  private splitBackwardErrorBuffer: Float32Array = new Float32Array(0);
-  private batchSplitForwardErrorBuffer: Float32Array = new Float32Array(0);
-  private batchSplitBackwardErrorBuffer: Float32Array = new Float32Array(0);
+  private splitForwardErrorBuffer: any = new Float32Array(0);
+  private splitBackwardErrorBuffer: any = new Float32Array(0);
+  private batchSplitForwardErrorBuffer: any = new Float32Array(0);
+  private batchSplitBackwardErrorBuffer: any = new Float32Array(0);
 
   constructor({
     units,
@@ -112,7 +116,9 @@ export default class GRU {
     status = "input",
     clipGradient = 5.0,
     loss = "mse",
+    memoryConfig = {},
   }: GRULayerConfig) {
+    this.memoryConfig = memoryConfig;
     this.units = units;
     this.hiddenUnits = hiddenUnits;
     this.returnSequences = returnSequences;
@@ -133,6 +139,8 @@ export default class GRU {
     this.outputShape = [this.bidirectional ? hiddenUnits * 2 : hiddenUnits, returnSequences ? 0 : 1];
     const perDirection = 3 * (hiddenUnits * units + hiddenUnits * hiddenUnits + hiddenUnits);
     this.params = this.bidirectional ? perDirection * 2 : perDirection;
+    this.forwardDirection.evalBuffers = {};
+    if (this.backwardDirection) this.backwardDirection.evalBuffers = {};
   }
 
   save() {
@@ -213,7 +221,7 @@ export default class GRU {
     };
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     if (this.returnState) {
       throw new Error("GRU.forward: returnState=true is not supported yet. Disable returnState for GRU.");
     }
@@ -234,7 +242,7 @@ export default class GRU {
 
     this.inputShape = [this.units, seqLen];
     this.outputShape = [outRows, outCols];
-    const forwardH = this.runDirectionForward(this.forwardDirection, x, false);
+    const forwardH = this.runDirectionForward(this.forwardDirection, x, false, options?.workspace);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         this.setColumnData(this.resultBuffer._data, outCols, t, forwardH[t]);
@@ -244,7 +252,7 @@ export default class GRU {
     }
 
     if (this.backwardDirection) {
-      const backwardH = this.runDirectionForward(this.backwardDirection, x, true);
+      const backwardH = this.runDirectionForward(this.backwardDirection, x, true, options?.workspace);
       if (this.returnSequences) {
         for (let t = 0; t < seqLen; t++) {
           const col = this.resultBuffer._data;
@@ -261,7 +269,7 @@ export default class GRU {
     return this.resultBuffer;
   }
 
-  forwardBatch(x: Matrix, batchSize: number): Matrix {
+  forwardBatch(x: Matrix, batchSize: number, options?: { workspace?: "train" | "eval" }): Matrix {
     this.assertBatchInputSupported(x, batchSize);
     const totalCols = x._shape[1];
     const seqLen = totalCols / batchSize;
@@ -275,7 +283,7 @@ export default class GRU {
 
     this.inputShape = [this.units, totalCols];
     this.outputShape = [outRows, outCols];
-    const forwardH = this.runDirectionForwardBatch(this.forwardDirection, x, batchSize, false);
+    const forwardH = this.runDirectionForwardBatch(this.forwardDirection, x, batchSize, false, options?.workspace);
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
         this.writeColumnBlock(this.resultBuffer, t * batchSize, batchSize, forwardH[t]);
@@ -285,7 +293,7 @@ export default class GRU {
     }
 
     if (this.backwardDirection) {
-      const backwardH = this.runDirectionForwardBatch(this.backwardDirection, x, batchSize, true);
+      const backwardH = this.runDirectionForwardBatch(this.backwardDirection, x, batchSize, true, options?.workspace);
       if (this.returnSequences) {
         for (let t = 0; t < seqLen; t++) {
           this.writeColumnBlockOffset(this.resultBuffer, t * batchSize, batchSize, this.hiddenUnits, backwardH[t]);
@@ -377,7 +385,7 @@ export default class GRU {
       const dxBackward = this.runDirectionBackwardBatch(this.backwardDirection, extBackward, batchSize, true);
       for (let i = 0; i < dx.length; i++) dx[i] += dxBackward[i];
     }
-    return Matrix.fromFlat(dx, [this.units, totalCols]);
+    return Matrix.fromFlat(dx.subarray(0, this.units * totalCols), [this.units, totalCols]);
   }
 
   resetLoss() {
@@ -454,9 +462,9 @@ export default class GRU {
     return perStep;
   }
 
-  private runDirectionForward(direction: DirectionParams, x: Matrix, reverse: boolean): Float32Array[] {
+  private runDirectionForward(direction: DirectionParams, x: Matrix, reverse: boolean, workspace: "train" | "eval" = "train"): Float32Array[] {
     const seqLen = x._shape[1];
-    this.ensureDirectionSequenceBuffers(direction, seqLen, 1);
+    this.ensureDirectionSequenceBuffers(direction, seqLen, 1, workspace);
     const h0 = direction.hSeq[0];
     h0.fill(0);
     if (this.stateful) h0.set(direction.hStateful._data);
@@ -532,12 +540,13 @@ export default class GRU {
     direction: DirectionParams,
     x: Matrix,
     batchSize: number,
-    reverse: boolean
+    reverse: boolean,
+    workspace: "train" | "eval" = "train"
   ): Float32Array[] {
     const totalCols = x._shape[1];
     const seqLen = totalCols / batchSize;
     this.ensureBatchForwardBuffers(batchSize, totalCols);
-    this.ensureDirectionSequenceBuffers(direction, seqLen, batchSize);
+    this.ensureDirectionSequenceBuffers(direction, seqLen, batchSize, workspace);
     const xGateR = this.batchGateXRBuffer;
     const xGateZ = this.batchGateXZBuffer;
     const xGateN = this.batchGateXNBuffer;
@@ -1138,64 +1147,65 @@ export default class GRU {
     }
   }
 
-  private ensureDirectionSequenceBuffers(direction: DirectionParams, seqLen: number, batchSize: number) {
-    const inputWidth = this.units * batchSize;
-    const hiddenWidth = this.hiddenUnits * batchSize;
+  private ensureDirectionSequenceBuffers(dir: DirectionParams, seqLen: number, batchSize: number, workspace: "train" | "eval" = "train") {
+    const inputLen = seqLen * this.units * batchSize;
+    const hiddenLen = (seqLen + 1) * this.hiddenUnits * batchSize;
+    const gateLen = seqLen * this.hiddenUnits * batchSize;
 
-    let rebuild = false;
-    if (direction.xSeqBuffer.length < seqLen * inputWidth) rebuild = true;
-    if (direction.hSeqBuffer.length < (seqLen + 1) * hiddenWidth) rebuild = true;
-    if (direction.xSeq.length !== seqLen) rebuild = true;
-    if (direction.xSeq.length > 0 && direction.xSeq[0].length !== inputWidth) rebuild = true;
-
-    direction.xSeqBuffer = this.ensureCapacity(direction.xSeqBuffer, seqLen * inputWidth);
-    direction.hSeqBuffer = this.ensureCapacity(direction.hSeqBuffer, (seqLen + 1) * hiddenWidth);
-    direction.rSeqBuffer = this.ensureCapacity(direction.rSeqBuffer, seqLen * hiddenWidth);
-    direction.zSeqBuffer = this.ensureCapacity(direction.zSeqBuffer, seqLen * hiddenWidth);
-    direction.nSeqBuffer = this.ensureCapacity(direction.nSeqBuffer, seqLen * hiddenWidth);
-
-    if (rebuild) {
-      direction.xSeq = this.buildErrorViews(direction.xSeqBuffer, seqLen, inputWidth);
-      direction.hSeq = this.buildErrorViews(direction.hSeqBuffer, seqLen + 1, hiddenWidth);
-      direction.rSeq = this.buildErrorViews(direction.rSeqBuffer, seqLen, hiddenWidth);
-      direction.zSeq = this.buildErrorViews(direction.zSeqBuffer, seqLen, hiddenWidth);
-      direction.nSeq = this.buildErrorViews(direction.nSeqBuffer, seqLen, hiddenWidth);
+    if (workspace === "eval" && dir.evalBuffers) {
+      dir.evalBuffers.xSeqBuffer = MemoryManager.ensureCapacity(dir.evalBuffers.xSeqBuffer || new Float32Array(0), inputLen, this.memoryConfig) as any;
+      dir.evalBuffers.hSeqBuffer = MemoryManager.ensureCapacity(dir.evalBuffers.hSeqBuffer || new Float32Array(0), hiddenLen, this.memoryConfig) as any;
+      dir.evalBuffers.rSeqBuffer = MemoryManager.ensureCapacity(dir.evalBuffers.rSeqBuffer || new Float32Array(0), gateLen, this.memoryConfig) as any;
+      dir.evalBuffers.zSeqBuffer = MemoryManager.ensureCapacity(dir.evalBuffers.zSeqBuffer || new Float32Array(0), gateLen, this.memoryConfig) as any;
+      dir.evalBuffers.nSeqBuffer = MemoryManager.ensureCapacity(dir.evalBuffers.nSeqBuffer || new Float32Array(0), gateLen, this.memoryConfig) as any;
+      dir.xSeqBuffer = dir.evalBuffers.xSeqBuffer;
+      dir.hSeqBuffer = dir.evalBuffers.hSeqBuffer;
+      dir.rSeqBuffer = dir.evalBuffers.rSeqBuffer;
+      dir.zSeqBuffer = dir.evalBuffers.zSeqBuffer;
+      dir.nSeqBuffer = dir.evalBuffers.nSeqBuffer;
+    } else {
+      dir.xSeqBuffer = MemoryManager.ensureCapacity(dir.xSeqBuffer, inputLen, this.memoryConfig) as any;
+      dir.hSeqBuffer = MemoryManager.ensureCapacity(dir.hSeqBuffer, hiddenLen, this.memoryConfig) as any;
+      dir.rSeqBuffer = MemoryManager.ensureCapacity(dir.rSeqBuffer, gateLen, this.memoryConfig) as any;
+      dir.zSeqBuffer = MemoryManager.ensureCapacity(dir.zSeqBuffer, gateLen, this.memoryConfig) as any;
+      dir.nSeqBuffer = MemoryManager.ensureCapacity(dir.nSeqBuffer, gateLen, this.memoryConfig) as any;
     }
+
+    dir.xSeq = this.buildErrorViews(dir.xSeqBuffer, seqLen, this.units * batchSize);
+    dir.hSeq = this.buildErrorViews(dir.hSeqBuffer, seqLen + 1, this.hiddenUnits * batchSize);
+    dir.rSeq = this.buildErrorViews(dir.rSeqBuffer, seqLen, this.hiddenUnits * batchSize);
+    dir.zSeq = this.buildErrorViews(dir.zSeqBuffer, seqLen, this.hiddenUnits * batchSize);
+    dir.nSeq = this.buildErrorViews(dir.nSeqBuffer, seqLen, this.hiddenUnits * batchSize);
   }
 
-  private ensureErrorBuffer(expectedLen: number): Float32Array {
-    this.errorStepBuffer = this.ensureCapacity(this.errorStepBuffer, expectedLen);
+  private ensureErrorBuffer(len: number): Float32Array {
+    this.errorStepBuffer = MemoryManager.ensureCapacity(this.errorStepBuffer, len, this.memoryConfig) as any;
     return this.errorStepBuffer;
   }
 
-  private ensureBatchErrorBuffer(expectedLen: number): Float32Array {
-    this.batchErrorStepBuffer = this.ensureCapacity(this.batchErrorStepBuffer, expectedLen);
+  private ensureBatchErrorBuffer(len: number): Float32Array {
+    this.batchErrorStepBuffer = MemoryManager.ensureCapacity(this.batchErrorStepBuffer, len, this.memoryConfig) as any;
     return this.batchErrorStepBuffer;
   }
 
-  private ensureSplitErrorBuffer(kind: "forward" | "backward", expectedLen: number): Float32Array {
-    if (kind === "forward") {
-      this.splitForwardErrorBuffer = this.ensureCapacity(this.splitForwardErrorBuffer, expectedLen);
+  private ensureSplitErrorBuffer(name: "forward" | "backward", len: number): Float32Array {
+    if (name === "forward") {
+      this.splitForwardErrorBuffer = MemoryManager.ensureCapacity(this.splitForwardErrorBuffer, len, this.memoryConfig) as any;
       return this.splitForwardErrorBuffer;
+    } else {
+      this.splitBackwardErrorBuffer = MemoryManager.ensureCapacity(this.splitBackwardErrorBuffer, len, this.memoryConfig) as any;
+      return this.splitBackwardErrorBuffer;
     }
-    this.splitBackwardErrorBuffer = this.ensureCapacity(this.splitBackwardErrorBuffer, expectedLen);
-    return this.splitBackwardErrorBuffer;
   }
 
-  private ensureBatchSplitErrorBuffer(kind: "forward" | "backward", expectedLen: number): Float32Array {
-    if (kind === "forward") {
-      this.batchSplitForwardErrorBuffer = this.ensureCapacity(this.batchSplitForwardErrorBuffer, expectedLen);
+  private ensureBatchSplitErrorBuffer(name: "forward" | "backward", len: number): Float32Array {
+    if (name === "forward") {
+      this.batchSplitForwardErrorBuffer = MemoryManager.ensureCapacity(this.batchSplitForwardErrorBuffer, len, this.memoryConfig) as any;
       return this.batchSplitForwardErrorBuffer;
+    } else {
+      this.batchSplitBackwardErrorBuffer = MemoryManager.ensureCapacity(this.batchSplitBackwardErrorBuffer, len, this.memoryConfig) as any;
+      return this.batchSplitBackwardErrorBuffer;
     }
-    this.batchSplitBackwardErrorBuffer = this.ensureCapacity(this.batchSplitBackwardErrorBuffer, expectedLen);
-    return this.batchSplitBackwardErrorBuffer;
-  }
-
-  private ensureCapacity(buffer: Float32Array, expectedLen: number): Float32Array {
-    if (buffer.length < expectedLen) {
-      return new Float32Array(Math.max(expectedLen, Math.max(1, buffer.length * 2)));
-    }
-    return buffer;
   }
 
   private buildErrorViews(buffer: Float32Array, steps: number, width: number): Float32Array[] {
@@ -1329,5 +1339,67 @@ export default class GRU {
       const dstOffset = (row + rowOffset) * cols + startCol;
       target._data.set(data.subarray(srcOffset, srcOffset + blockCols), dstOffset);
     }
+  }
+
+  releaseWorkspace(): void {
+    const releaseDir = (dir: DirectionParams) => {
+      dir.evalBuffers = {};
+      dir.xSeq = []; dir.hSeq = []; dir.rSeq = []; dir.zSeq = []; dir.nSeq = [];
+      dir.xSeqBuffer = new Float32Array(0);
+      dir.hSeqBuffer = new Float32Array(0);
+      dir.rSeqBuffer = new Float32Array(0);
+      dir.zSeqBuffer = new Float32Array(0);
+      dir.nSeqBuffer = new Float32Array(0);
+      dir.hStateful._data.fill(0);
+    };
+
+    releaseDir(this.forwardDirection);
+    if (this.backwardDirection) releaseDir(this.backwardDirection);
+
+    this.resultBuffer = mj.matrix([]);
+    this.batchInputSliceBuffer = mj.matrix([]);
+    this.batchGateXRBuffer = mj.matrix([]);
+    this.batchGateXZBuffer = mj.matrix([]);
+    this.batchGateXNBuffer = mj.matrix([]);
+    this.batchGateSliceRBuffer = mj.matrix([]);
+    this.batchGateSliceZBuffer = mj.matrix([]);
+    this.batchGateSliceNBuffer = mj.matrix([]);
+    this.batchRecRBuffer = mj.matrix([]);
+    this.batchRecZBuffer = mj.matrix([]);
+    this.batchRecNBuffer = mj.matrix([]);
+    this.batchDxStepBuffer = mj.matrix([]);
+    this.batchDhStepBuffer = mj.matrix([]);
+    this.batchOuterInputBuffer = mj.matrix([]);
+    this.batchOuterHiddenBuffer = mj.matrix([]);
+    this.batchBiasGradBuffer = mj.matrix([]);
+    this.batchTransposeProductBuffer = mj.matrix([]);
+
+    this.errorStepBuffer = new Float32Array(0);
+    this.batchErrorStepBuffer = new Float32Array(0);
+    this.splitForwardErrorBuffer = new Float32Array(0);
+    this.splitBackwardErrorBuffer = new Float32Array(0);
+    this.batchSplitForwardErrorBuffer = new Float32Array(0);
+    this.batchSplitBackwardErrorBuffer = new Float32Array(0);
+
+    this.bTensors = undefined;
+    this.bBatchTensors = undefined;
+  }
+
+  dispose(): void {
+    this.releaseWorkspace();
+    const disposeDir = (dir: DirectionParams) => {
+      dir.optimizerWxr?.dispose?.(); dir.optimizerWhr?.dispose?.(); dir.optimizerBr?.dispose?.();
+      dir.optimizerWxz?.dispose?.(); dir.optimizerWhz?.dispose?.(); dir.optimizerBz?.dispose?.();
+      dir.optimizerWxh?.dispose?.(); dir.optimizerWhh?.dispose?.(); dir.optimizerBh?.dispose?.();
+
+      (dir as any).Wxr = null; (dir as any).Whr = null; (dir as any).br = null;
+      (dir as any).Wxz = null; (dir as any).Whz = null; (dir as any).bz = null;
+      (dir as any).Wxh = null; (dir as any).Whh = null; (dir as any).bh = null;
+      (dir as any).optimizerWxr = null; (dir as any).optimizerWhr = null; (dir as any).optimizerBr = null;
+      (dir as any).optimizerWxz = null; (dir as any).optimizerWhz = null; (dir as any).optimizerBz = null;
+      (dir as any).optimizerWxh = null; (dir as any).optimizerWhh = null; (dir as any).optimizerBh = null;
+    };
+    disposeDir(this.forwardDirection);
+    if (this.backwardDirection) disposeDir(this.backwardDirection);
   }
 }

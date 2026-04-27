@@ -61,3 +61,8 @@ export declare function maskedSparseSoftmaxCrossEntropyInto(logits: Float32Array
 export declare function projectLastTokenLogitsNativeInto(hidden: Float32Array, weight: Float32Array, bias: Float32Array, units: number, seqLen: number, batchSize: number, vocabSize: number, out: Float32Array): void
 export declare function multiHeadAttentionForwardNativeInto(qData: Float32Array, kData: Float32Array, vData: Float32Array, padMask: Array<boolean>, heads: number, headUnits: number, seqLen: number, batchSize: number, scale: number, outData: Float32Array, attentionData: Float32Array): void
 export declare function multiHeadAttentionBackwardNativeInto(qData: Float32Array, kData: Float32Array, vData: Float32Array, attentionData: Float32Array, dOutData: Float32Array, padMask: Array<boolean>, heads: number, headUnits: number, seqLen: number, batchSize: number, scale: number, dQOut: Float32Array, dKOut: Float32Array, dVOut: Float32Array): void
+export type NativeBPE = NativeBpe
+export declare class NativeBpe {
+  constructor(vocab: Record<string, number>, merges: Array<Array<string>>, unkTokenId: number, wordBoundary: string)
+  encode(tokens: Array<string>): Array<number>
+}

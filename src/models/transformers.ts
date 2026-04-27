@@ -6,6 +6,7 @@ import Sequential from "./sequential";
 import { MultiHeadAttention, Dense, PositionalEncoding, LayerNormalization, Embedding, Dropout } from "../layers";
 import { FitConfig, FitResult } from "../@types/fitConfig";
 import { isNativeAvailable, maskedSparseSoftmaxCrossEntropyNative } from "../math/rust_backend";
+import { MemoryManager } from "../utils/memory";
 
 export type TransformersPredictMode = "next-token" | "full-sequence";
 
@@ -31,8 +32,15 @@ interface TransformerBlock {
   dropFfn: Dropout;
   ffn2: Dense;
   drop2: Dropout;
+  
+  // Capacity-based residual buffers
+  xRes1Data: any;
+  xRes2Data: any;
   xRes1: Matrix;
   xRes2: Matrix;
+
+  errRes1Data: any;
+  errRes2Data: any;
   errRes1Buf: Matrix;
   errRes2Buf: Matrix;
 }
@@ -119,10 +127,14 @@ export default class Transformers extends Sequential {
         dropFfn,
         ffn2,
         drop2,
-        xRes1: mj.zeros([units, seqLen]),
-        xRes2: mj.zeros([units, seqLen]),
-        errRes1Buf: mj.zeros([units, seqLen]),
-        errRes2Buf: mj.zeros([units, seqLen]),
+        xRes1Data: new Float32Array(0),
+        xRes2Data: new Float32Array(0),
+        xRes1: mj.matrix([]),
+        xRes2: mj.matrix([]),
+        errRes1Data: new Float32Array(0),
+        errRes2Data: new Float32Array(0),
+        errRes1Buf: mj.matrix([]),
+        errRes2Buf: mj.matrix([]),
       });
 
       flatLayers.push(ln1, mha, drop1, ln2, ffn1, dropFfn, ffn2, drop2);
@@ -157,53 +169,53 @@ export default class Transformers extends Sequential {
     this.dense = dense;
     this.predictMode = predictMode;
 
-    // Pre-allocate buffers
-    this.lastTokenBuffer = mj.zeros([units, 1]);
-    this.lossGradientBuffer = mj.zeros([vocabSize, seqLen]);
+    // Pre-allocate buffers (will be managed by capacity ensures)
+    this.lastTokenBuffer = mj.matrix([]);
+    this.lossGradientBuffer = mj.matrix([]);
     this.vocabSize = vocabSize;
     this.train();
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, batchSize = 1, options?: { workspace?: "train" | "eval" }): Matrix {
     this.lastInputTokens = x;
-    const res2 = this.forwardTransformerBlock(x);
+    const res2 = this.forwardTransformerBlock(x, options);
     if (this.isTrainingMode) {
       const outputDenseForwardStart = this.profileStart();
-      const out = this.dense.forward(res2);
+      const out = this.dense.forward(res2, options);
       this.profileEnd("output dense forward", outputDenseForwardStart);
       return out;
     }
-    return this.projectLastToken(res2, x._shape[0], x._shape[1]);
+    return this.projectLastToken(res2, x._shape[0], x._shape[1], options);
   }
 
-  forwardFullSequence(x: Matrix): Matrix {
+  forwardFullSequence(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     this.lastInputTokens = x;
-    const res2 = this.forwardTransformerBlock(x);
+    const res2 = this.forwardTransformerBlock(x, options);
     const outputDenseForwardStart = this.profileStart();
-    const out = this.dense.forward(res2);
+    const out = this.dense.forward(res2, options);
     this.profileEnd("output dense forward", outputDenseForwardStart);
     return out;
   }
 
-  forwardNextToken(x: Matrix): Matrix {
+  forwardNextToken(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     this.lastInputTokens = x;
-    const res2 = this.forwardTransformerBlock(x);
+    const res2 = this.forwardTransformerBlock(x, options);
     if (this.isTrainingMode) {
       const lastTokenState = this.extractLastTokenState(res2, x._shape[0], x._shape[1]);
       const outputDenseForwardStart = this.profileStart();
-      const out = this.dense.forward(lastTokenState);
+      const out = this.dense.forward(lastTokenState, options);
       this.profileEnd("output dense forward", outputDenseForwardStart);
       return out;
     }
-    return this.projectLastToken(res2, x._shape[0], x._shape[1]);
+    return this.projectLastToken(res2, x._shape[0], x._shape[1], options);
   }
 
   predict(x: Matrix): Matrix {
     const wasTraining = this.isTrainingMode;
     this.eval();
     const out = this.predictMode === "full-sequence"
-      ? this.forwardFullSequence(x)
-      : this.forwardNextToken(x);
+      ? this.forwardFullSequence(x, { workspace: "eval" })
+      : this.forwardNextToken(x, { workspace: "eval" });
     if (wasTraining) this.train();
     return out;
   }
@@ -310,7 +322,28 @@ export default class Transformers extends Sequential {
     this.profileEnd("embedding backward", embeddingBackwardStart);
   }
 
-  private forwardTransformerBlock(x: Matrix): Matrix {
+  releaseWorkspace(): void {
+    super.releaseWorkspace();
+    this.lastTokenBuffer = mj.matrix([]);
+    this.lossGradientBuffer = mj.matrix([]);
+    for (const block of this.blocks) {
+      block.xRes1Data = new Float32Array(0);
+      block.xRes2Data = new Float32Array(0);
+      block.xRes1 = mj.matrix([]);
+      block.xRes2 = mj.matrix([]);
+      block.errRes1Data = new Float32Array(0);
+      block.errRes2Data = new Float32Array(0);
+      block.errRes1Buf = mj.matrix([]);
+      block.errRes2Buf = mj.matrix([]);
+    }
+  }
+
+  dispose(): void {
+    super.dispose();
+    this.blocks = [];
+  }
+
+  private forwardTransformerBlock(x: Matrix, options?: { workspace?: "train" | "eval" }): Matrix {
     const [seqLen, batchSize] = x._shape;
     const units = this.embedding.embeddingDim;
     const totalTokens = seqLen * batchSize;
@@ -330,36 +363,36 @@ export default class Transformers extends Sequential {
 
     // 1. Embedding Forward
     const embeddingForwardStart = this.profileStart();
-    const xEmb = this.embedding.forward(x); // returns [Units, totalTokens]
+    const xEmb = this.embedding.forward(x, options); // returns [Units, totalTokens]
     this.profileEnd("embedding forward", embeddingForwardStart);
 
     // 2. Positional Encoding
-    const xPe = this.pe.forward(xEmb, this.positionOffset, seqLen);
+    const xPe = this.pe.forward(xEmb, this.positionOffset, seqLen, undefined, options);
 
     // 3. Transformer Blocks
     let h = xPe;
     for (let blockIndex = 0; blockIndex < this.blocks.length; blockIndex++) {
       const block = this.blocks[blockIndex];
       const layerNorm1ForwardStart = this.profileStart();
-      const xLn1 = block.ln1.forward(h);
+      const xLn1 = block.ln1.forward(h, options);
       this.profileEnd(`layer norm forward [block ${blockIndex}]`, layerNorm1ForwardStart);
 
       block.mha.setPadMask(this.padMaskBuffer);
       block.mha.setEffectiveSeqLen(seqLen);
       const mhaForwardStart = this.profileStart();
-      const xMhaOut = block.mha.forward(xLn1);
+      const xMhaOut = block.mha.forward(xLn1, options);
       this.profileEnd(`MHA forward [block ${blockIndex}]`, mhaForwardStart);
-      const xDrop1Out = block.drop1.forward(xMhaOut);
+      const xDrop1Out = block.drop1.forward(xMhaOut, options);
       const res1 = mj.addInto(h, xDrop1Out, block.xRes1);
 
       const layerNorm2ForwardStart = this.profileStart();
-      const xLn2 = block.ln2.forward(res1);
+      const xLn2 = block.ln2.forward(res1, options);
       this.profileEnd(`layer norm forward [block ${blockIndex}]`, layerNorm2ForwardStart);
       const ffnForwardStart = this.profileStart();
-      const xFfn1Out = block.ffn1.forward(xLn2);
-      const xDropFfnOut = block.dropFfn.forward(xFfn1Out);
-      const xFfn2Out = block.ffn2.forward(xDropFfnOut);
-      const xDrop2Out = block.drop2.forward(xFfn2Out);
+      const xFfn1Out = block.ffn1.forward(xLn2, options);
+      const xDropFfnOut = block.dropFfn.forward(xFfn1Out, options);
+      const xFfn2Out = block.ffn2.forward(xDropFfnOut, options);
+      const xDrop2Out = block.drop2.forward(xFfn2Out, options);
       this.profileEnd(`FFN forward [block ${blockIndex}]`, ffnForwardStart);
       h = mj.addInto(res1, xDrop2Out, block.xRes2);
     }
@@ -367,9 +400,9 @@ export default class Transformers extends Sequential {
     return h;
   }
 
-  private projectLastToken(res2: Matrix, seqLen: number, batchSize: number): Matrix {
+  private projectLastToken(res2: Matrix, seqLen: number, batchSize: number, options?: { workspace?: "train" | "eval" }): Matrix {
     const outputDenseForwardStart = this.profileStart();
-    const out = this.dense.projectLastTokenFromSequence(res2, seqLen, batchSize);
+    const out = this.dense.projectLastTokenFromSequence(res2, seqLen, batchSize, options);
     this.profileEnd("output dense forward", outputDenseForwardStart);
     return out;
   }
@@ -710,19 +743,17 @@ export default class Transformers extends Sequential {
   }
 
   private ensureBlockBuffers(units: number, totalTokens: number): void {
+    const required = units * totalTokens;
     for (const block of this.blocks) {
-      if (block.xRes1._shape[0] !== units || block.xRes1._shape[1] !== totalTokens) {
-        block.xRes1 = mj.zeros([units, totalTokens]);
-      }
-      if (block.xRes2._shape[0] !== units || block.xRes2._shape[1] !== totalTokens) {
-        block.xRes2 = mj.zeros([units, totalTokens]);
-      }
-      if (block.errRes1Buf._shape[0] !== units || block.errRes1Buf._shape[1] !== totalTokens) {
-        block.errRes1Buf = mj.zeros([units, totalTokens]);
-      }
-      if (block.errRes2Buf._shape[0] !== units || block.errRes2Buf._shape[1] !== totalTokens) {
-        block.errRes2Buf = mj.zeros([units, totalTokens]);
-      }
+      block.xRes1Data = MemoryManager.ensureCapacity(block.xRes1Data, required, this.layers[0].memoryConfig);
+      block.xRes2Data = MemoryManager.ensureCapacity(block.xRes2Data, required, this.layers[0].memoryConfig);
+      block.errRes1Data = MemoryManager.ensureCapacity(block.errRes1Data, required, this.layers[0].memoryConfig);
+      block.errRes2Data = MemoryManager.ensureCapacity(block.errRes2Data, required, this.layers[0].memoryConfig);
+
+      block.xRes1 = Matrix.fromFlat(block.xRes1Data.subarray(0, required), [units, totalTokens]);
+      block.xRes2 = Matrix.fromFlat(block.xRes2Data.subarray(0, required), [units, totalTokens]);
+      block.errRes1Buf = Matrix.fromFlat(block.errRes1Data.subarray(0, required), [units, totalTokens]);
+      block.errRes2Buf = Matrix.fromFlat(block.errRes2Data.subarray(0, required), [units, totalTokens]);
     }
   }
 

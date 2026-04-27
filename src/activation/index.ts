@@ -2,53 +2,119 @@ import mj from "../math";
 import Matrix from "../matrix";
 import { isNativeAvailable, softmaxNative, softmaxBackwardNative, sigmoidNative, reluNative, tanhNative } from "../math/rust_backend";
 
-export function sigmoid(a: Matrix): [Matrix, Matrix] {
+export type ActivationResult = { result: Matrix; dResult: Matrix };
+
+export function sigmoid(a: Matrix, out?: ActivationResult): [Matrix, Matrix] {
+  const size = a._data.length;
+  const res = out?.result._data || new Float32Array(size);
+  const grad = out?.dResult._data || new Float32Array(size);
+  
   if (isNativeAvailable()) {
-    const res = new Float32Array(a._data.length);
-    const grad = new Float32Array(a._data.length);
     sigmoidNative(a._data, res, grad);
-    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+  } else {
+    const aData = a._data;
+    for (let i = 0; i < size; i++) {
+        const v = 1 / (1 + Math.exp(-aData[i]));
+        res[i] = v;
+        grad[i] = v * (1 - v);
+    }
   }
-  const result = mj.map(a, (val) => 1 / (1 + Math.exp(-val)));
-  const dResult = mj.map(result, (val) => val * (1 - val));
+
+  const result = out?.result || Matrix.fromFlat(res, a._shape);
+  const dResult = out?.dResult || Matrix.fromFlat(grad, a._shape);
+  result._shape = a._shape;
+  dResult._shape = a._shape;
   return [result, dResult];
 }
 
-export function tanh(a: Matrix): [Matrix, Matrix] {
+export function tanh(a: Matrix, out?: ActivationResult): [Matrix, Matrix] {
+  const size = a._data.length;
+  const res = out?.result._data || new Float32Array(size);
+  const grad = out?.dResult._data || new Float32Array(size);
+
   if (isNativeAvailable()) {
-    const res = new Float32Array(a._data.length);
-    const grad = new Float32Array(a._data.length);
     tanhNative(a._data, res, grad);
-    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+  } else {
+    const aData = a._data;
+    for (let i = 0; i < size; i++) {
+        const v = Math.tanh(aData[i]);
+        res[i] = v;
+        grad[i] = 1 - v ** 2;
+    }
   }
-  const result = mj.map(a, (val) => Math.tanh(val));
-  const dResult = mj.map(result, (val) => 1 - val ** 2);
+
+  const result = out?.result || Matrix.fromFlat(res, a._shape);
+  const dResult = out?.dResult || Matrix.fromFlat(grad, a._shape);
+  result._shape = a._shape;
+  dResult._shape = a._shape;
   return [result, dResult];
 }
 
-export function relu(a: Matrix): [Matrix, Matrix] {
+export function relu(a: Matrix, out?: ActivationResult): [Matrix, Matrix] {
+  const size = a._data.length;
+  const res = out?.result._data || new Float32Array(size);
+  const grad = out?.dResult._data || new Float32Array(size);
+
   if (isNativeAvailable()) {
-    const res = new Float32Array(a._data.length);
-    const grad = new Float32Array(a._data.length);
     reluNative(a._data, res, grad);
-    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+  } else {
+    const aData = a._data;
+    for (let i = 0; i < size; i++) {
+        const v = aData[i];
+        if (v > 0) {
+            res[i] = v;
+            grad[i] = 1;
+        } else {
+            res[i] = 0;
+            grad[i] = 0;
+        }
+    }
   }
-  const result = mj.map(a, (val) => (val < 0 ? 0 : val));
-  // gradient dihitung dari input 'a' asli: 0 jika a<=0, 1 jika a>0
-  const dResult = mj.map(a, (val) => (val > 0 ? 1 : 0));
+
+  const result = out?.result || Matrix.fromFlat(res, a._shape);
+  const dResult = out?.dResult || Matrix.fromFlat(grad, a._shape);
+  result._shape = a._shape;
+  dResult._shape = a._shape;
   return [result, dResult];
 }
 
-export function lRelu(a: Matrix): [Matrix, Matrix] {
-  const result = mj.map(a, (val) => (val < 0 ? val * 1e-5 : val));
-  const dResult = mj.map(a, (val) => (val < 0 ? 1e-5 : 1));
+export function lRelu(a: Matrix, out?: ActivationResult): [Matrix, Matrix] {
+  const size = a._data.length;
+  const res = out?.result._data || new Float32Array(size);
+  const grad = out?.dResult._data || new Float32Array(size);
+  const aData = a._data;
+  for (let i = 0; i < size; i++) {
+    const v = aData[i];
+    if (v < 0) {
+        res[i] = v * 1e-5;
+        grad[i] = 1e-5;
+    } else {
+        res[i] = v;
+        grad[i] = 1;
+    }
+  }
+
+  const result = out?.result || Matrix.fromFlat(res, a._shape);
+  const dResult = out?.dResult || Matrix.fromFlat(grad, a._shape);
+  result._shape = a._shape;
+  dResult._shape = a._shape;
   return [result, dResult];
 }
 
-export default function linear(a: Matrix): [Matrix, Matrix] {
-  // Buat salinan baru agar tidak terjadi aliasing yang merusak backward pass
-  const result = mj.map(a, (val) => val);
-  const dResult = mj.ones(a._shape);
+export default function linear(a: Matrix, out?: ActivationResult): [Matrix, Matrix] {
+  const size = a._data.length;
+  const res = out?.result._data || new Float32Array(size);
+  const grad = out?.dResult._data || new Float32Array(size);
+  const aData = a._data;
+  for (let i = 0; i < size; i++) {
+    res[i] = aData[i];
+    grad[i] = 1;
+  }
+
+  const result = out?.result || Matrix.fromFlat(res, a._shape);
+  const dResult = out?.dResult || Matrix.fromFlat(grad, a._shape);
+  result._shape = a._shape;
+  dResult._shape = a._shape;
   return [result, dResult];
 }
 
@@ -127,9 +193,10 @@ export function softmaxInto(a: Matrix, out: Matrix, row = false): Matrix {
   return out;
 }
 
-export function softmaxOnly(a: Matrix, row = false): Matrix {
+export function softmaxOnly(a: Matrix, row = false, out?: Matrix): Matrix {
   const [rows, cols] = a._shape;
-  return softmaxInto(a, Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]), row);
+  const target = out || Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+  return softmaxInto(a, target, row);
 }
 
 /**

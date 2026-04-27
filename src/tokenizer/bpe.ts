@@ -9,6 +9,7 @@ import {
   resolvePreTokenizer,
   unicodeGraphemePreTokenizer,
 } from "./pretokenizers";
+import { createNativeBPE, isNativeAvailable } from "../math/rust_backend";
 
 /**
  * BPE (Byte Pair Encoding) Tokenizer
@@ -37,6 +38,7 @@ export type BPETokenizerOptions = {
   vocabSize?: number;
   minFrequency?: number;
   preTokenizer?: BuiltInPreTokenizer | PreTokenizer;
+  specialTokens?: string[];
 };
 
 export interface BPEConfig extends BPETokenizerOptions {
@@ -67,6 +69,8 @@ export default class BPETokenizer {
   private preTokenizerName: BuiltInPreTokenizer | "custom";
   private encodeCache: Map<string, number[]> = new Map();
   private readonly maxEncodeCacheSize = 8192;
+  private nativeEncoder: any = null;
+  private reusablePlaceholders: { token: string; id: number }[] = [];
 
   constructor(config: (BPETokenizerOptions & { specialTokens?: string[] }) = {}) {
     this.vocabSize = config.vocabSize ?? 1000;
@@ -99,11 +103,10 @@ export default class BPETokenizer {
     // === STEP 2: Tokenisasi awal dengan pre-tokenizer terpilih ===
     const wordFreq: Map<string, number> = new Map();
     for (const text of texts) {
-      const words = this.preTokenize(text);
-      for (const word of words) {
-        if (word.length === 0) continue;
-        const key = WORD_BOUNDARY + word; // Tambah boundary marker
-        wordFreq.set(key, (wordFreq.get(key) ?? 0) + 1);
+      const tokens = this.preTokenizeWithBoundaries(text);
+      for (const token of tokens) {
+        if (token.length === 0) continue;
+        wordFreq.set(token, (wordFreq.get(token) ?? 0) + 1);
       }
     }
 
@@ -122,6 +125,7 @@ export default class BPETokenizer {
     }
 
     this.runBPE(corpus, nextId);
+    this.initNativeEncoder();
   }
 
   /**
@@ -143,11 +147,10 @@ export default class BPETokenizer {
 
     const wordFreq: Map<string, number> = new Map();
     for (const text of texts) {
-      const words = this.preTokenize(text);
-      for (const word of words) {
-        if (word.length === 0) continue;
-        const key = WORD_BOUNDARY + word;
-        wordFreq.set(key, (wordFreq.get(key) ?? 0) + 1);
+      const tokens = this.preTokenizeWithBoundaries(text);
+      for (const token of tokens) {
+        if (token.length === 0) continue;
+        wordFreq.set(token, (wordFreq.get(token) ?? 0) + 1);
       }
     }
 
@@ -208,6 +211,35 @@ export default class BPETokenizer {
     console.log(`[BPE] Melanjutkan training dengan ${corpus.length} kata kompleks. Vocab saat ini: ${this.vocab.size}, Target: ${this.vocabSize}`);
     this.runBPE(corpus, nextId);
     this.clearEncodeCache();
+    this.initNativeEncoder();
+  }
+
+  private preTokenizeWithBoundaries(text: string): string[] {
+    const rawTokens = this.preTokenizer(text);
+    const tokensWithBoundaries: string[] = [];
+    let lastIndex = 0;
+
+    for (let i = 0; i < rawTokens.length; i++) {
+        const rawToken = rawTokens[i];
+        if (rawToken.length === 0) continue;
+
+        // Cari posisi token dalam teks asli (untuk cek whitespace sebelumnya)
+        // Kita gunakan lastIndex agar pencarian efisien dan berurutan
+        const index = text.indexOf(rawToken, lastIndex);
+        
+        let token = rawToken;
+        // Prepend WORD_BOUNDARY jika berada di awal teks atau didahului whitespace
+        if (index === 0 || (index > 0 && /\s/u.test(text[index - 1]))) {
+            token = WORD_BOUNDARY + rawToken;
+        }
+
+        tokensWithBoundaries.push(token);
+        if (index !== -1) {
+            lastIndex = index + rawToken.length;
+        }
+    }
+
+    return tokensWithBoundaries;
   }
 
   private preTokenize(text: string): string[] {
@@ -449,9 +481,9 @@ export default class BPETokenizer {
         token.startsWith("<RESERVED_");
       if (isSpecial) continue;
 
-      // Single characters are always kept
-      const isSingleChar = charPreTokenizer(token).length <= 1;
-      if (isSingleChar) continue;
+      // Graphemes (including multi-codepoint ones like emojis) are always kept
+      const isSingleGrapheme = unicodeGraphemePreTokenizer(token).length <= 1;
+      if (isSingleGrapheme) continue;
 
       if (!this.isMergeableToken(token)) {
         console.log(`[BPE] Removing polluted token: "${token}" (ID: ${id})`);
@@ -466,35 +498,25 @@ export default class BPETokenizer {
   }
 
   private findReusablePlaceholder(): { token: string; id: number } | null {
-    // Cari token <UNUSED_*> dulu (prioritas pertama)
-    for (const [token, id] of this.vocab) {
-      if (token.startsWith("<UNUSED_") && token.endsWith(">")) {
-        return { token, id };
-      }
-    }
-
-    // Jika tidak ada <UNUSED_*>, cari <RESERVED_*> (wadah cadangan)
-    for (const [token, id] of this.vocab) {
-      if (token.startsWith("<RESERVED_") && token.endsWith(">")) {
-        return { token, id };
-      }
-    }
-
-    return null;
+    return this.reusablePlaceholders.shift() ?? null;
   }
 
   /**
    * Encode teks menjadi array token ID
    */
   encode(text: string): number[] {
-    const words = this.preTokenize(text);
+    if (this.nativeEncoder && isNativeAvailable()) {
+      const words = this.preTokenizeWithBoundaries(text);
+      return this.nativeEncoder.encode(words);
+    }
+
+    const words = this.preTokenizeWithBoundaries(text);
     const tokenIds: number[] = [];
 
-    for (const word of words) {
-      if (word.length === 0) continue;
+    for (const fullWord of words) {
+      if (fullWord.length === 0) continue;
 
-      // Optimasi: Cek apakah kata utuh sudah ada di vocab (terutama hasil incremental update)
-      const fullWord = WORD_BOUNDARY + word;
+      // Optimasi: Cek apakah kata utuh sudah ada di vocab
       const existingId = this.vocab.get(fullWord);
       if (existingId !== undefined) {
         tokenIds.push(existingId);
@@ -651,6 +673,7 @@ export default class BPETokenizer {
     tokenizer.clearEncodeCache();
     tokenizer.sanitize(); // Clean up loaded data
     tokenizer.buildReverseVocab();
+    tokenizer.initNativeEncoder();
 
     console.log(`[BPE] Vocabulary dimuat dari: ${filepath} (${tokenizer.vocab.size} tokens, ${tokenizer.merges.length} merges)`);
     return tokenizer;
@@ -661,8 +684,36 @@ export default class BPETokenizer {
    */
   private buildReverseVocab(): void {
     this.reverseVocab.clear();
+    this.reusablePlaceholders = [];
+    const unused: { token: string; id: number }[] = [];
+    const reserved: { token: string; id: number }[] = [];
+
     for (const [token, id] of this.vocab) {
       this.reverseVocab.set(id, token);
+      if (token.startsWith("<UNUSED_") && token.endsWith(">")) {
+        unused.push({ token, id });
+      } else if (token.startsWith("<RESERVED_") && token.endsWith(">")) {
+        reserved.push({ token, id });
+      }
+    }
+    this.reusablePlaceholders = [...unused, ...reserved];
+  }
+
+  private initNativeEncoder(): void {
+    if (isNativeAvailable()) {
+      try {
+        const vocabObj = Object.fromEntries(this.vocab);
+        const unkTokenId = this.vocab.get(UNK_TOKEN) ?? 0;
+        this.nativeEncoder = createNativeBPE(
+          vocabObj,
+          this.merges,
+          unkTokenId,
+          WORD_BOUNDARY
+        );
+      } catch (e) {
+        console.warn("[BPE] Failed to initialize native encoder fallback to JS:", e);
+        this.nativeEncoder = null;
+      }
     }
   }
 
