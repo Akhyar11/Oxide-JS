@@ -213,8 +213,6 @@ export default class Sequential {
       let totalEpochLoss = 0;
 
       for (let start = 0; start < trainX.length; start += batchSize) {
-        const batchIdx = start / batchSize;
-        if (verbose) console.log(`Starting batch ${batchIdx}`);
         const end = Math.min(start + batchSize, trainX.length);
         const currentBatchSize = end - start;
 

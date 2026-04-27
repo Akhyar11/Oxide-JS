@@ -921,5 +921,9 @@ export const createNativeBPE = (
   wordBoundary: string
 ): any => {
   if (!native) throw new Error("Native backend not available");
-  return new native.NativeBPE(vocab, merges, unkTokenId, wordBoundary);
+  // NAPI-RS by default auto-converts PascalCase NativeBPE to NativeBpe in JS.
+  // Check both to be safe across different versions/builds.
+  const BpeCtor = native.NativeBpe || native.NativeBPE;
+  if (!BpeCtor) throw new Error("NativeBPE constructor not found in native module");
+  return new BpeCtor(vocab, merges, unkTokenId, wordBoundary);
 };
