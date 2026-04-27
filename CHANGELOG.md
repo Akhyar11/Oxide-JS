@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.0-alpha.2
+
+### Patch Changes
+
+- fix: fix NativeBPE casing mismatch between TypeScript and native bindings
+
 ## 2.3.0-alpha.1
 
 ### Patch Changes
