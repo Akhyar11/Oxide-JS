@@ -59,7 +59,7 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Akhyar11/ML-V1.git"
+    "url": "git+https://github.com/Akhyar11/ML-V1.git"
   },
   "homepage": "https://github.com/Akhyar11/ML-V1#readme",
   "bugs": {
