@@ -18,6 +18,8 @@ ML-V1 includes a Rust extension (via [napi-rs](https://napi.rs/)) that accelerat
 - Embedding lookup
 - Attention computation
 - Adam and other optimizer weight updates
+- Full fused recurrent loops (RNN, LSTM, GRU) for high-speed BPTT
+- Fused Sparse Optimizer updates for NLP embedding training
 
 When the native addon is not available, the library falls back transparently to pure JavaScript implementations. There is no API difference; the same functions work in both cases.
 

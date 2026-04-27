@@ -163,7 +163,13 @@ Default internal values:
 | `beta2` | `0.999` |
 | `epsilon` | `1e-8` |
 
-Adam can use the Rust native backend for larger update arrays when the native module is available.
+### Native Acceleration
+
+As of **v2.3.0**, all optimizers (`Adam`, `SGD`, `AdaGrad`, `Momentum`, `NAG`) automatically utilize the Rust native backend for large parameter updates when the native module is available. This significantly reduces update latency for large layers like Transformers or Wide Dense layers.
+
+### Fused Embedding Updates
+
+For the `Embedding` layer, ML-V1 uses a **fused native update** path. Instead of calculating gradients and updating weights in separate steps, the entire BPTT gradient aggregation and parameter update are performed in a single native call. This eliminates redundant memory copies and is the primary reason for the high throughput in the recurrent and transformer families.
 
 ---
 

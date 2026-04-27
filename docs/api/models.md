@@ -18,7 +18,7 @@ ML-V1 provides three model classes:
 
 | Model | Description |
 |---|---|
-| `Sequential` | Generic layer stack for Dense, Embedding, Attention, CNN, and recurrent layers. |
+| `Sequential` | Generic layer stack for Dense, Embedding, Attention, CNN, and recurrent layers. Supports high-performance batched recurrent training (v2.3.0+). |
 | `Transformers` | Multi-block causal language model with full-sequence training and configurable inference modes. |
 | `DimentionalityReduction` | Extends `Sequential` with an encoder/decoder split for autoencoder scenarios. |
 
@@ -404,5 +404,6 @@ model.fit(trainX, trainY, 80, {
 ## Notes
 
 - `Sequential`, `DimentionalityReduction`, and `Transformers` all call `model.train()` / `model.eval()` to switch between training and inference modes. Layers like `Dropout` and `LayerNormalization` respect this flag.
-- For stateful recurrent models in `Sequential`, avoid `shuffle: true` and `validationSplit > 0`.
+- **Batched RNN Support**: As of **v2.3.0**, recurrent models (`RNN`, `LSTM`, `GRU`) in `Sequential` fully support and are optimized for **`batchSize > 1`** via the native backend.
+- **Stateful Restriction**: For stateful recurrent models (`stateful: true`), avoid `shuffle: true` and keep **`batchSize: 1`** as hidden states are linked to specific sample indices.
 - Optimizer type names available via `compile()`: `"sgd"`, `"momentum"`, `"nag"`, `"adaGrad"`, `"adam"`.

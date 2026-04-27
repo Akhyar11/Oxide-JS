@@ -208,8 +208,8 @@ Utility helper that compiles a list of dense layers with shared optimizer and le
 ---
 
 ### Recurrent Layers: `RNN`, `LSTM`, `GRU`
-
-Recurrent layers process sequential data. They expect a single-sample input with shape **`[features, seqLen]`**.
+ 
+Recurrent layers process sequential data. They support both **single-sample (features × seqLen)** and **batched (features × (seqLen * batchSize))** input layouts.
 
 #### General Conventions
 
@@ -220,7 +220,11 @@ Recurrent layers process sequential data. They expect a single-sample input with
 - `getState()` / `resetState()` — available on all recurrent layers.
 - `save()` / `load()` — persist weights, configuration, and stateful hidden states.
 
-For use inside `Sequential.fit()`, set **`batchSize: 1`**. If `stateful: true`, avoid `shuffle: true` and `validationSplit > 0`.
+#### Batched Training Support (v2.3.0+)
+
+Starting from version **2.3.0**, the entire recurrent family supports high-performance batched training via the native Rust backend. 
+- Use **`batchSize > 1`** in `Sequential.fit()` to benefit from parallel sequence processing and "Hyper-Speed" native kernels.
+- **RESTRICTION**: If **`stateful: true`**, the layer is still restricted to **`batchSize: 1`** due to persistent hidden state dependencies across batches.
 
 ---
 

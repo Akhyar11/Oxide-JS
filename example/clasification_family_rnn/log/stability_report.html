@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Stability Report | Live Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #080a12;
+            --card-bg: rgba(17, 24, 39, 0.8);
+            --accent-primary: #6366f1;
+            --accent-secondary: #a855f7;
+            --accent-tertiary: #10b981;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --rnn-color: #f43f5e;
+            --lstm-color: #6366f1;
+            --gru-color: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 40%);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            padding: 2.5rem;
+            line-height: 1.6;
+        }
+
+        header {
+            max-width: 1400px;
+            margin: 0 auto 3rem auto;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-pill {
+            padding: 0.5rem 1.25rem;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+            border-radius: 14px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            align-items: start;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 2.25rem;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
+            height: 100%;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .span-8 { grid-column: span 8; }
+        .span-4 { grid-column: span 4; }
+        .span-6 { grid-column: span 6; }
+        .span-12 { grid-column: span 12; }
+
+        /* Config Grid */
+        .config-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+        .config-item {
+            padding: 1.25rem; background: rgba(0, 0, 0, 0.3); border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05); text-align: center;
+        }
+        .config-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5rem; }
+        .config-value { font-size: 1.6rem; font-weight: 800; color: #fff; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: separate; border-spacing: 0 0.75rem; }
+        th { text-align: left; padding: 1rem 1.75rem; color: var(--text-dim); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        td { padding: 1.25rem 1.75rem; font-size: 1rem; background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.03); }
+        td:first-child { border-radius: 18px 0 0 18px; }
+        td:last-child { border-radius: 0 18px 18px 0; }
+
+        /* Confusion Matrix */
+        .matrix-table { width: auto; margin: 0 auto; border-spacing: 6px; }
+        .matrix-table td { 
+            padding: 1.25rem; text-align: center; border-radius: 14px; font-weight: 800; font-size: 1.3rem;
+            min-width: 90px; background: rgba(255,255,255,0.04); border: none;
+        }
+        .matrix-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; }
+        .matrix-high { background: rgba(16, 185, 129, 0.25) !important; color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2) !important; }
+        .matrix-med { background: rgba(245, 158, 11, 0.2) !important; color: #f59e0b; }
+        .matrix-low { background: rgba(244, 63, 94, 0.15) !important; color: #f43f5e; opacity: 0.8; }
+
+        /* Per-class Metrics */
+        .per-class-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .class-card { padding: 1.25rem; background: rgba(0,0,0,0.25); border-radius: 22px; border: 1px solid rgba(255,255,255,0.05); }
+        .class-name { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem; }
+        .class-metric { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.4rem; color: var(--text-dim); }
+        .class-metric span:last-child { font-family: 'JetBrains Mono', monospace; color: #fff; font-weight: 600; }
+
+        /* Controls */
+        .controls { display: flex; gap: 1rem; align-items: center; }
+        .select-wrapper {
+            background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 14px;
+            border: 1px solid var(--glass-border); display: flex; align-items: center; gap: 0.75rem;
+        }
+        select { background: transparent; color: #fff; border: none; font-family: inherit; font-size: 0.85rem; cursor: pointer; outline: none; font-weight: 700; }
+
+        /* Stability Bars */
+        .loading-bar { height: 8px; background: rgba(255,255,255,0.04); border-radius: 10px; overflow: hidden; margin-top: 0.6rem; }
+        .loading-progress { height: 100%; border-radius: 10px; transition: width 1s ease-in-out; }
+
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark);
+            z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .spinner { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.1); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 1s infinite linear; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p style="color: var(--text-dim); font-weight: 500; letter-spacing: 1px;">FETCHING LATEST EXPERIMENT DATA...</p>
+    </div>
+
+    <header>
+        <div class="header-top">
+            <h1>Live Stability Dashboard</h1>
+            <div class="status-pill">
+                <div class="status-dot"></div>
+                FETCHED FROM API
+            </div>
+        </div>
+        <div class="timestamp" id="report-id">Loading...</div>
+    </header>
+
+    <main class="dashboard-grid">
+        <div class="card span-8">
+            <div class="card-title">Accuracy Analysis <span>Validation Performance</span></div>
+            <div style="height: 400px;"><canvas id="accuracyChart"></canvas></div>
+        </div>
+
+        <div class="card span-4">
+            <div class="card-title">Hyperparameters</div>
+            <div class="config-grid" id="config-params"></div>
+            <div style="margin-top: 3rem;">
+                <div class="card-title" style="font-size: 1.1rem; margin-bottom: 1rem;">Complexity Distribution</div>
+                <div style="height: 220px;"><canvas id="paramsChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card span-12">
+            <div class="card-title">
+                Loss Convergence Profile
+                <div class="controls">
+                    <div class="select-wrapper">
+                        <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700;">RUN SELECT</span>
+                        <select id="run-select" onchange="updateLossChart()">
+                            <option value="avg">MEAN AVERAGE</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div style="height: 550px;"><canvas id="lossChart"></canvas></div>
+        </div>
+
+        <div class="card span-12">
+            <div class="card-title">Neural Network Topology <span>Sequential Model Pipeline</span></div>
+            <div style="display: flex; gap: 1rem; align-items: stretch; justify-content: space-between; overflow-x: auto; padding-bottom: 0.5rem;">
+                <div class="layer-block" style="flex:1; min-width: 140px; background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 20px; border: 1px dashed rgba(255,255,255,0.1); text-align: center;">
+                    <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem;">Input Stage</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#fff;">BPE Tokenizer</div>
+                    <div style="font-size:0.8rem; color:var(--text-dim); margin-top:0.5rem; font-family:'JetBrains Mono'">[ Batch=16, Seq=128 ]</div>
+                </div>
+                
+                <div style="display: flex; align-items: center; color: var(--glass-border); font-size: 1.5rem;">→</div>
+                
+                <div class="layer-block" style="flex:1; min-width: 150px; background: rgba(99, 102, 241, 0.1); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(99, 102, 241, 0.2); text-align: center;">
+                    <div style="font-size:0.7rem; color:rgba(99, 102, 241, 0.8); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem;">Layer 1</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#fff;">Embedding</div>
+                    <div style="font-size:0.8rem; color:var(--text-dim); margin-top:0.5rem; font-family:'JetBrains Mono'">Vocab=15182 × Dim=128</div>
+                </div>
+
+                <div style="display: flex; align-items: center; color: var(--glass-border); font-size: 1.5rem;">→</div>
+
+                <div class="layer-block" style="flex:1; min-width: 160px; background: rgba(16, 185, 129, 0.1); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.2); text-align: center;">
+                    <div style="font-size:0.7rem; color:rgba(16, 185, 129, 0.8); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem;">Layer 2 (Recurrent)</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#fff;">RNN | LSTM | GRU</div>
+                    <div style="font-size:0.8rem; color:var(--text-dim); margin-top:0.5rem; font-family:'JetBrains Mono'">Hidden Units = 32</div>
+                </div>
+
+                <div style="display: flex; align-items: center; color: var(--glass-border); font-size: 1.5rem;">→</div>
+
+                <div class="layer-block" style="flex:1; min-width: 140px; background: rgba(244, 63, 94, 0.1); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(244, 63, 94, 0.2); text-align: center;">
+                    <div style="font-size:0.7rem; color:rgba(244, 63, 94, 0.8); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem;">Output Layer</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#fff;">Dense + Linear</div>
+                    <div style="font-size:0.8rem; color:var(--text-dim); margin-top:0.5rem; font-family:'JetBrains Mono'">Classes = 3</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1.25rem; color: var(--text-dim); font-size: 0.8rem;">
+                <div style="background: rgba(0,0,0,0.3); padding: 0.5rem 1rem; border-radius: 10px;">
+                    <span style="color:#fff; font-weight: 700;">Loss Function:</span> Softmax Cross Entropy
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 0.5rem 1rem; border-radius: 10px;">
+                    <span style="color:#fff; font-weight: 700;">Optimizer:</span> Adam
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 0.5rem 1rem; border-radius: 10px;">
+                    <span style="color:#fff; font-weight: 700;">Data Processing:</span> Left-Padding (Pad ID: 0)
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 0.5rem 1rem; border-radius: 10px;">
+                    <span style="color:#fff; font-weight: 700;">Recurrent State:</span> Not Stateful, ReturnSeq=False
+                </div>
+            </div>
+        </div>
+
+        <div class="card span-12">
+            <div class="card-title">Architecture Breakdown <span>Detailed Architecture report</span></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Architecture</th>
+                        <th>Params</th>
+                        <th>Avg. Accuracy (Validation)</th>
+                        <th>Avg. F1 Score (Validation)</th>
+                        <th>Avg. Loss</th>
+                        <th>Consistency</th>
+                    </tr>
+                </thead>
+                <tbody id="metrics-table-body"></tbody>
+            </table>
+        </div>
+
+        <!-- Evaluation Results -->
+        <div class="card span-6">
+            <div class="card-title">Final Confusion Matrix <span>Actual vs Predicted</span></div>
+            <table class="matrix-table">
+                <tr>
+                    <td></td>
+                    <td class="matrix-label">Neg</td>
+                    <td class="matrix-label">Pos</td>
+                    <td class="matrix-label">Neu</td>
+                </tr>
+                <tr>
+                    <td class="matrix-label" style="text-align: right">Negative</td>
+                    <td class="matrix-high">298</td>
+                    <td class="matrix-low">80</td>
+                    <td class="matrix-low">16</td>
+                </tr>
+                <tr>
+                    <td class="matrix-label" style="text-align: right">Positive</td>
+                    <td class="matrix-low">42</td>
+                    <td class="matrix-high">673</td>
+                    <td class="matrix-low">20</td>
+                </tr>
+                <tr>
+                    <td class="matrix-label" style="text-align: right">Neutral</td>
+                    <td class="matrix-low">28</td>
+                    <td class="matrix-med">37</td>
+                    <td class="matrix-high">66</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="card span-6">
+            <div class="card-title">Class Performance Profile</div>
+            <div class="per-class-grid">
+                <div class="class-card">
+                    <div class="class-name" style="color: var(--rnn-color)">Negative</div>
+                    <div class="class-metric"><span>Precision</span><span>80.98%</span></div>
+                    <div class="class-metric"><span>Recall</span><span>75.63%</span></div>
+                    <div class="class-metric"><span>F1-Score</span><span>78.22%</span></div>
+                </div>
+                <div class="class-card">
+                    <div class="class-name" style="color: var(--accent-tertiary)">Positive</div>
+                    <div class="class-metric"><span>Precision</span><span>85.19%</span></div>
+                    <div class="class-metric"><span>Recall</span><span>91.56%</span></div>
+                    <div class="class-metric"><span>F1-Score</span><span>88.26%</span></div>
+                </div>
+                <div class="class-card">
+                    <div class="class-name" style="color: var(--accent-secondary)">Neutral</div>
+                    <div class="class-metric"><span>Precision</span><span>64.71%</span></div>
+                    <div class="class-metric"><span>Recall</span><span>50.38%</span></div>
+                    <div class="class-metric"><span>F1-Score</span><span>56.65%</span></div>
+                </div>
+            </div>
+            <div style="margin-top: 2rem; padding: 1.25rem; background: rgba(0,0,0,0.3); border-radius: 18px; border: 1px solid rgba(255,255,255,0.03);">
+                <div class="class-metric"><span>Sample Size (Valid)</span><span>1,260</span></div>
+                <div class="class-metric"><span>Final Accuracy</span><span style="color: #fff; font-weight: 700;">82.30%</span></div>
+                <div class="class-metric"><span>Macro F1 Score</span><span>74.38%</span></div>
+                <div class="class-metric"><span>Weighted F1 Score</span><span>81.83%</span></div>
+                <div class="class-metric" style="margin-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem; font-size: 0.75rem;">
+                    <span>System RSS Usage</span><span>486.3MB</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let experimentData = null;
+        let charts = {};
+        const colors = { RNN: '#f43f5e', LSTM: '#6366f1', GRU: '#10b981', grid: 'rgba(255, 255, 255, 0.05)', text: '#94a3b8' };
+
+        Chart.defaults.color = colors.text;
+        Chart.defaults.font.family = "'Outfit', sans-serif";
+
+        async function loadData() {
+            try {
+                const response = await fetch('/api/data');
+                experimentData = await response.json();
+
+                if (experimentData.error) throw new Error(experimentData.error);
+
+                document.getElementById('loading-overlay').style.display = 'none';
+                initUI();
+            } catch (err) {
+                console.error(err);
+                document.querySelector('#loading-overlay p').innerText = "ERROR: " + err.message;
+                document.querySelector('.spinner').style.borderTopColor = '#ef4444';
+            }
+        }
+
+        function initUI() {
+            document.getElementById('report-id').innerText = `LIVE SOURCE: stability_experiment_${experimentData.timestamp}.json`;
+
+            // Populate Dropdown
+            const select = document.getElementById('run-select');
+            for (let i = 1; i <= experimentData.config.repetitions; i++) {
+                const opt = document.createElement('option');
+                opt.value = i; opt.innerText = `RUN #${i}`;
+                select.appendChild(opt);
+            }
+
+            renderConfig();
+            renderAccuracy();
+            renderParams();
+            renderLoss();
+            renderTable();
+        }
+
+        function renderConfig() {
+            const params = [
+                { label: 'Epochs', val: experimentData.config.epochs },
+                { label: 'Learning Rate', val: experimentData.config.alpha },
+                { label: 'Embed Dim', val: experimentData.config.embeddingDim },
+                { label: 'Reps', val: experimentData.config.repetitions },
+                { label: 'Total Train Time', val: '4h 20m 34s' }
+            ];
+            
+            let html = params.map((p, i) => `
+                <div class="config-item" style="${i === 4 ? 'grid-column: span 2; background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.2);' : ''}">
+                    <div class="config-label">${p.label}</div>
+                    <div class="config-value" style="${i === 4 ? 'color: var(--accent-primary);' : ''}">${p.val}</div>
+                </div>
+            `).join('');
+
+            html += `
+                <div class="config-item" style="grid-column: span 2; text-align: left; padding: 1.25rem; margin-top: 0.5rem; background: rgba(0,0,0,0.4);">
+                    <div class="config-label" style="margin-bottom: 0.75rem;"><span style="color:var(--accent-tertiary)">●</span> Training Hardware</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-dim); line-height: 1.7;">
+                        <span style="color:#fff">CPU:</span> 11th Gen Intel(R) Core(TM) i5-1135G7<br>
+                        <span style="color:#fff">RAM:</span> 15.41 GB<br>
+                        <span style="color:#fff">OS:</span> Linux CachyOS
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('config-params').innerHTML = html;
+        }
+
+        function renderAccuracy() {
+            charts.acc = new Chart(document.getElementById('accuracyChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['RNN', 'LSTM', 'GRU'],
+                    datasets: [{
+                        data: [experimentData.results.RNN.avgBestValAcc, experimentData.results.LSTM.avgBestValAcc, experimentData.results.GRU.avgBestValAcc],
+                        backgroundColor: ['rgba(244, 63, 94, 0.3)', 'rgba(99, 102, 241, 0.3)', 'rgba(16, 185, 129, 0.3)'],
+                        borderColor: [colors.RNN, colors.LSTM, colors.GRU],
+                        borderWidth: 2, borderRadius: 18, barThickness: 70
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0.7, grid: { color: colors.grid }, border: { display: false } },
+                        x: { grid: { display: false }, border: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderParams() {
+            charts.params = new Chart(document.getElementById('paramsChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['RNN', 'LSTM', 'GRU'],
+                    datasets: [{
+                        data: [experimentData.results.RNN.params, experimentData.results.LSTM.params, experimentData.results.GRU.params],
+                        backgroundColor: [colors.RNN, colors.LSTM, colors.GRU],
+                        borderWidth: 0, cutout: '80%'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, usePointStyle: true, padding: 20 } } }
+                }
+            });
+        }
+
+        function calculateAvg(arch) {
+            const numEpochs = experimentData.config.epochs;
+            const avg = Array(numEpochs).fill(0);
+            experimentData.results[arch].runs.forEach(r => r.lossHistory.forEach((v, i) => avg[i] += v));
+            return avg.map(v => v / experimentData.results[arch].runs.length);
+        }
+
+        function renderLoss() {
+            const epochs = Array.from({ length: experimentData.config.epochs }, (_, i) => i + 1);
+            charts.loss = new Chart(document.getElementById('lossChart'), {
+                type: 'line',
+                data: {
+                    labels: epochs,
+                    datasets: [
+                        { label: 'RNN', data: calculateAvg('RNN'), borderColor: colors.RNN, borderWidth: 4, pointRadius: 0, tension: 0.3, fill: false },
+                        { label: 'LSTM', data: calculateAvg('LSTM'), borderColor: colors.LSTM, borderWidth: 4, pointRadius: 0, tension: 0.3, fill: false },
+                        { label: 'GRU', data: calculateAvg('GRU'), borderColor: colors.GRU, borderWidth: 4, pointRadius: 0, tension: 0.3, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { type: 'logarithmic', grid: { color: colors.grid }, border: { display: false } },
+                        x: { grid: { display: false }, border: { display: false } }
+                    }
+                }
+            });
+        }
+
+        window.updateLossChart = function () {
+            const mode = document.getElementById('run-select').value;
+            ['RNN', 'LSTM', 'GRU'].forEach((arch, i) => {
+                charts.loss.data.datasets[i].data = (mode === 'avg')
+                    ? calculateAvg(arch)
+                    : experimentData.results[arch].runs[parseInt(mode) - 1].lossHistory;
+            });
+            charts.loss.update();
+        };
+
+        function renderTable() {
+            const tbody = document.getElementById('metrics-table-body');
+            ['RNN', 'LSTM', 'GRU'].forEach(arch => {
+                const res = experimentData.results[arch];
+                const accs = res.runs.map(r => r.bestValAcc);
+
+                // Calculate Real Stability (Standard Deviation)
+                const mean = accs.reduce((a, b) => a + b, 0) / accs.length;
+                const variance = accs.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / accs.length;
+                const stdDev = Math.sqrt(variance);
+
+                // Stability Score: Higher is better (lower variation)
+                // We use (1 - stdDev) as a base stability metric
+                const stabilityScore = Math.round((1 - stdDev) * 100);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><div style="display:flex; align-items:center; gap:0.75rem; font-weight:700;"><div style="width:10px; height:10px; border-radius:50%; background:${colors[arch]}"></div>${arch}</div></td>
+                    <td><code>${res.params.toLocaleString()}</code></td>
+                    <td style="font-weight:800; color:#fff">${(res.avgBestValAcc * 100).toFixed(2)}%</td>
+                    <td>${(res.avgF1 * 100).toFixed(2)}%</td>
+                    <td style="font-family:'JetBrains Mono'">${res.avgLoss.toFixed(6)}</td>
+                    <td style="width:250px">
+                        <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:6px;">
+                            <span>Stability Index</span>
+                            <span>${stabilityScore}%</span>
+                        </div>
+                        <div class="loading-bar">
+                            <div class="loading-progress" style="width:${stabilityScore}%; background:${colors[arch]}; opacity: ${stabilityScore / 100}"></div>
+                        </div>
+                        <div style="font-size: 0.65rem; color: var(--text-dim); margin-top: 4px;">Std Dev: ${stdDev.toFixed(4)}</div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        loadData();
+    </script>
+</body>
+
+</html>

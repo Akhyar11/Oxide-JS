@@ -1,0 +1,2654 @@
+Log file created at: /home/akhyar/Dokumen/Code/NODE JS/clasification_indonesia/log/log_20260427_230251.txt
+[BPE] Vocabulary dimuat dari: /home/akhyar/Dokumen/Code/NODE JS/clasification_indonesia/tokenizer.json (15182 tokens, 15124 merges)
+--- Dataset Information ---
+VOCAB_SIZE: [33m15182[39m
+PAD_ID: [33m0[39m
+Raw Dataset Train size: [33m11000[39m
+Raw Dataset Valid size: [33m1260[39m
+NOTE: Tokenizer is NOT updated during testing/evaluation.
+Processed Train samples: [33m8800[39m
+Processed Inner-Validation samples: [33m2200[39m
+---------------------------
+
+After dataset preparation | rss=255.0MB heapUsed=39.9MB external=8.6MB
+
+
+===========================================================
+>>> STARTING STABILITY EXPERIMENT FOR MODEL: RNN <<<
+===========================================================
+
+
+--- [RNN] Run 1/10 ---
+Model RNN Total Parameters: 1948547
+========== Model Info ==========
+Layer name   : embedding layer
+Layer input  : [0,0]
+Layer output : [0,0]
+Layer param  : 1943296
+
+Layer name   : rnn layer
+Layer input  : [128,0]
+Layer output : [32,1]
+Layer param  : 5152
+
+Layer name   : dense layer
+Layer input  : [32,1]
+Layer output : [3,1]
+Layer param  : 99
+
+Total params = [33m1948547[39m
+========== End Info ==========
+[RNN R1] Epoch 1/30 | Loss: 0.6718 | Val Acc (sample=500): 77.40% | Best: 77.40%
+After RNN R1 epoch 1 | rss=272.6MB heapUsed=44.6MB external=91.6MB
+[RNN R1] Epoch 2/30 | Loss: 0.4054 | Val Acc (sample=500): 78.00% | Best: 78.00%
+After RNN R1 epoch 2 | rss=273.9MB heapUsed=45.6MB external=94.7MB
+[RNN R1] Epoch 3/30 | Loss: 0.2221 | Val Acc (sample=500): 79.80% | Best: 79.80%
+After RNN R1 epoch 3 | rss=338.0MB heapUsed=43.8MB external=53.8MB
+[RNN R1] Epoch 4/30 | Loss: 0.1470 | Val Acc (sample=500): 75.80% | Best: 79.80%
+After RNN R1 epoch 4 | rss=276.3MB heapUsed=43.0MB external=100.8MB
+[RNN R1] Epoch 5/30 | Loss: 0.0776 | Val Acc (full=2200): 77.14% | Best: 79.80%
+After RNN R1 epoch 5 | rss=276.3MB heapUsed=52.6MB external=41.5MB
+[RNN R1] Epoch 6/30 | Loss: 0.0484 | Val Acc (sample=500): 77.60% | Best: 79.80%
+After RNN R1 epoch 6 | rss=276.3MB heapUsed=43.0MB external=89.6MB
+[RNN R1] Epoch 7/30 | Loss: 0.0299 | Val Acc (sample=500): 75.80% | Best: 79.80%
+After RNN R1 epoch 7 | rss=276.4MB heapUsed=43.0MB external=89.6MB
+[RNN R1] Epoch 8/30 | Loss: 0.0566 | Val Acc (sample=500): 73.80% | Best: 79.80%
+After RNN R1 epoch 8 | rss=276.3MB heapUsed=42.9MB external=89.6MB
+[RNN R1] Epoch 9/30 | Loss: 0.0245 | Val Acc (sample=500): 77.60% | Best: 79.80%
+After RNN R1 epoch 9 | rss=276.4MB heapUsed=42.9MB external=89.6MB
+[RNN R1] Epoch 10/30 | Loss: 0.0197 | Val Acc (full=2200): 76.27% | Best: 79.80%
+After RNN R1 epoch 10 | rss=276.4MB heapUsed=52.2MB external=41.5MB
+[RNN R1] Epoch 11/30 | Loss: 0.0195 | Val Acc (sample=500): 75.60% | Best: 79.80%
+After RNN R1 epoch 11 | rss=337.3MB heapUsed=44.4MB external=66.0MB
+[RNN R1] Epoch 12/30 | Loss: 0.0360 | Val Acc (sample=500): 73.40% | Best: 79.80%
+After RNN R1 epoch 12 | rss=337.3MB heapUsed=43.4MB external=48.7MB
+[RNN R1] Epoch 13/30 | Loss: 0.0218 | Val Acc (sample=500): 77.20% | Best: 79.80%
+After RNN R1 epoch 13 | rss=320.5MB heapUsed=43.2MB external=47.7MB
+[RNN R1] Epoch 14/30 | Loss: 0.0184 | Val Acc (sample=500): 75.20% | Best: 79.80%
+After RNN R1 epoch 14 | rss=276.3MB heapUsed=42.8MB external=93.6MB
+[RNN R1] Epoch 15/30 | Loss: 0.0411 | Val Acc (full=2200): 69.27% | Best: 79.80%
+After RNN R1 epoch 15 | rss=276.4MB heapUsed=51.6MB external=41.5MB
+[RNN R1] Epoch 16/30 | Loss: 0.0983 | Val Acc (sample=500): 75.20% | Best: 79.80%
+After RNN R1 epoch 16 | rss=338.3MB heapUsed=44.9MB external=76.3MB
+[RNN R1] Epoch 17/30 | Loss: 0.0358 | Val Acc (sample=500): 74.00% | Best: 79.80%
+After RNN R1 epoch 17 | rss=338.3MB heapUsed=43.8MB external=57.9MB
+[RNN R1] Epoch 18/30 | Loss: 0.0469 | Val Acc (sample=500): 79.20% | Best: 79.80%
+After RNN R1 epoch 18 | rss=276.6MB heapUsed=42.8MB external=104.9MB
+[RNN R1] Epoch 19/30 | Loss: 0.0251 | Val Acc (sample=500): 77.40% | Best: 79.80%
+After RNN R1 epoch 19 | rss=276.4MB heapUsed=42.8MB external=89.6MB
+[RNN R1] Epoch 20/30 | Loss: 0.0213 | Val Acc (full=2200): 75.91% | Best: 79.80%
+After RNN R1 epoch 20 | rss=276.6MB heapUsed=51.6MB external=41.5MB
+[RNN R1] Epoch 21/30 | Loss: 0.0216 | Val Acc (sample=500): 71.40% | Best: 79.80%
+After RNN R1 epoch 21 | rss=337.5MB heapUsed=43.7MB external=56.8MB
+[RNN R1] Epoch 22/30 | Loss: 0.0285 | Val Acc (sample=500): 63.20% | Best: 79.80%
+After RNN R1 epoch 22 | rss=340.4MB heapUsed=44.7MB external=71.2MB
+[RNN R1] Epoch 23/30 | Loss: 0.0443 | Val Acc (sample=500): 76.00% | Best: 79.80%
+After RNN R1 epoch 23 | rss=340.4MB heapUsed=43.6MB external=53.8MB
+[RNN R1] Epoch 24/30 | Loss: 0.0196 | Val Acc (sample=500): 76.20% | Best: 79.80%
+After RNN R1 epoch 24 | rss=278.5MB heapUsed=42.9MB external=100.8MB
+[RNN R1] Epoch 25/30 | Loss: 0.0194 | Val Acc (full=2200): 75.18% | Best: 79.80%
+After RNN R1 epoch 25 | rss=278.7MB heapUsed=51.7MB external=41.5MB
+[RNN R1] Epoch 26/30 | Loss: 0.0178 | Val Acc (sample=500): 76.80% | Best: 79.80%
+After RNN R1 epoch 26 | rss=340.6MB heapUsed=43.7MB external=55.8MB
+[RNN R1] Epoch 27/30 | Loss: 0.0472 | Val Acc (sample=500): 79.80% | Best: 79.80%
+After RNN R1 epoch 27 | rss=278.8MB heapUsed=42.9MB external=102.9MB
+[RNN R1] Epoch 28/30 | Loss: 0.0469 | Val Acc (sample=500): 67.80% | Best: 79.80%
+After RNN R1 epoch 28 | rss=278.6MB heapUsed=42.9MB external=89.6MB
+[RNN R1] Epoch 29/30 | Loss: 0.0553 | Val Acc (sample=500): 76.40% | Best: 79.80%
+After RNN R1 epoch 29 | rss=278.6MB heapUsed=42.9MB external=89.6MB
+[RNN R1] Epoch 30/30 | Loss: 0.0222 | Val Acc (full=2200): 77.95% | Best: 79.80%
+After RNN R1 epoch 30 | rss=278.6MB heapUsed=51.7MB external=41.5MB
+Evaluating F1 Score for RNN Run 1...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   271    84    39
+positive:    47   678    10
+neutral :    63    33    35
+
+Per-class Metrics:
+negative -> Precision: 71.13%, Recall: 68.78%, F1: 69.94%
+positive -> Precision: 85.28%, Recall: 92.24%, F1: 88.63%
+neutral  -> Precision: 41.67%, Recall: 26.72%, F1: 32.56%
+--------------------------
+Accuracy:         78.10%
+Macro F1 Score:   63.71%
+Weighted F1 Score:76.95%
+--------------------------
+After RNN Run 1 cleanup | rss=319.7MB heapUsed=77.4MB external=41.5MB
+
+--- [RNN] Run 2/10 ---
+[RNN R2] Epoch 1/30 | Loss: 0.7007 | Val Acc (sample=500): 79.80% | Best: 79.80%
+After RNN R2 epoch 1 | rss=355.6MB heapUsed=50.1MB external=88.5MB
+[RNN R2] Epoch 2/30 | Loss: 0.3669 | Val Acc (sample=500): 81.60% | Best: 81.60%
+After RNN R2 epoch 2 | rss=355.6MB heapUsed=44.8MB external=71.2MB
+[RNN R2] Epoch 3/30 | Loss: 0.1805 | Val Acc (sample=500): 82.80% | Best: 82.80%
+After RNN R2 epoch 3 | rss=355.6MB heapUsed=43.7MB external=53.8MB
+[RNN R2] Epoch 4/30 | Loss: 0.0934 | Val Acc (sample=500): 80.80% | Best: 82.80%
+After RNN R2 epoch 4 | rss=355.6MB heapUsed=46.6MB external=100.8MB
+[RNN R2] Epoch 5/30 | Loss: 0.0720 | Val Acc (full=2200): 80.68% | Best: 82.80%
+After RNN R2 epoch 5 | rss=373.3MB heapUsed=54.7MB external=83.4MB
+[RNN R2] Epoch 6/30 | Loss: 0.0596 | Val Acc (sample=500): 84.20% | Best: 84.20%
+After RNN R2 epoch 6 | rss=377.4MB heapUsed=46.0MB external=89.6MB
+[RNN R2] Epoch 7/30 | Loss: 0.0369 | Val Acc (sample=500): 80.40% | Best: 84.20%
+After RNN R2 epoch 7 | rss=377.4MB heapUsed=44.8MB external=72.2MB
+[RNN R2] Epoch 8/30 | Loss: 0.0317 | Val Acc (sample=500): 77.20% | Best: 84.20%
+After RNN R2 epoch 8 | rss=377.4MB heapUsed=43.7MB external=54.8MB
+[RNN R2] Epoch 9/30 | Loss: 0.0325 | Val Acc (sample=500): 84.00% | Best: 84.20%
+After RNN R2 epoch 9 | rss=377.4MB heapUsed=46.6MB external=101.8MB
+[RNN R2] Epoch 10/30 | Loss: 0.0273 | Val Acc (full=2200): 81.64% | Best: 84.20%
+After RNN R2 epoch 10 | rss=377.4MB heapUsed=54.3MB external=84.4MB
+[RNN R2] Epoch 11/30 | Loss: 0.0196 | Val Acc (sample=500): 80.80% | Best: 84.20%
+After RNN R2 epoch 11 | rss=377.4MB heapUsed=45.8MB external=89.6MB
+[RNN R2] Epoch 12/30 | Loss: 0.0547 | Val Acc (sample=500): 70.00% | Best: 84.20%
+After RNN R2 epoch 12 | rss=377.4MB heapUsed=44.8MB external=72.2MB
+[RNN R2] Epoch 13/30 | Loss: 0.0334 | Val Acc (sample=500): 82.20% | Best: 84.20%
+After RNN R2 epoch 13 | rss=377.4MB heapUsed=43.7MB external=54.8MB
+[RNN R2] Epoch 14/30 | Loss: 0.0208 | Val Acc (sample=500): 81.00% | Best: 84.20%
+After RNN R2 epoch 14 | rss=377.4MB heapUsed=46.6MB external=101.8MB
+[RNN R2] Epoch 15/30 | Loss: 0.0151 | Val Acc (full=2200): 80.18% | Best: 84.20%
+After RNN R2 epoch 15 | rss=377.4MB heapUsed=54.3MB external=84.4MB
+[RNN R2] Epoch 16/30 | Loss: 0.0147 | Val Acc (sample=500): 76.80% | Best: 84.20%
+After RNN R2 epoch 16 | rss=377.4MB heapUsed=45.8MB external=89.6MB
+[RNN R2] Epoch 17/30 | Loss: 0.0193 | Val Acc (sample=500): 79.80% | Best: 84.20%
+After RNN R2 epoch 17 | rss=377.4MB heapUsed=44.8MB external=72.2MB
+[RNN R2] Epoch 18/30 | Loss: 0.0128 | Val Acc (sample=500): 82.80% | Best: 84.20%
+After RNN R2 epoch 18 | rss=377.4MB heapUsed=43.7MB external=54.8MB
+[RNN R2] Epoch 19/30 | Loss: 0.0114 | Val Acc (sample=500): 79.80% | Best: 84.20%
+After RNN R2 epoch 19 | rss=377.4MB heapUsed=46.6MB external=101.8MB
+[RNN R2] Epoch 20/30 | Loss: 0.0107 | Val Acc (full=2200): 79.55% | Best: 84.20%
+After RNN R2 epoch 20 | rss=377.4MB heapUsed=54.3MB external=84.4MB
+[RNN R2] Epoch 21/30 | Loss: 0.0112 | Val Acc (sample=500): 74.20% | Best: 84.20%
+After RNN R2 epoch 21 | rss=379.1MB heapUsed=45.9MB external=89.6MB
+[RNN R2] Epoch 22/30 | Loss: 0.0518 | Val Acc (sample=500): 82.00% | Best: 84.20%
+After RNN R2 epoch 22 | rss=379.1MB heapUsed=44.8MB external=72.2MB
+[RNN R2] Epoch 23/30 | Loss: 0.0226 | Val Acc (sample=500): 80.40% | Best: 84.20%
+After RNN R2 epoch 23 | rss=380.0MB heapUsed=43.8MB external=54.8MB
+[RNN R2] Epoch 24/30 | Loss: 0.0156 | Val Acc (sample=500): 80.40% | Best: 84.20%
+After RNN R2 epoch 24 | rss=375.9MB heapUsed=46.6MB external=101.8MB
+[RNN R2] Epoch 25/30 | Loss: 0.0087 | Val Acc (full=2200): 78.18% | Best: 84.20%
+After RNN R2 epoch 25 | rss=375.9MB heapUsed=54.4MB external=84.4MB
+[RNN R2] Epoch 26/30 | Loss: 0.0084 | Val Acc (sample=500): 81.80% | Best: 84.20%
+After RNN R2 epoch 26 | rss=375.9MB heapUsed=45.9MB external=89.6MB
+[RNN R2] Epoch 27/30 | Loss: 0.0174 | Val Acc (sample=500): 77.40% | Best: 84.20%
+After RNN R2 epoch 27 | rss=375.9MB heapUsed=44.8MB external=72.2MB
+[RNN R2] Epoch 28/30 | Loss: 0.0135 | Val Acc (sample=500): 80.20% | Best: 84.20%
+After RNN R2 epoch 28 | rss=375.9MB heapUsed=43.8MB external=54.8MB
+[RNN R2] Epoch 29/30 | Loss: 0.0047 | Val Acc (sample=500): 80.40% | Best: 84.20%
+After RNN R2 epoch 29 | rss=376.9MB heapUsed=46.6MB external=100.8MB
+[RNN R2] Epoch 30/30 | Loss: 0.0038 | Val Acc (full=2200): 80.59% | Best: 84.20%
+After RNN R2 epoch 30 | rss=378.9MB heapUsed=54.3MB external=83.4MB
+Evaluating F1 Score for RNN Run 2...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   279   102    13
+positive:    54   666    15
+neutral :    38    34    59
+
+Per-class Metrics:
+negative -> Precision: 75.20%, Recall: 70.81%, F1: 72.94%
+positive -> Precision: 83.04%, Recall: 90.61%, F1: 86.66%
+neutral  -> Precision: 67.82%, Recall: 45.04%, F1: 54.13%
+--------------------------
+Accuracy:         79.68%
+Macro F1 Score:   71.24%
+Weighted F1 Score:78.99%
+--------------------------
+After RNN Run 2 cleanup | rss=444.7MB heapUsed=108.5MB external=42.6MB
+
+--- [RNN] Run 3/10 ---
+[RNN R3] Epoch 1/30 | Loss: 0.7035 | Val Acc (sample=500): 72.20% | Best: 72.20%
+After RNN R3 epoch 1 | rss=411.2MB heapUsed=45.3MB external=80.4MB
+[RNN R3] Epoch 2/30 | Loss: 0.3290 | Val Acc (sample=500): 82.40% | Best: 82.40%
+After RNN R3 epoch 2 | rss=411.2MB heapUsed=44.2MB external=63.0MB
+[RNN R3] Epoch 3/30 | Loss: 0.1456 | Val Acc (sample=500): 76.40% | Best: 82.40%
+After RNN R3 epoch 3 | rss=411.2MB heapUsed=43.2MB external=45.6MB
+[RNN R3] Epoch 4/30 | Loss: 0.0876 | Val Acc (sample=500): 81.40% | Best: 82.40%
+After RNN R3 epoch 4 | rss=411.2MB heapUsed=46.0MB external=92.6MB
+[RNN R3] Epoch 5/30 | Loss: 0.0556 | Val Acc (full=2200): 81.64% | Best: 82.40%
+After RNN R3 epoch 5 | rss=411.2MB heapUsed=53.8MB external=75.3MB
+[RNN R3] Epoch 6/30 | Loss: 0.0326 | Val Acc (sample=500): 78.00% | Best: 82.40%
+After RNN R3 epoch 6 | rss=411.2MB heapUsed=45.8MB external=89.6MB
+[RNN R3] Epoch 7/30 | Loss: 0.0273 | Val Acc (sample=500): 78.20% | Best: 82.40%
+After RNN R3 epoch 7 | rss=411.2MB heapUsed=44.8MB external=72.2MB
+[RNN R3] Epoch 8/30 | Loss: 0.0213 | Val Acc (sample=500): 74.40% | Best: 82.40%
+After RNN R3 epoch 8 | rss=411.2MB heapUsed=43.7MB external=54.8MB
+[RNN R3] Epoch 9/30 | Loss: 0.0251 | Val Acc (sample=500): 72.80% | Best: 82.40%
+After RNN R3 epoch 9 | rss=411.2MB heapUsed=46.6MB external=101.8MB
+[RNN R3] Epoch 10/30 | Loss: 0.1096 | Val Acc (full=2200): 80.41% | Best: 82.40%
+After RNN R3 epoch 10 | rss=411.2MB heapUsed=54.3MB external=84.5MB
+[RNN R3] Epoch 11/30 | Loss: 0.0365 | Val Acc (sample=500): 82.80% | Best: 82.80%
+After RNN R3 epoch 11 | rss=411.2MB heapUsed=45.8MB external=89.6MB
+[RNN R3] Epoch 12/30 | Loss: 0.0241 | Val Acc (sample=500): 76.00% | Best: 82.80%
+After RNN R3 epoch 12 | rss=411.8MB heapUsed=44.7MB external=71.2MB
+[RNN R3] Epoch 13/30 | Loss: 0.0220 | Val Acc (sample=500): 79.60% | Best: 82.80%
+After RNN R3 epoch 13 | rss=411.8MB heapUsed=43.7MB external=53.8MB
+[RNN R3] Epoch 14/30 | Loss: 0.0248 | Val Acc (sample=500): 79.80% | Best: 82.80%
+After RNN R3 epoch 14 | rss=411.8MB heapUsed=46.5MB external=100.8MB
+[RNN R3] Epoch 15/30 | Loss: 0.0206 | Val Acc (full=2200): 78.27% | Best: 82.80%
+After RNN R3 epoch 15 | rss=411.8MB heapUsed=54.1MB external=83.4MB
+[RNN R3] Epoch 16/30 | Loss: 0.0172 | Val Acc (sample=500): 78.40% | Best: 82.80%
+After RNN R3 epoch 16 | rss=411.8MB heapUsed=45.8MB external=89.6MB
+[RNN R3] Epoch 17/30 | Loss: 0.0153 | Val Acc (sample=500): 78.60% | Best: 82.80%
+After RNN R3 epoch 17 | rss=411.8MB heapUsed=44.7MB external=72.2MB
+[RNN R3] Epoch 18/30 | Loss: 0.0579 | Val Acc (sample=500): 83.80% | Best: 83.80%
+After RNN R3 epoch 18 | rss=411.8MB heapUsed=43.7MB external=54.8MB
+[RNN R3] Epoch 19/30 | Loss: 0.0302 | Val Acc (sample=500): 81.00% | Best: 83.80%
+After RNN R3 epoch 19 | rss=411.8MB heapUsed=46.6MB external=101.8MB
+[RNN R3] Epoch 20/30 | Loss: 0.0157 | Val Acc (full=2200): 81.45% | Best: 83.80%
+After RNN R3 epoch 20 | rss=411.8MB heapUsed=54.1MB external=84.5MB
+[RNN R3] Epoch 21/30 | Loss: 0.0140 | Val Acc (sample=500): 71.00% | Best: 83.80%
+After RNN R3 epoch 21 | rss=415.4MB heapUsed=45.8MB external=89.6MB
+[RNN R3] Epoch 22/30 | Loss: 0.0243 | Val Acc (sample=500): 80.40% | Best: 83.80%
+After RNN R3 epoch 22 | rss=415.4MB heapUsed=44.7MB external=72.2MB
+[RNN R3] Epoch 23/30 | Loss: 0.0152 | Val Acc (sample=500): 79.60% | Best: 83.80%
+After RNN R3 epoch 23 | rss=415.4MB heapUsed=43.7MB external=54.8MB
+[RNN R3] Epoch 24/30 | Loss: 0.0106 | Val Acc (sample=500): 82.60% | Best: 83.80%
+After RNN R3 epoch 24 | rss=415.4MB heapUsed=46.5MB external=101.8MB
+[RNN R3] Epoch 25/30 | Loss: 0.0093 | Val Acc (full=2200): 79.18% | Best: 83.80%
+After RNN R3 epoch 25 | rss=415.4MB heapUsed=54.0MB external=84.5MB
+[RNN R3] Epoch 26/30 | Loss: 0.0082 | Val Acc (sample=500): 79.80% | Best: 83.80%
+After RNN R3 epoch 26 | rss=415.4MB heapUsed=45.8MB external=89.6MB
+[RNN R3] Epoch 27/30 | Loss: 0.0167 | Val Acc (sample=500): 80.40% | Best: 83.80%
+After RNN R3 epoch 27 | rss=415.4MB heapUsed=44.7MB external=72.2MB
+[RNN R3] Epoch 28/30 | Loss: 0.0324 | Val Acc (sample=500): 80.40% | Best: 83.80%
+After RNN R3 epoch 28 | rss=415.4MB heapUsed=43.7MB external=54.8MB
+[RNN R3] Epoch 29/30 | Loss: 0.0135 | Val Acc (sample=500): 79.00% | Best: 83.80%
+After RNN R3 epoch 29 | rss=415.4MB heapUsed=46.5MB external=101.8MB
+[RNN R3] Epoch 30/30 | Loss: 0.0064 | Val Acc (full=2200): 79.68% | Best: 83.80%
+After RNN R3 epoch 30 | rss=415.4MB heapUsed=54.0MB external=84.5MB
+Evaluating F1 Score for RNN Run 3...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   280    94    20
+positive:    60   661    14
+neutral :    50    41    40
+
+Per-class Metrics:
+negative -> Precision: 71.79%, Recall: 71.07%, F1: 71.43%
+positive -> Precision: 83.04%, Recall: 89.93%, F1: 86.35%
+neutral  -> Precision: 54.05%, Recall: 30.53%, F1: 39.02%
+--------------------------
+Accuracy:         77.86%
+Macro F1 Score:   65.60%
+Weighted F1 Score:76.76%
+--------------------------
+After RNN Run 3 cleanup | rss=454.4MB heapUsed=87.4MB external=42.6MB
+
+--- [RNN] Run 4/10 ---
+[RNN R4] Epoch 1/30 | Loss: 0.7876 | Val Acc (sample=500): 77.40% | Best: 77.40%
+After RNN R4 epoch 1 | rss=415.7MB heapUsed=45.2MB external=80.4MB
+[RNN R4] Epoch 2/30 | Loss: 0.3695 | Val Acc (sample=500): 81.40% | Best: 81.40%
+After RNN R4 epoch 2 | rss=416.2MB heapUsed=44.2MB external=63.0MB
+[RNN R4] Epoch 3/30 | Loss: 0.1678 | Val Acc (sample=500): 80.20% | Best: 81.40%
+After RNN R4 epoch 3 | rss=416.2MB heapUsed=43.2MB external=45.6MB
+[RNN R4] Epoch 4/30 | Loss: 0.0712 | Val Acc (sample=500): 79.00% | Best: 81.40%
+After RNN R4 epoch 4 | rss=416.2MB heapUsed=46.0MB external=92.6MB
+[RNN R4] Epoch 5/30 | Loss: 0.0419 | Val Acc (full=2200): 79.64% | Best: 81.40%
+After RNN R4 epoch 5 | rss=416.2MB heapUsed=53.4MB external=74.2MB
+[RNN R4] Epoch 6/30 | Loss: 0.0981 | Val Acc (sample=500): 84.20% | Best: 84.20%
+After RNN R4 epoch 6 | rss=416.2MB heapUsed=45.8MB external=89.6MB
+[RNN R4] Epoch 7/30 | Loss: 0.0671 | Val Acc (sample=500): 81.00% | Best: 84.20%
+After RNN R4 epoch 7 | rss=416.2MB heapUsed=44.8MB external=72.2MB
+[RNN R4] Epoch 8/30 | Loss: 0.0345 | Val Acc (sample=500): 79.20% | Best: 84.20%
+After RNN R4 epoch 8 | rss=416.2MB heapUsed=43.7MB external=54.8MB
+[RNN R4] Epoch 9/30 | Loss: 0.0240 | Val Acc (sample=500): 85.20% | Best: 85.20%
+After RNN R4 epoch 9 | rss=416.2MB heapUsed=46.6MB external=101.8MB
+[RNN R4] Epoch 10/30 | Loss: 0.0210 | Val Acc (full=2200): 81.18% | Best: 85.20%
+After RNN R4 epoch 10 | rss=416.2MB heapUsed=54.0MB external=84.5MB
+[RNN R4] Epoch 11/30 | Loss: 0.0197 | Val Acc (sample=500): 82.40% | Best: 85.20%
+After RNN R4 epoch 11 | rss=416.2MB heapUsed=45.8MB external=89.6MB
+[RNN R4] Epoch 12/30 | Loss: 0.0187 | Val Acc (sample=500): 76.40% | Best: 85.20%
+After RNN R4 epoch 12 | rss=416.2MB heapUsed=44.8MB external=72.2MB
+[RNN R4] Epoch 13/30 | Loss: 0.0445 | Val Acc (sample=500): 85.20% | Best: 85.20%
+After RNN R4 epoch 13 | rss=416.2MB heapUsed=43.8MB external=54.8MB
+[RNN R4] Epoch 14/30 | Loss: 0.0568 | Val Acc (sample=500): 79.40% | Best: 85.20%
+After RNN R4 epoch 14 | rss=416.2MB heapUsed=46.6MB external=101.8MB
+[RNN R4] Epoch 15/30 | Loss: 0.0234 | Val Acc (full=2200): 80.14% | Best: 85.20%
+After RNN R4 epoch 15 | rss=416.2MB heapUsed=54.0MB external=84.5MB
+[RNN R4] Epoch 16/30 | Loss: 0.0194 | Val Acc (sample=500): 78.80% | Best: 85.20%
+After RNN R4 epoch 16 | rss=416.2MB heapUsed=45.9MB external=89.6MB
+[RNN R4] Epoch 17/30 | Loss: 0.3529 | Val Acc (sample=500): 68.00% | Best: 85.20%
+After RNN R4 epoch 17 | rss=416.2MB heapUsed=44.8MB external=72.2MB
+[RNN R4] Epoch 18/30 | Loss: 0.1279 | Val Acc (sample=500): 77.00% | Best: 85.20%
+After RNN R4 epoch 18 | rss=416.2MB heapUsed=43.8MB external=54.8MB
+[RNN R4] Epoch 19/30 | Loss: 0.0329 | Val Acc (sample=500): 79.00% | Best: 85.20%
+After RNN R4 epoch 19 | rss=416.2MB heapUsed=46.6MB external=101.8MB
+[RNN R4] Epoch 20/30 | Loss: 0.0207 | Val Acc (full=2200): 77.95% | Best: 85.20%
+After RNN R4 epoch 20 | rss=416.2MB heapUsed=54.0MB external=84.5MB
+[RNN R4] Epoch 21/30 | Loss: 0.0192 | Val Acc (sample=500): 75.60% | Best: 85.20%
+After RNN R4 epoch 21 | rss=416.2MB heapUsed=45.9MB external=89.6MB
+[RNN R4] Epoch 22/30 | Loss: 0.0177 | Val Acc (sample=500): 81.20% | Best: 85.20%
+After RNN R4 epoch 22 | rss=416.2MB heapUsed=44.8MB external=72.2MB
+[RNN R4] Epoch 23/30 | Loss: 0.0181 | Val Acc (sample=500): 77.60% | Best: 85.20%
+After RNN R4 epoch 23 | rss=416.2MB heapUsed=43.8MB external=54.8MB
+[RNN R4] Epoch 24/30 | Loss: 0.0230 | Val Acc (sample=500): 76.60% | Best: 85.20%
+After RNN R4 epoch 24 | rss=416.2MB heapUsed=46.6MB external=101.8MB
+[RNN R4] Epoch 25/30 | Loss: 0.0168 | Val Acc (full=2200): 78.86% | Best: 85.20%
+After RNN R4 epoch 25 | rss=416.2MB heapUsed=54.0MB external=84.5MB
+[RNN R4] Epoch 26/30 | Loss: 0.0232 | Val Acc (sample=500): 80.40% | Best: 85.20%
+After RNN R4 epoch 26 | rss=416.2MB heapUsed=45.9MB external=89.6MB
+[RNN R4] Epoch 27/30 | Loss: 0.0539 | Val Acc (sample=500): 80.20% | Best: 85.20%
+After RNN R4 epoch 27 | rss=416.2MB heapUsed=44.8MB external=72.2MB
+[RNN R4] Epoch 28/30 | Loss: 0.0236 | Val Acc (sample=500): 82.80% | Best: 85.20%
+After RNN R4 epoch 28 | rss=416.2MB heapUsed=43.8MB external=54.8MB
+[RNN R4] Epoch 29/30 | Loss: 0.0193 | Val Acc (sample=500): 77.40% | Best: 85.20%
+After RNN R4 epoch 29 | rss=416.2MB heapUsed=46.6MB external=101.8MB
+[RNN R4] Epoch 30/30 | Loss: 0.0143 | Val Acc (full=2200): 80.64% | Best: 85.20%
+After RNN R4 epoch 30 | rss=416.2MB heapUsed=54.0MB external=84.5MB
+Evaluating F1 Score for RNN Run 4...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   268   107    19
+positive:    53   674     8
+neutral :    26    50    55
+
+Per-class Metrics:
+negative -> Precision: 77.23%, Recall: 68.02%, F1: 72.33%
+positive -> Precision: 81.11%, Recall: 91.70%, F1: 86.08%
+neutral  -> Precision: 67.07%, Recall: 41.98%, F1: 51.64%
+--------------------------
+Accuracy:         79.13%
+Macro F1 Score:   70.02%
+Weighted F1 Score:78.20%
+--------------------------
+After RNN Run 4 cleanup | rss=455.1MB heapUsed=87.4MB external=42.6MB
+
+--- [RNN] Run 5/10 ---
+[RNN R5] Epoch 1/30 | Loss: 0.7210 | Val Acc (sample=500): 78.80% | Best: 78.80%
+After RNN R5 epoch 1 | rss=416.2MB heapUsed=45.3MB external=80.4MB
+[RNN R5] Epoch 2/30 | Loss: 0.5095 | Val Acc (sample=500): 80.40% | Best: 80.40%
+After RNN R5 epoch 2 | rss=416.2MB heapUsed=44.3MB external=63.0MB
+[RNN R5] Epoch 3/30 | Loss: 0.2591 | Val Acc (sample=500): 77.00% | Best: 80.40%
+After RNN R5 epoch 3 | rss=416.2MB heapUsed=43.2MB external=45.6MB
+[RNN R5] Epoch 4/30 | Loss: 0.1228 | Val Acc (sample=500): 82.80% | Best: 82.80%
+After RNN R5 epoch 4 | rss=416.2MB heapUsed=46.0MB external=92.6MB
+[RNN R5] Epoch 5/30 | Loss: 0.0867 | Val Acc (full=2200): 68.77% | Best: 82.80%
+After RNN R5 epoch 5 | rss=416.2MB heapUsed=53.5MB external=75.3MB
+[RNN R5] Epoch 6/30 | Loss: 0.1546 | Val Acc (sample=500): 79.20% | Best: 82.80%
+After RNN R5 epoch 6 | rss=416.2MB heapUsed=45.9MB external=89.6MB
+[RNN R5] Epoch 7/30 | Loss: 0.0559 | Val Acc (sample=500): 80.80% | Best: 82.80%
+After RNN R5 epoch 7 | rss=416.2MB heapUsed=44.8MB external=72.2MB
+[RNN R5] Epoch 8/30 | Loss: 0.0405 | Val Acc (sample=500): 77.80% | Best: 82.80%
+After RNN R5 epoch 8 | rss=416.6MB heapUsed=43.7MB external=53.8MB
+[RNN R5] Epoch 9/30 | Loss: 0.0406 | Val Acc (sample=500): 79.00% | Best: 82.80%
+After RNN R5 epoch 9 | rss=416.6MB heapUsed=46.5MB external=100.8MB
+[RNN R5] Epoch 10/30 | Loss: 0.0294 | Val Acc (full=2200): 77.50% | Best: 82.80%
+After RNN R5 epoch 10 | rss=416.6MB heapUsed=53.9MB external=82.4MB
+[RNN R5] Epoch 11/30 | Loss: 0.0225 | Val Acc (sample=500): 79.80% | Best: 82.80%
+After RNN R5 epoch 11 | rss=416.6MB heapUsed=45.9MB external=89.6MB
+[RNN R5] Epoch 12/30 | Loss: 0.0225 | Val Acc (sample=500): 76.20% | Best: 82.80%
+After RNN R5 epoch 12 | rss=416.6MB heapUsed=44.8MB external=72.2MB
+[RNN R5] Epoch 13/30 | Loss: 0.0485 | Val Acc (sample=500): 80.20% | Best: 82.80%
+After RNN R5 epoch 13 | rss=416.6MB heapUsed=43.8MB external=54.8MB
+[RNN R5] Epoch 14/30 | Loss: 0.0356 | Val Acc (sample=500): 79.20% | Best: 82.80%
+After RNN R5 epoch 14 | rss=416.6MB heapUsed=46.6MB external=101.8MB
+[RNN R5] Epoch 15/30 | Loss: 0.0213 | Val Acc (full=2200): 80.36% | Best: 82.80%
+After RNN R5 epoch 15 | rss=416.6MB heapUsed=54.0MB external=84.5MB
+[RNN R5] Epoch 16/30 | Loss: 0.0200 | Val Acc (sample=500): 77.20% | Best: 82.80%
+After RNN R5 epoch 16 | rss=416.6MB heapUsed=45.9MB external=89.6MB
+[RNN R5] Epoch 17/30 | Loss: 0.0175 | Val Acc (sample=500): 77.20% | Best: 82.80%
+After RNN R5 epoch 17 | rss=416.6MB heapUsed=44.8MB external=72.2MB
+[RNN R5] Epoch 18/30 | Loss: 0.0258 | Val Acc (sample=500): 81.80% | Best: 82.80%
+After RNN R5 epoch 18 | rss=416.6MB heapUsed=43.8MB external=54.8MB
+[RNN R5] Epoch 19/30 | Loss: 0.0175 | Val Acc (sample=500): 79.20% | Best: 82.80%
+After RNN R5 epoch 19 | rss=416.6MB heapUsed=46.6MB external=101.8MB
+[RNN R5] Epoch 20/30 | Loss: 0.0264 | Val Acc (full=2200): 79.36% | Best: 82.80%
+After RNN R5 epoch 20 | rss=416.6MB heapUsed=54.0MB external=84.5MB
+[RNN R5] Epoch 21/30 | Loss: 0.0448 | Val Acc (sample=500): 76.60% | Best: 82.80%
+After RNN R5 epoch 21 | rss=416.6MB heapUsed=45.9MB external=89.6MB
+[RNN R5] Epoch 22/30 | Loss: 0.0187 | Val Acc (sample=500): 81.20% | Best: 82.80%
+After RNN R5 epoch 22 | rss=416.6MB heapUsed=44.8MB external=72.2MB
+[RNN R5] Epoch 23/30 | Loss: 0.0153 | Val Acc (sample=500): 79.00% | Best: 82.80%
+After RNN R5 epoch 23 | rss=416.6MB heapUsed=43.8MB external=54.8MB
+[RNN R5] Epoch 24/30 | Loss: 0.0183 | Val Acc (sample=500): 79.80% | Best: 82.80%
+After RNN R5 epoch 24 | rss=416.6MB heapUsed=46.6MB external=101.8MB
+[RNN R5] Epoch 25/30 | Loss: 0.0338 | Val Acc (full=2200): 80.73% | Best: 82.80%
+After RNN R5 epoch 25 | rss=416.6MB heapUsed=54.0MB external=84.5MB
+[RNN R5] Epoch 26/30 | Loss: 0.0227 | Val Acc (sample=500): 77.60% | Best: 82.80%
+After RNN R5 epoch 26 | rss=416.6MB heapUsed=45.9MB external=89.6MB
+[RNN R5] Epoch 27/30 | Loss: 0.0129 | Val Acc (sample=500): 79.40% | Best: 82.80%
+After RNN R5 epoch 27 | rss=416.6MB heapUsed=44.8MB external=72.2MB
+[RNN R5] Epoch 28/30 | Loss: 0.0098 | Val Acc (sample=500): 79.40% | Best: 82.80%
+After RNN R5 epoch 28 | rss=416.6MB heapUsed=43.8MB external=54.8MB
+[RNN R5] Epoch 29/30 | Loss: 0.0119 | Val Acc (sample=500): 77.40% | Best: 82.80%
+After RNN R5 epoch 29 | rss=416.6MB heapUsed=46.6MB external=101.9MB
+[RNN R5] Epoch 30/30 | Loss: 0.0102 | Val Acc (full=2200): 78.82% | Best: 82.80%
+After RNN R5 epoch 30 | rss=416.6MB heapUsed=54.0MB external=84.5MB
+Evaluating F1 Score for RNN Run 5...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   275    87    32
+positive:    53   674     8
+neutral :    52    28    51
+
+Per-class Metrics:
+negative -> Precision: 72.37%, Recall: 69.80%, F1: 71.06%
+positive -> Precision: 85.42%, Recall: 91.70%, F1: 88.45%
+neutral  -> Precision: 56.04%, Recall: 38.93%, F1: 45.95%
+--------------------------
+Accuracy:         79.37%
+Macro F1 Score:   68.49%
+Weighted F1 Score:78.59%
+--------------------------
+After RNN Run 5 cleanup | rss=455.6MB heapUsed=87.5MB external=42.6MB
+
+--- [RNN] Run 6/10 ---
+[RNN R6] Epoch 1/30 | Loss: 0.6590 | Val Acc (sample=500): 79.20% | Best: 79.20%
+After RNN R6 epoch 1 | rss=416.7MB heapUsed=45.3MB external=80.4MB
+[RNN R6] Epoch 2/30 | Loss: 0.3433 | Val Acc (sample=500): 87.40% | Best: 87.40%
+After RNN R6 epoch 2 | rss=416.7MB heapUsed=44.3MB external=63.0MB
+[RNN R6] Epoch 3/30 | Loss: 0.1548 | Val Acc (sample=500): 81.80% | Best: 87.40%
+After RNN R6 epoch 3 | rss=416.7MB heapUsed=43.2MB external=45.6MB
+[RNN R6] Epoch 4/30 | Loss: 0.0760 | Val Acc (sample=500): 84.80% | Best: 87.40%
+After RNN R6 epoch 4 | rss=416.7MB heapUsed=46.1MB external=92.7MB
+[RNN R6] Epoch 5/30 | Loss: 0.0499 | Val Acc (full=2200): 80.00% | Best: 87.40%
+After RNN R6 epoch 5 | rss=416.8MB heapUsed=53.5MB external=75.3MB
+[RNN R6] Epoch 6/30 | Loss: 0.0334 | Val Acc (sample=500): 78.60% | Best: 87.40%
+After RNN R6 epoch 6 | rss=417.3MB heapUsed=45.9MB external=89.6MB
+[RNN R6] Epoch 7/30 | Loss: 0.0318 | Val Acc (sample=500): 74.60% | Best: 87.40%
+After RNN R6 epoch 7 | rss=417.3MB heapUsed=44.8MB external=72.2MB
+[RNN R6] Epoch 8/30 | Loss: 0.0320 | Val Acc (sample=500): 75.40% | Best: 87.40%
+After RNN R6 epoch 8 | rss=417.3MB heapUsed=43.8MB external=54.8MB
+[RNN R6] Epoch 9/30 | Loss: 0.0206 | Val Acc (sample=500): 81.80% | Best: 87.40%
+After RNN R6 epoch 9 | rss=417.3MB heapUsed=46.6MB external=101.9MB
+[RNN R6] Epoch 10/30 | Loss: 0.0195 | Val Acc (full=2200): 79.23% | Best: 87.40%
+After RNN R6 epoch 10 | rss=417.3MB heapUsed=54.1MB external=84.5MB
+[RNN R6] Epoch 11/30 | Loss: 0.0183 | Val Acc (sample=500): 80.80% | Best: 87.40%
+After RNN R6 epoch 11 | rss=417.3MB heapUsed=45.9MB external=89.6MB
+[RNN R6] Epoch 12/30 | Loss: 0.0704 | Val Acc (sample=500): 77.20% | Best: 87.40%
+After RNN R6 epoch 12 | rss=417.3MB heapUsed=44.8MB external=72.2MB
+[RNN R6] Epoch 13/30 | Loss: 0.0256 | Val Acc (sample=500): 81.00% | Best: 87.40%
+After RNN R6 epoch 13 | rss=417.3MB heapUsed=43.7MB external=53.8MB
+[RNN R6] Epoch 14/30 | Loss: 0.0168 | Val Acc (sample=500): 80.60% | Best: 87.40%
+After RNN R6 epoch 14 | rss=417.3MB heapUsed=46.6MB external=100.8MB
+[RNN R6] Epoch 15/30 | Loss: 0.0150 | Val Acc (full=2200): 80.50% | Best: 87.40%
+After RNN R6 epoch 15 | rss=417.3MB heapUsed=54.0MB external=83.5MB
+[RNN R6] Epoch 16/30 | Loss: 0.0137 | Val Acc (sample=500): 79.20% | Best: 87.40%
+After RNN R6 epoch 16 | rss=417.3MB heapUsed=45.9MB external=89.6MB
+[RNN R6] Epoch 17/30 | Loss: 0.0131 | Val Acc (sample=500): 79.60% | Best: 87.40%
+After RNN R6 epoch 17 | rss=417.3MB heapUsed=44.8MB external=72.2MB
+[RNN R6] Epoch 18/30 | Loss: 0.0111 | Val Acc (sample=500): 81.60% | Best: 87.40%
+After RNN R6 epoch 18 | rss=417.3MB heapUsed=43.8MB external=54.8MB
+[RNN R6] Epoch 19/30 | Loss: 0.0109 | Val Acc (sample=500): 72.80% | Best: 87.40%
+After RNN R6 epoch 19 | rss=417.3MB heapUsed=46.6MB external=101.9MB
+[RNN R6] Epoch 20/30 | Loss: 0.0103 | Val Acc (full=2200): 78.05% | Best: 87.40%
+After RNN R6 epoch 20 | rss=417.3MB heapUsed=54.1MB external=84.5MB
+[RNN R6] Epoch 21/30 | Loss: 0.0085 | Val Acc (sample=500): 74.40% | Best: 87.40%
+After RNN R6 epoch 21 | rss=417.3MB heapUsed=45.9MB external=89.6MB
+[RNN R6] Epoch 22/30 | Loss: 0.1572 | Val Acc (sample=500): 77.80% | Best: 87.40%
+After RNN R6 epoch 22 | rss=417.3MB heapUsed=44.8MB external=72.2MB
+[RNN R6] Epoch 23/30 | Loss: 0.0242 | Val Acc (sample=500): 74.20% | Best: 87.40%
+After RNN R6 epoch 23 | rss=417.3MB heapUsed=43.8MB external=54.8MB
+[RNN R6] Epoch 24/30 | Loss: 0.0138 | Val Acc (sample=500): 75.20% | Best: 87.40%
+After RNN R6 epoch 24 | rss=417.3MB heapUsed=46.6MB external=101.9MB
+[RNN R6] Epoch 25/30 | Loss: 0.0082 | Val Acc (full=2200): 76.32% | Best: 87.40%
+After RNN R6 epoch 25 | rss=417.3MB heapUsed=54.1MB external=84.5MB
+[RNN R6] Epoch 26/30 | Loss: 0.0240 | Val Acc (sample=500): 77.60% | Best: 87.40%
+After RNN R6 epoch 26 | rss=417.3MB heapUsed=45.9MB external=89.6MB
+[RNN R6] Epoch 27/30 | Loss: 0.0130 | Val Acc (sample=500): 75.80% | Best: 87.40%
+After RNN R6 epoch 27 | rss=417.3MB heapUsed=44.8MB external=72.2MB
+[RNN R6] Epoch 28/30 | Loss: 0.0058 | Val Acc (sample=500): 76.00% | Best: 87.40%
+After RNN R6 epoch 28 | rss=417.3MB heapUsed=43.8MB external=54.8MB
+[RNN R6] Epoch 29/30 | Loss: 0.0050 | Val Acc (sample=500): 79.40% | Best: 87.40%
+After RNN R6 epoch 29 | rss=417.3MB heapUsed=46.6MB external=101.9MB
+[RNN R6] Epoch 30/30 | Loss: 0.0040 | Val Acc (full=2200): 77.59% | Best: 87.40%
+After RNN R6 epoch 30 | rss=417.3MB heapUsed=54.1MB external=84.5MB
+Evaluating F1 Score for RNN Run 6...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   243   142     9
+positive:    72   649    14
+neutral :    29    56    46
+
+Per-class Metrics:
+negative -> Precision: 70.64%, Recall: 61.68%, F1: 65.85%
+positive -> Precision: 76.62%, Recall: 88.30%, F1: 82.05%
+neutral  -> Precision: 66.67%, Recall: 35.11%, F1: 46.00%
+--------------------------
+Accuracy:         74.44%
+Macro F1 Score:   64.63%
+Weighted F1 Score:73.24%
+--------------------------
+After RNN Run 6 cleanup | rss=456.4MB heapUsed=87.5MB external=42.6MB
+
+--- [RNN] Run 7/10 ---
+[RNN R7] Epoch 1/30 | Loss: 0.6033 | Val Acc (sample=500): 83.80% | Best: 83.80%
+After RNN R7 epoch 1 | rss=417.4MB heapUsed=45.3MB external=80.4MB
+[RNN R7] Epoch 2/30 | Loss: 0.3099 | Val Acc (sample=500): 84.20% | Best: 84.20%
+After RNN R7 epoch 2 | rss=417.4MB heapUsed=44.3MB external=63.0MB
+[RNN R7] Epoch 3/30 | Loss: 0.1521 | Val Acc (sample=500): 79.20% | Best: 84.20%
+After RNN R7 epoch 3 | rss=417.4MB heapUsed=43.3MB external=45.6MB
+[RNN R7] Epoch 4/30 | Loss: 0.0709 | Val Acc (sample=500): 85.00% | Best: 85.00%
+After RNN R7 epoch 4 | rss=417.4MB heapUsed=46.1MB external=92.7MB
+[RNN R7] Epoch 5/30 | Loss: 0.0573 | Val Acc (full=2200): 82.59% | Best: 85.00%
+After RNN R7 epoch 5 | rss=417.4MB heapUsed=53.5MB external=75.3MB
+[RNN R7] Epoch 6/30 | Loss: 0.0589 | Val Acc (sample=500): 72.80% | Best: 85.00%
+After RNN R7 epoch 6 | rss=417.4MB heapUsed=45.9MB external=89.6MB
+[RNN R7] Epoch 7/30 | Loss: 0.0394 | Val Acc (sample=500): 80.00% | Best: 85.00%
+After RNN R7 epoch 7 | rss=417.4MB heapUsed=44.9MB external=72.2MB
+[RNN R7] Epoch 8/30 | Loss: 0.0263 | Val Acc (sample=500): 74.40% | Best: 85.00%
+After RNN R7 epoch 8 | rss=417.4MB heapUsed=43.7MB external=53.8MB
+[RNN R7] Epoch 9/30 | Loss: 0.0227 | Val Acc (sample=500): 83.40% | Best: 85.00%
+After RNN R7 epoch 9 | rss=417.4MB heapUsed=46.6MB external=100.8MB
+[RNN R7] Epoch 10/30 | Loss: 0.0253 | Val Acc (full=2200): 78.82% | Best: 85.00%
+After RNN R7 epoch 10 | rss=417.4MB heapUsed=54.0MB external=83.5MB
+[RNN R7] Epoch 11/30 | Loss: 0.0203 | Val Acc (sample=500): 79.00% | Best: 85.00%
+After RNN R7 epoch 11 | rss=417.4MB heapUsed=45.9MB external=89.6MB
+[RNN R7] Epoch 12/30 | Loss: 0.0239 | Val Acc (sample=500): 75.00% | Best: 85.00%
+After RNN R7 epoch 12 | rss=417.4MB heapUsed=44.9MB external=72.2MB
+[RNN R7] Epoch 13/30 | Loss: 0.0237 | Val Acc (sample=500): 82.00% | Best: 85.00%
+After RNN R7 epoch 13 | rss=417.4MB heapUsed=43.8MB external=53.8MB
+[RNN R7] Epoch 14/30 | Loss: 0.0246 | Val Acc (sample=500): 80.00% | Best: 85.00%
+After RNN R7 epoch 14 | rss=417.4MB heapUsed=46.6MB external=100.8MB
+[RNN R7] Epoch 15/30 | Loss: 0.0427 | Val Acc (full=2200): 79.73% | Best: 85.00%
+After RNN R7 epoch 15 | rss=417.4MB heapUsed=54.0MB external=83.5MB
+[RNN R7] Epoch 16/30 | Loss: 0.0206 | Val Acc (sample=500): 78.60% | Best: 85.00%
+After RNN R7 epoch 16 | rss=417.4MB heapUsed=45.9MB external=89.6MB
+[RNN R7] Epoch 17/30 | Loss: 0.0177 | Val Acc (sample=500): 77.40% | Best: 85.00%
+After RNN R7 epoch 17 | rss=417.4MB heapUsed=44.9MB external=72.2MB
+[RNN R7] Epoch 18/30 | Loss: 0.1803 | Val Acc (sample=500): 70.80% | Best: 85.00%
+After RNN R7 epoch 18 | rss=417.4MB heapUsed=43.8MB external=54.8MB
+[RNN R7] Epoch 19/30 | Loss: 0.2020 | Val Acc (sample=500): 79.20% | Best: 85.00%
+After RNN R7 epoch 19 | rss=417.4MB heapUsed=46.6MB external=100.8MB
+[RNN R7] Epoch 20/30 | Loss: 0.0675 | Val Acc (full=2200): 76.77% | Best: 85.00%
+After RNN R7 epoch 20 | rss=417.4MB heapUsed=54.0MB external=83.5MB
+[RNN R7] Epoch 21/30 | Loss: 0.0315 | Val Acc (sample=500): 75.40% | Best: 85.00%
+After RNN R7 epoch 21 | rss=417.4MB heapUsed=45.9MB external=89.6MB
+[RNN R7] Epoch 22/30 | Loss: 0.0213 | Val Acc (sample=500): 83.80% | Best: 85.00%
+After RNN R7 epoch 22 | rss=417.4MB heapUsed=44.9MB external=72.2MB
+[RNN R7] Epoch 23/30 | Loss: 0.0171 | Val Acc (sample=500): 78.40% | Best: 85.00%
+After RNN R7 epoch 23 | rss=417.4MB heapUsed=43.8MB external=54.8MB
+[RNN R7] Epoch 24/30 | Loss: 0.0151 | Val Acc (sample=500): 77.60% | Best: 85.00%
+After RNN R7 epoch 24 | rss=417.4MB heapUsed=46.7MB external=101.9MB
+[RNN R7] Epoch 25/30 | Loss: 0.0152 | Val Acc (full=2200): 79.59% | Best: 85.00%
+After RNN R7 epoch 25 | rss=417.4MB heapUsed=54.1MB external=84.5MB
+[RNN R7] Epoch 26/30 | Loss: 0.0152 | Val Acc (sample=500): 81.40% | Best: 85.00%
+After RNN R7 epoch 26 | rss=417.6MB heapUsed=45.9MB external=88.6MB
+[RNN R7] Epoch 27/30 | Loss: 0.0540 | Val Acc (sample=500): 80.60% | Best: 85.00%
+After RNN R7 epoch 27 | rss=417.6MB heapUsed=44.8MB external=71.2MB
+[RNN R7] Epoch 28/30 | Loss: 0.0202 | Val Acc (sample=500): 80.20% | Best: 85.00%
+After RNN R7 epoch 28 | rss=417.6MB heapUsed=43.8MB external=53.8MB
+[RNN R7] Epoch 29/30 | Loss: 0.0135 | Val Acc (sample=500): 80.60% | Best: 85.00%
+After RNN R7 epoch 29 | rss=418.1MB heapUsed=46.6MB external=100.8MB
+[RNN R7] Epoch 30/30 | Loss: 0.0152 | Val Acc (full=2200): 76.77% | Best: 85.00%
+After RNN R7 epoch 30 | rss=418.1MB heapUsed=54.0MB external=83.5MB
+Evaluating F1 Score for RNN Run 7...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   255   117    22
+positive:   100   615    20
+neutral :    36    32    63
+
+Per-class Metrics:
+negative -> Precision: 65.22%, Recall: 64.72%, F1: 64.97%
+positive -> Precision: 80.50%, Recall: 83.67%, F1: 82.05%
+neutral  -> Precision: 60.00%, Recall: 48.09%, F1: 53.39%
+--------------------------
+Accuracy:         74.05%
+Macro F1 Score:   66.80%
+Weighted F1 Score:73.73%
+--------------------------
+After RNN Run 7 cleanup | rss=457.1MB heapUsed=87.5MB external=42.6MB
+
+--- [RNN] Run 8/10 ---
+[RNN R8] Epoch 1/30 | Loss: 0.6366 | Val Acc (sample=500): 81.40% | Best: 81.40%
+After RNN R8 epoch 1 | rss=418.2MB heapUsed=45.3MB external=80.4MB
+[RNN R8] Epoch 2/30 | Loss: 0.3739 | Val Acc (sample=500): 78.80% | Best: 81.40%
+After RNN R8 epoch 2 | rss=418.2MB heapUsed=44.3MB external=62.0MB
+[RNN R8] Epoch 3/30 | Loss: 0.1747 | Val Acc (sample=500): 82.20% | Best: 82.20%
+After RNN R8 epoch 3 | rss=418.2MB heapUsed=43.2MB external=44.6MB
+[RNN R8] Epoch 4/30 | Loss: 0.0964 | Val Acc (sample=500): 60.40% | Best: 82.20%
+After RNN R8 epoch 4 | rss=418.2MB heapUsed=46.1MB external=91.6MB
+[RNN R8] Epoch 5/30 | Loss: 0.0839 | Val Acc (full=2200): 81.59% | Best: 82.20%
+After RNN R8 epoch 5 | rss=418.2MB heapUsed=53.5MB external=74.3MB
+[RNN R8] Epoch 6/30 | Loss: 0.0438 | Val Acc (sample=500): 80.80% | Best: 82.20%
+After RNN R8 epoch 6 | rss=418.2MB heapUsed=45.9MB external=89.6MB
+[RNN R8] Epoch 7/30 | Loss: 0.0437 | Val Acc (sample=500): 78.80% | Best: 82.20%
+After RNN R8 epoch 7 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R8] Epoch 8/30 | Loss: 0.0348 | Val Acc (sample=500): 76.80% | Best: 82.20%
+After RNN R8 epoch 8 | rss=418.2MB heapUsed=43.8MB external=54.8MB
+[RNN R8] Epoch 9/30 | Loss: 0.0229 | Val Acc (sample=500): 80.40% | Best: 82.20%
+After RNN R8 epoch 9 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R8] Epoch 10/30 | Loss: 0.0198 | Val Acc (full=2200): 78.14% | Best: 82.20%
+After RNN R8 epoch 10 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R8] Epoch 11/30 | Loss: 0.0194 | Val Acc (sample=500): 81.40% | Best: 82.20%
+After RNN R8 epoch 11 | rss=418.2MB heapUsed=45.9MB external=89.6MB
+[RNN R8] Epoch 12/30 | Loss: 0.0188 | Val Acc (sample=500): 74.20% | Best: 82.20%
+After RNN R8 epoch 12 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R8] Epoch 13/30 | Loss: 0.0269 | Val Acc (sample=500): 81.00% | Best: 82.20%
+After RNN R8 epoch 13 | rss=418.2MB heapUsed=43.8MB external=54.8MB
+[RNN R8] Epoch 14/30 | Loss: 0.0503 | Val Acc (sample=500): 75.80% | Best: 82.20%
+After RNN R8 epoch 14 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R8] Epoch 15/30 | Loss: 0.0189 | Val Acc (full=2200): 76.86% | Best: 82.20%
+After RNN R8 epoch 15 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R8] Epoch 16/30 | Loss: 0.0172 | Val Acc (sample=500): 75.00% | Best: 82.20%
+After RNN R8 epoch 16 | rss=418.2MB heapUsed=45.9MB external=89.6MB
+[RNN R8] Epoch 17/30 | Loss: 0.0165 | Val Acc (sample=500): 76.20% | Best: 82.20%
+After RNN R8 epoch 17 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R8] Epoch 18/30 | Loss: 0.0161 | Val Acc (sample=500): 77.40% | Best: 82.20%
+After RNN R8 epoch 18 | rss=418.2MB heapUsed=43.8MB external=54.8MB
+[RNN R8] Epoch 19/30 | Loss: 0.2498 | Val Acc (sample=500): 40.80% | Best: 82.20%
+After RNN R8 epoch 19 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R8] Epoch 20/30 | Loss: 0.6523 | Val Acc (full=2200): 73.14% | Best: 82.20%
+After RNN R8 epoch 20 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R8] Epoch 21/30 | Loss: 0.2964 | Val Acc (sample=500): 73.80% | Best: 82.20%
+After RNN R8 epoch 21 | rss=418.2MB heapUsed=45.9MB external=89.6MB
+[RNN R8] Epoch 22/30 | Loss: 0.1843 | Val Acc (sample=500): 81.20% | Best: 82.20%
+After RNN R8 epoch 22 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R8] Epoch 23/30 | Loss: 0.0858 | Val Acc (sample=500): 82.40% | Best: 82.40%
+After RNN R8 epoch 23 | rss=418.2MB heapUsed=43.8MB external=54.8MB
+[RNN R8] Epoch 24/30 | Loss: 0.0619 | Val Acc (sample=500): 81.20% | Best: 82.40%
+After RNN R8 epoch 24 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R8] Epoch 25/30 | Loss: 0.0381 | Val Acc (full=2200): 80.32% | Best: 82.40%
+After RNN R8 epoch 25 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R8] Epoch 26/30 | Loss: 0.0385 | Val Acc (sample=500): 82.00% | Best: 82.40%
+After RNN R8 epoch 26 | rss=418.2MB heapUsed=45.9MB external=89.6MB
+[RNN R8] Epoch 27/30 | Loss: 0.0241 | Val Acc (sample=500): 81.40% | Best: 82.40%
+After RNN R8 epoch 27 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R8] Epoch 28/30 | Loss: 0.0279 | Val Acc (sample=500): 80.00% | Best: 82.40%
+After RNN R8 epoch 28 | rss=418.2MB heapUsed=43.8MB external=54.8MB
+[RNN R8] Epoch 29/30 | Loss: 0.0292 | Val Acc (sample=500): 80.00% | Best: 82.40%
+After RNN R8 epoch 29 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R8] Epoch 30/30 | Loss: 0.0259 | Val Acc (full=2200): 78.27% | Best: 82.40%
+After RNN R8 epoch 30 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+Evaluating F1 Score for RNN Run 8...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   270   117     7
+positive:    76   638    21
+neutral :    24    43    64
+
+Per-class Metrics:
+negative -> Precision: 72.97%, Recall: 68.53%, F1: 70.68%
+positive -> Precision: 79.95%, Recall: 86.80%, F1: 83.24%
+neutral  -> Precision: 69.57%, Recall: 48.85%, F1: 57.40%
+--------------------------
+Accuracy:         77.14%
+Macro F1 Score:   70.44%
+Weighted F1 Score:76.62%
+--------------------------
+After RNN Run 8 cleanup | rss=457.2MB heapUsed=87.5MB external=42.6MB
+
+--- [RNN] Run 9/10 ---
+[RNN R9] Epoch 1/30 | Loss: 0.6999 | Val Acc (sample=500): 78.00% | Best: 78.00%
+After RNN R9 epoch 1 | rss=418.2MB heapUsed=45.4MB external=80.4MB
+[RNN R9] Epoch 2/30 | Loss: 0.3772 | Val Acc (sample=500): 79.40% | Best: 79.40%
+After RNN R9 epoch 2 | rss=418.2MB heapUsed=44.3MB external=63.0MB
+[RNN R9] Epoch 3/30 | Loss: 0.1615 | Val Acc (sample=500): 76.20% | Best: 79.40%
+After RNN R9 epoch 3 | rss=418.2MB heapUsed=43.3MB external=45.6MB
+[RNN R9] Epoch 4/30 | Loss: 0.0722 | Val Acc (sample=500): 81.80% | Best: 81.80%
+After RNN R9 epoch 4 | rss=418.2MB heapUsed=46.1MB external=92.7MB
+[RNN R9] Epoch 5/30 | Loss: 0.0487 | Val Acc (full=2200): 77.77% | Best: 81.80%
+After RNN R9 epoch 5 | rss=418.2MB heapUsed=53.6MB external=75.3MB
+[RNN R9] Epoch 6/30 | Loss: 0.0392 | Val Acc (sample=500): 76.00% | Best: 81.80%
+After RNN R9 epoch 6 | rss=418.2MB heapUsed=46.0MB external=89.6MB
+[RNN R9] Epoch 7/30 | Loss: 0.0398 | Val Acc (sample=500): 75.40% | Best: 81.80%
+After RNN R9 epoch 7 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R9] Epoch 8/30 | Loss: 0.0861 | Val Acc (sample=500): 76.20% | Best: 81.80%
+After RNN R9 epoch 8 | rss=418.2MB heapUsed=43.9MB external=54.8MB
+[RNN R9] Epoch 9/30 | Loss: 0.0440 | Val Acc (sample=500): 77.60% | Best: 81.80%
+After RNN R9 epoch 9 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R9] Epoch 10/30 | Loss: 0.0250 | Val Acc (full=2200): 78.36% | Best: 81.80%
+After RNN R9 epoch 10 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R9] Epoch 11/30 | Loss: 0.0208 | Val Acc (sample=500): 76.60% | Best: 81.80%
+After RNN R9 epoch 11 | rss=418.2MB heapUsed=46.0MB external=89.6MB
+[RNN R9] Epoch 12/30 | Loss: 0.0187 | Val Acc (sample=500): 73.00% | Best: 81.80%
+After RNN R9 epoch 12 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R9] Epoch 13/30 | Loss: 0.0326 | Val Acc (sample=500): 78.20% | Best: 81.80%
+After RNN R9 epoch 13 | rss=418.2MB heapUsed=43.9MB external=54.8MB
+[RNN R9] Epoch 14/30 | Loss: 0.0189 | Val Acc (sample=500): 75.20% | Best: 81.80%
+After RNN R9 epoch 14 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R9] Epoch 15/30 | Loss: 0.0734 | Val Acc (full=2200): 79.23% | Best: 81.80%
+After RNN R9 epoch 15 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R9] Epoch 16/30 | Loss: 0.0278 | Val Acc (sample=500): 75.60% | Best: 81.80%
+After RNN R9 epoch 16 | rss=418.2MB heapUsed=46.0MB external=89.6MB
+[RNN R9] Epoch 17/30 | Loss: 0.0175 | Val Acc (sample=500): 76.80% | Best: 81.80%
+After RNN R9 epoch 17 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R9] Epoch 18/30 | Loss: 0.0137 | Val Acc (sample=500): 78.60% | Best: 81.80%
+After RNN R9 epoch 18 | rss=418.2MB heapUsed=43.9MB external=54.8MB
+[RNN R9] Epoch 19/30 | Loss: 0.0187 | Val Acc (sample=500): 67.40% | Best: 81.80%
+After RNN R9 epoch 19 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R9] Epoch 20/30 | Loss: 0.0339 | Val Acc (full=2200): 78.95% | Best: 81.80%
+After RNN R9 epoch 20 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R9] Epoch 21/30 | Loss: 0.0173 | Val Acc (sample=500): 73.40% | Best: 81.80%
+After RNN R9 epoch 21 | rss=418.2MB heapUsed=46.0MB external=89.6MB
+[RNN R9] Epoch 22/30 | Loss: 0.0107 | Val Acc (sample=500): 81.60% | Best: 81.80%
+After RNN R9 epoch 22 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R9] Epoch 23/30 | Loss: 0.0084 | Val Acc (sample=500): 75.00% | Best: 81.80%
+After RNN R9 epoch 23 | rss=418.2MB heapUsed=43.9MB external=54.8MB
+[RNN R9] Epoch 24/30 | Loss: 0.0200 | Val Acc (sample=500): 77.80% | Best: 81.80%
+After RNN R9 epoch 24 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R9] Epoch 25/30 | Loss: 0.0147 | Val Acc (full=2200): 78.23% | Best: 81.80%
+After RNN R9 epoch 25 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+[RNN R9] Epoch 26/30 | Loss: 0.0091 | Val Acc (sample=500): 77.60% | Best: 81.80%
+After RNN R9 epoch 26 | rss=418.2MB heapUsed=46.0MB external=89.6MB
+[RNN R9] Epoch 27/30 | Loss: 0.0053 | Val Acc (sample=500): 77.60% | Best: 81.80%
+After RNN R9 epoch 27 | rss=418.2MB heapUsed=44.9MB external=72.2MB
+[RNN R9] Epoch 28/30 | Loss: 0.0044 | Val Acc (sample=500): 77.00% | Best: 81.80%
+After RNN R9 epoch 28 | rss=418.2MB heapUsed=43.9MB external=54.8MB
+[RNN R9] Epoch 29/30 | Loss: 0.0042 | Val Acc (sample=500): 76.20% | Best: 81.80%
+After RNN R9 epoch 29 | rss=418.2MB heapUsed=46.7MB external=101.9MB
+[RNN R9] Epoch 30/30 | Loss: 0.0326 | Val Acc (full=2200): 79.50% | Best: 81.80%
+After RNN R9 epoch 30 | rss=418.2MB heapUsed=54.1MB external=84.5MB
+Evaluating F1 Score for RNN Run 9...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   271   104    19
+positive:    56   676     3
+neutral :    54    48    29
+
+Per-class Metrics:
+negative -> Precision: 71.13%, Recall: 68.78%, F1: 69.94%
+positive -> Precision: 81.64%, Recall: 91.97%, F1: 86.50%
+neutral  -> Precision: 56.86%, Recall: 22.14%, F1: 31.87%
+--------------------------
+Accuracy:         77.46%
+Macro F1 Score:   62.77%
+Weighted F1 Score:75.64%
+--------------------------
+After RNN Run 9 cleanup | rss=457.3MB heapUsed=87.3MB external=42.6MB
+
+--- [RNN] Run 10/10 ---
+[RNN R10] Epoch 1/30 | Loss: 0.6572 | Val Acc (sample=500): 80.60% | Best: 80.60%
+After RNN R10 epoch 1 | rss=423.6MB heapUsed=45.4MB external=80.4MB
+[RNN R10] Epoch 2/30 | Loss: 0.3304 | Val Acc (sample=500): 83.80% | Best: 83.80%
+After RNN R10 epoch 2 | rss=423.6MB heapUsed=44.4MB external=63.0MB
+[RNN R10] Epoch 3/30 | Loss: 0.1617 | Val Acc (sample=500): 82.20% | Best: 83.80%
+After RNN R10 epoch 3 | rss=423.6MB heapUsed=43.3MB external=45.6MB
+[RNN R10] Epoch 4/30 | Loss: 0.0843 | Val Acc (sample=500): 82.80% | Best: 83.80%
+After RNN R10 epoch 4 | rss=423.6MB heapUsed=46.2MB external=92.7MB
+[RNN R10] Epoch 5/30 | Loss: 0.1230 | Val Acc (full=2200): 82.50% | Best: 83.80%
+After RNN R10 epoch 5 | rss=423.6MB heapUsed=53.6MB external=75.3MB
+[RNN R10] Epoch 6/30 | Loss: 0.0579 | Val Acc (sample=500): 82.40% | Best: 83.80%
+After RNN R10 epoch 6 | rss=423.6MB heapUsed=46.0MB external=89.6MB
+[RNN R10] Epoch 7/30 | Loss: 0.0491 | Val Acc (sample=500): 81.60% | Best: 83.80%
+After RNN R10 epoch 7 | rss=423.6MB heapUsed=44.9MB external=72.2MB
+[RNN R10] Epoch 8/30 | Loss: 0.0253 | Val Acc (sample=500): 77.60% | Best: 83.80%
+After RNN R10 epoch 8 | rss=423.6MB heapUsed=43.9MB external=54.8MB
+[RNN R10] Epoch 9/30 | Loss: 0.0277 | Val Acc (sample=500): 81.60% | Best: 83.80%
+After RNN R10 epoch 9 | rss=423.6MB heapUsed=46.7MB external=101.9MB
+[RNN R10] Epoch 10/30 | Loss: 0.0197 | Val Acc (full=2200): 79.55% | Best: 83.80%
+After RNN R10 epoch 10 | rss=423.6MB heapUsed=54.1MB external=84.5MB
+[RNN R10] Epoch 11/30 | Loss: 0.0435 | Val Acc (sample=500): 82.40% | Best: 83.80%
+After RNN R10 epoch 11 | rss=423.6MB heapUsed=46.0MB external=89.6MB
+[RNN R10] Epoch 12/30 | Loss: 0.0278 | Val Acc (sample=500): 76.80% | Best: 83.80%
+After RNN R10 epoch 12 | rss=423.6MB heapUsed=44.9MB external=71.2MB
+[RNN R10] Epoch 13/30 | Loss: 0.0519 | Val Acc (sample=500): 80.20% | Best: 83.80%
+After RNN R10 epoch 13 | rss=423.6MB heapUsed=43.8MB external=53.8MB
+[RNN R10] Epoch 14/30 | Loss: 0.0480 | Val Acc (sample=500): 77.20% | Best: 83.80%
+After RNN R10 epoch 14 | rss=423.6MB heapUsed=46.6MB external=100.9MB
+[RNN R10] Epoch 15/30 | Loss: 0.0236 | Val Acc (full=2200): 79.36% | Best: 83.80%
+After RNN R10 epoch 15 | rss=423.6MB heapUsed=54.1MB external=83.5MB
+[RNN R10] Epoch 16/30 | Loss: 0.0337 | Val Acc (sample=500): 79.20% | Best: 83.80%
+After RNN R10 epoch 16 | rss=423.6MB heapUsed=46.0MB external=89.6MB
+[RNN R10] Epoch 17/30 | Loss: 0.0266 | Val Acc (sample=500): 80.80% | Best: 83.80%
+After RNN R10 epoch 17 | rss=423.6MB heapUsed=44.9MB external=72.2MB
+[RNN R10] Epoch 18/30 | Loss: 0.0250 | Val Acc (sample=500): 82.20% | Best: 83.80%
+After RNN R10 epoch 18 | rss=423.6MB heapUsed=43.9MB external=54.8MB
+[RNN R10] Epoch 19/30 | Loss: 0.0159 | Val Acc (sample=500): 79.40% | Best: 83.80%
+After RNN R10 epoch 19 | rss=423.6MB heapUsed=46.7MB external=101.9MB
+[RNN R10] Epoch 20/30 | Loss: 0.0203 | Val Acc (full=2200): 80.18% | Best: 83.80%
+After RNN R10 epoch 20 | rss=423.6MB heapUsed=54.1MB external=84.5MB
+[RNN R10] Epoch 21/30 | Loss: 0.0349 | Val Acc (sample=500): 75.60% | Best: 83.80%
+After RNN R10 epoch 21 | rss=423.6MB heapUsed=46.0MB external=89.6MB
+[RNN R10] Epoch 22/30 | Loss: 0.0215 | Val Acc (sample=500): 81.00% | Best: 83.80%
+After RNN R10 epoch 22 | rss=423.6MB heapUsed=44.9MB external=72.2MB
+[RNN R10] Epoch 23/30 | Loss: 0.0147 | Val Acc (sample=500): 80.80% | Best: 83.80%
+After RNN R10 epoch 23 | rss=423.6MB heapUsed=43.9MB external=54.8MB
+[RNN R10] Epoch 24/30 | Loss: 0.0107 | Val Acc (sample=500): 79.40% | Best: 83.80%
+After RNN R10 epoch 24 | rss=423.6MB heapUsed=46.7MB external=101.9MB
+[RNN R10] Epoch 25/30 | Loss: 0.0242 | Val Acc (full=2200): 80.41% | Best: 83.80%
+After RNN R10 epoch 25 | rss=423.6MB heapUsed=54.1MB external=84.5MB
+[RNN R10] Epoch 26/30 | Loss: 0.0123 | Val Acc (sample=500): 80.00% | Best: 83.80%
+After RNN R10 epoch 26 | rss=423.6MB heapUsed=46.0MB external=89.6MB
+[RNN R10] Epoch 27/30 | Loss: 0.0120 | Val Acc (sample=500): 82.40% | Best: 83.80%
+After RNN R10 epoch 27 | rss=423.6MB heapUsed=44.9MB external=72.2MB
+[RNN R10] Epoch 28/30 | Loss: 0.0118 | Val Acc (sample=500): 79.60% | Best: 83.80%
+After RNN R10 epoch 28 | rss=423.6MB heapUsed=43.9MB external=54.8MB
+[RNN R10] Epoch 29/30 | Loss: 0.0092 | Val Acc (sample=500): 77.60% | Best: 83.80%
+After RNN R10 epoch 29 | rss=423.6MB heapUsed=46.7MB external=101.9MB
+[RNN R10] Epoch 30/30 | Loss: 0.0066 | Val Acc (full=2200): 79.14% | Best: 83.80%
+After RNN R10 epoch 30 | rss=423.6MB heapUsed=54.2MB external=84.5MB
+Evaluating F1 Score for RNN Run 10...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   297    86    11
+positive:    74   650    11
+neutral :    33    47    51
+
+Per-class Metrics:
+negative -> Precision: 73.51%, Recall: 75.38%, F1: 74.44%
+positive -> Precision: 83.01%, Recall: 88.44%, F1: 85.64%
+neutral  -> Precision: 69.86%, Recall: 38.93%, F1: 50.00%
+--------------------------
+Accuracy:         79.21%
+Macro F1 Score:   70.03%
+Weighted F1 Score:78.43%
+--------------------------
+After RNN Run 10 cleanup | rss=462.6MB heapUsed=87.3MB external=42.6MB
+
+
+===========================================================
+>>> STARTING STABILITY EXPERIMENT FOR MODEL: LSTM <<<
+===========================================================
+
+
+--- [LSTM] Run 1/10 ---
+Model LSTM Total Parameters: 1964003
+========== Model Info ==========
+Layer name   : embedding layer
+Layer input  : [0,0]
+Layer output : [0,0]
+Layer param  : 1943296
+
+Layer name   : lstm layer
+Layer input  : [128,0]
+Layer output : [32,1]
+Layer param  : 20608
+
+Layer name   : dense layer
+Layer input  : [32,1]
+Layer output : [3,1]
+Layer param  : 99
+
+Total params = [33m1964003[39m
+========== End Info ==========
+[LSTM R1] Epoch 1/30 | Loss: 0.6483 | Val Acc (sample=500): 83.40% | Best: 83.40%
+After LSTM R1 epoch 1 | rss=424.3MB heapUsed=42.0MB external=75.6MB
+[LSTM R1] Epoch 2/30 | Loss: 0.3941 | Val Acc (sample=500): 86.40% | Best: 86.40%
+After LSTM R1 epoch 2 | rss=424.3MB heapUsed=84.8MB external=53.0MB
+[LSTM R1] Epoch 3/30 | Loss: 0.2417 | Val Acc (sample=500): 85.20% | Best: 86.40%
+After LSTM R1 epoch 3 | rss=424.3MB heapUsed=55.1MB external=102.3MB
+[LSTM R1] Epoch 4/30 | Loss: 0.1591 | Val Acc (sample=500): 90.40% | Best: 90.40%
+After LSTM R1 epoch 4 | rss=424.3MB heapUsed=26.6MB external=67.2MB
+[LSTM R1] Epoch 5/30 | Loss: 0.1227 | Val Acc (full=2200): 85.91% | Best: 90.40%
+After LSTM R1 epoch 5 | rss=424.3MB heapUsed=31.7MB external=44.9MB
+[LSTM R1] Epoch 6/30 | Loss: 0.0811 | Val Acc (sample=500): 86.40% | Best: 90.40%
+After LSTM R1 epoch 6 | rss=424.3MB heapUsed=53.4MB external=100.1MB
+[LSTM R1] Epoch 7/30 | Loss: 0.0692 | Val Acc (sample=500): 86.00% | Best: 90.40%
+After LSTM R1 epoch 7 | rss=424.3MB heapUsed=24.6MB external=64.8MB
+[LSTM R1] Epoch 8/30 | Loss: 0.0511 | Val Acc (sample=500): 83.20% | Best: 90.40%
+After LSTM R1 epoch 8 | rss=424.3MB heapUsed=54.9MB external=102.3MB
+[LSTM R1] Epoch 9/30 | Loss: 0.0403 | Val Acc (sample=500): 87.60% | Best: 90.40%
+After LSTM R1 epoch 9 | rss=424.3MB heapUsed=24.6MB external=64.8MB
+[LSTM R1] Epoch 10/30 | Loss: 0.0460 | Val Acc (full=2200): 84.59% | Best: 90.40%
+After LSTM R1 epoch 10 | rss=424.3MB heapUsed=29.6MB external=43.7MB
+[LSTM R1] Epoch 11/30 | Loss: 0.0431 | Val Acc (sample=500): 86.40% | Best: 90.40%
+After LSTM R1 epoch 11 | rss=424.3MB heapUsed=55.2MB external=102.5MB
+[LSTM R1] Epoch 12/30 | Loss: 0.0318 | Val Acc (sample=500): 80.80% | Best: 90.40%
+After LSTM R1 epoch 12 | rss=424.3MB heapUsed=24.6MB external=64.8MB
+[LSTM R1] Epoch 13/30 | Loss: 0.0240 | Val Acc (sample=500): 88.40% | Best: 90.40%
+After LSTM R1 epoch 13 | rss=424.3MB heapUsed=53.3MB external=100.1MB
+[LSTM R1] Epoch 14/30 | Loss: 0.0289 | Val Acc (sample=500): 81.00% | Best: 90.40%
+After LSTM R1 epoch 14 | rss=424.3MB heapUsed=24.2MB external=64.8MB
+[LSTM R1] Epoch 15/30 | Loss: 0.0414 | Val Acc (full=2200): 84.95% | Best: 90.40%
+After LSTM R1 epoch 15 | rss=424.3MB heapUsed=29.6MB external=43.8MB
+[LSTM R1] Epoch 16/30 | Loss: 0.0276 | Val Acc (sample=500): 85.00% | Best: 90.40%
+After LSTM R1 epoch 16 | rss=424.3MB heapUsed=51.5MB external=97.9MB
+[LSTM R1] Epoch 17/30 | Loss: 0.0186 | Val Acc (sample=500): 84.00% | Best: 90.40%
+After LSTM R1 epoch 17 | rss=424.3MB heapUsed=84.6MB external=60.2MB
+[LSTM R1] Epoch 18/30 | Loss: 0.0193 | Val Acc (sample=500): 87.00% | Best: 90.40%
+After LSTM R1 epoch 18 | rss=424.3MB heapUsed=55.5MB external=103.8MB
+[LSTM R1] Epoch 19/30 | Loss: 0.0229 | Val Acc (sample=500): 83.80% | Best: 90.40%
+After LSTM R1 epoch 19 | rss=424.3MB heapUsed=24.4MB external=64.8MB
+[LSTM R1] Epoch 20/30 | Loss: 0.0161 | Val Acc (full=2200): 84.41% | Best: 90.40%
+After LSTM R1 epoch 20 | rss=424.3MB heapUsed=29.3MB external=45.0MB
+[LSTM R1] Epoch 21/30 | Loss: 0.0133 | Val Acc (sample=500): 81.20% | Best: 90.40%
+After LSTM R1 epoch 21 | rss=424.3MB heapUsed=58.8MB external=107.0MB
+[LSTM R1] Epoch 22/30 | Loss: 0.0152 | Val Acc (sample=500): 85.60% | Best: 90.40%
+After LSTM R1 epoch 22 | rss=424.3MB heapUsed=28.2MB external=69.5MB
+[LSTM R1] Epoch 23/30 | Loss: 0.0109 | Val Acc (sample=500): 85.40% | Best: 90.40%
+After LSTM R1 epoch 23 | rss=424.3MB heapUsed=57.1MB external=104.8MB
+[LSTM R1] Epoch 24/30 | Loss: 0.0096 | Val Acc (sample=500): 84.40% | Best: 90.40%
+After LSTM R1 epoch 24 | rss=424.3MB heapUsed=28.2MB external=69.5MB
+[LSTM R1] Epoch 25/30 | Loss: 0.0087 | Val Acc (full=2200): 84.91% | Best: 90.40%
+After LSTM R1 epoch 25 | rss=424.3MB heapUsed=29.9MB external=45.0MB
+[LSTM R1] Epoch 26/30 | Loss: 0.0252 | Val Acc (sample=500): 87.40% | Best: 90.40%
+After LSTM R1 epoch 26 | rss=424.3MB heapUsed=54.9MB external=102.3MB
+[LSTM R1] Epoch 27/30 | Loss: 0.0219 | Val Acc (sample=500): 85.80% | Best: 90.40%
+After LSTM R1 epoch 27 | rss=424.3MB heapUsed=24.7MB external=66.2MB
+[LSTM R1] Epoch 28/30 | Loss: 0.0100 | Val Acc (sample=500): 84.80% | Best: 90.40%
+After LSTM R1 epoch 28 | rss=424.3MB heapUsed=53.0MB external=100.0MB
+[LSTM R1] Epoch 29/30 | Loss: 0.0064 | Val Acc (sample=500): 84.40% | Best: 90.40%
+After LSTM R1 epoch 29 | rss=424.3MB heapUsed=82.8MB external=59.1MB
+[LSTM R1] Epoch 30/30 | Loss: 0.0046 | Val Acc (full=2200): 84.18% | Best: 90.40%
+After LSTM R1 epoch 30 | rss=424.3MB heapUsed=25.8MB external=43.7MB
+Evaluating F1 Score for LSTM Run 1...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   305    70    19
+positive:    46   676    13
+neutral :    18    17    96
+
+Per-class Metrics:
+negative -> Precision: 82.66%, Recall: 77.41%, F1: 79.95%
+positive -> Precision: 88.60%, Recall: 91.97%, F1: 90.25%
+neutral  -> Precision: 75.00%, Recall: 73.28%, F1: 74.13%
+--------------------------
+Accuracy:         85.48%
+Macro F1 Score:   81.44%
+Weighted F1 Score:85.35%
+--------------------------
+After LSTM Run 1 cleanup | rss=463.5MB heapUsed=80.8MB external=43.7MB
+
+--- [LSTM] Run 2/10 ---
+[LSTM R2] Epoch 1/30 | Loss: 0.6429 | Val Acc (sample=500): 78.20% | Best: 78.20%
+After LSTM R2 epoch 1 | rss=432.1MB heapUsed=51.0MB external=97.6MB
+[LSTM R2] Epoch 2/30 | Loss: 0.4286 | Val Acc (sample=500): 85.80% | Best: 85.80%
+After LSTM R2 epoch 2 | rss=432.1MB heapUsed=84.3MB external=60.1MB
+[LSTM R2] Epoch 3/30 | Loss: 0.2822 | Val Acc (sample=500): 86.80% | Best: 86.80%
+After LSTM R2 epoch 3 | rss=432.1MB heapUsed=53.1MB external=100.0MB
+[LSTM R2] Epoch 4/30 | Loss: 0.1859 | Val Acc (sample=500): 90.40% | Best: 90.40%
+After LSTM R2 epoch 4 | rss=432.1MB heapUsed=86.3MB external=62.4MB
+[LSTM R2] Epoch 5/30 | Loss: 0.1267 | Val Acc (full=2200): 87.50% | Best: 90.40%
+After LSTM R2 epoch 5 | rss=432.1MB heapUsed=29.7MB external=43.9MB
+[LSTM R2] Epoch 6/30 | Loss: 0.1000 | Val Acc (sample=500): 86.20% | Best: 90.40%
+After LSTM R2 epoch 6 | rss=432.1MB heapUsed=53.1MB external=100.0MB
+[LSTM R2] Epoch 7/30 | Loss: 0.0812 | Val Acc (sample=500): 86.00% | Best: 90.40%
+After LSTM R2 epoch 7 | rss=432.1MB heapUsed=24.3MB external=64.8MB
+[LSTM R2] Epoch 8/30 | Loss: 0.0666 | Val Acc (sample=500): 85.40% | Best: 90.40%
+After LSTM R2 epoch 8 | rss=432.1MB heapUsed=53.3MB external=100.0MB
+[LSTM R2] Epoch 9/30 | Loss: 0.0532 | Val Acc (sample=500): 85.80% | Best: 90.40%
+After LSTM R2 epoch 9 | rss=432.1MB heapUsed=82.7MB external=57.8MB
+[LSTM R2] Epoch 10/30 | Loss: 0.0423 | Val Acc (full=2200): 83.91% | Best: 90.40%
+After LSTM R2 epoch 10 | rss=432.1MB heapUsed=23.6MB external=44.9MB
+[LSTM R2] Epoch 11/30 | Loss: 0.0430 | Val Acc (sample=500): 85.80% | Best: 90.40%
+After LSTM R2 epoch 11 | rss=432.1MB heapUsed=55.3MB external=102.5MB
+[LSTM R2] Epoch 12/30 | Loss: 0.0381 | Val Acc (sample=500): 84.60% | Best: 90.40%
+After LSTM R2 epoch 12 | rss=432.1MB heapUsed=24.6MB external=64.9MB
+[LSTM R2] Epoch 13/30 | Loss: 0.0275 | Val Acc (sample=500): 87.40% | Best: 90.40%
+After LSTM R2 epoch 13 | rss=432.1MB heapUsed=51.5MB external=97.8MB
+[LSTM R2] Epoch 14/30 | Loss: 0.0356 | Val Acc (sample=500): 86.00% | Best: 90.40%
+After LSTM R2 epoch 14 | rss=432.1MB heapUsed=82.4MB external=57.7MB
+[LSTM R2] Epoch 15/30 | Loss: 0.0239 | Val Acc (full=2200): 85.55% | Best: 90.40%
+After LSTM R2 epoch 15 | rss=432.1MB heapUsed=25.5MB external=45.0MB
+[LSTM R2] Epoch 16/30 | Loss: 0.0194 | Val Acc (sample=500): 83.40% | Best: 90.40%
+After LSTM R2 epoch 16 | rss=432.1MB heapUsed=53.3MB external=100.1MB
+[LSTM R2] Epoch 17/30 | Loss: 0.0131 | Val Acc (sample=500): 86.00% | Best: 90.40%
+After LSTM R2 epoch 17 | rss=432.1MB heapUsed=84.3MB external=60.1MB
+[LSTM R2] Epoch 18/30 | Loss: 0.0189 | Val Acc (sample=500): 88.80% | Best: 90.40%
+After LSTM R2 epoch 18 | rss=432.1MB heapUsed=53.0MB external=100.0MB
+[LSTM R2] Epoch 19/30 | Loss: 0.0191 | Val Acc (sample=500): 84.40% | Best: 90.40%
+After LSTM R2 epoch 19 | rss=432.1MB heapUsed=86.2MB external=62.4MB
+[LSTM R2] Epoch 20/30 | Loss: 0.0153 | Val Acc (full=2200): 84.55% | Best: 90.40%
+After LSTM R2 epoch 20 | rss=432.1MB heapUsed=27.3MB external=45.1MB
+[LSTM R2] Epoch 21/30 | Loss: 0.0140 | Val Acc (sample=500): 82.80% | Best: 90.40%
+After LSTM R2 epoch 21 | rss=432.1MB heapUsed=52.9MB external=100.0MB
+[LSTM R2] Epoch 22/30 | Loss: 0.0068 | Val Acc (sample=500): 88.20% | Best: 90.40%
+After LSTM R2 epoch 22 | rss=432.1MB heapUsed=84.4MB external=60.1MB
+[LSTM R2] Epoch 23/30 | Loss: 0.0119 | Val Acc (sample=500): 83.20% | Best: 90.40%
+After LSTM R2 epoch 23 | rss=432.1MB heapUsed=53.3MB external=100.2MB
+[LSTM R2] Epoch 24/30 | Loss: 0.0058 | Val Acc (sample=500): 87.20% | Best: 90.40%
+After LSTM R2 epoch 24 | rss=432.1MB heapUsed=86.2MB external=62.4MB
+[LSTM R2] Epoch 25/30 | Loss: 0.0034 | Val Acc (full=2200): 85.77% | Best: 90.40%
+After LSTM R2 epoch 25 | rss=432.1MB heapUsed=27.7MB external=43.7MB
+[LSTM R2] Epoch 26/30 | Loss: 0.0183 | Val Acc (sample=500): 87.40% | Best: 90.40%
+After LSTM R2 epoch 26 | rss=432.1MB heapUsed=53.3MB external=100.1MB
+[LSTM R2] Epoch 27/30 | Loss: 0.0049 | Val Acc (sample=500): 85.80% | Best: 90.40%
+After LSTM R2 epoch 27 | rss=432.1MB heapUsed=86.4MB external=62.4MB
+[LSTM R2] Epoch 28/30 | Loss: 0.0041 | Val Acc (sample=500): 85.20% | Best: 90.40%
+After LSTM R2 epoch 28 | rss=432.1MB heapUsed=55.0MB external=102.3MB
+[LSTM R2] Epoch 29/30 | Loss: 0.0020 | Val Acc (sample=500): 86.60% | Best: 90.40%
+After LSTM R2 epoch 29 | rss=432.1MB heapUsed=24.3MB external=64.8MB
+[LSTM R2] Epoch 30/30 | Loss: 0.0017 | Val Acc (full=2200): 86.27% | Best: 90.40%
+After LSTM R2 epoch 30 | rss=432.3MB heapUsed=31.7MB external=43.9MB
+Evaluating F1 Score for LSTM Run 2...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   329    57     8
+positive:    59   668     8
+neutral :    27    24    80
+
+Per-class Metrics:
+negative -> Precision: 79.28%, Recall: 83.50%, F1: 81.33%
+positive -> Precision: 89.19%, Recall: 90.88%, F1: 90.03%
+neutral  -> Precision: 83.33%, Recall: 61.07%, F1: 70.48%
+--------------------------
+Accuracy:         85.48%
+Macro F1 Score:   80.62%
+Weighted F1 Score:85.28%
+--------------------------
+After LSTM Run 2 cleanup | rss=471.3MB heapUsed=86.7MB external=43.9MB
+
+--- [LSTM] Run 3/10 ---
+[LSTM R3] Epoch 1/30 | Loss: 0.6159 | Val Acc (sample=500): 80.60% | Best: 80.60%
+After LSTM R3 epoch 1 | rss=417.5MB heapUsed=47.6MB external=93.1MB
+[LSTM R3] Epoch 2/30 | Loss: 0.3380 | Val Acc (sample=500): 87.00% | Best: 87.00%
+After LSTM R3 epoch 2 | rss=417.5MB heapUsed=82.4MB external=57.7MB
+[LSTM R3] Epoch 3/30 | Loss: 0.2036 | Val Acc (sample=500): 85.20% | Best: 87.00%
+After LSTM R3 epoch 3 | rss=417.5MB heapUsed=51.2MB external=97.6MB
+[LSTM R3] Epoch 4/30 | Loss: 0.1306 | Val Acc (sample=500): 89.40% | Best: 89.40%
+After LSTM R3 epoch 4 | rss=417.5MB heapUsed=84.6MB external=60.1MB
+[LSTM R3] Epoch 5/30 | Loss: 0.0897 | Val Acc (full=2200): 86.68% | Best: 89.40%
+After LSTM R3 epoch 5 | rss=417.5MB heapUsed=27.5MB external=44.9MB
+[LSTM R3] Epoch 6/30 | Loss: 0.0646 | Val Acc (sample=500): 86.00% | Best: 89.40%
+After LSTM R3 epoch 6 | rss=417.5MB heapUsed=54.9MB external=102.3MB
+[LSTM R3] Epoch 7/30 | Loss: 0.0697 | Val Acc (sample=500): 86.00% | Best: 89.40%
+After LSTM R3 epoch 7 | rss=417.5MB heapUsed=26.2MB external=67.1MB
+[LSTM R3] Epoch 8/30 | Loss: 0.0459 | Val Acc (sample=500): 86.00% | Best: 89.40%
+After LSTM R3 epoch 8 | rss=417.5MB heapUsed=56.9MB external=104.7MB
+[LSTM R3] Epoch 9/30 | Loss: 0.0394 | Val Acc (sample=500): 89.20% | Best: 89.40%
+After LSTM R3 epoch 9 | rss=417.5MB heapUsed=22.8MB external=62.7MB
+[LSTM R3] Epoch 10/30 | Loss: 0.0330 | Val Acc (full=2200): 84.86% | Best: 89.40%
+After LSTM R3 epoch 10 | rss=417.5MB heapUsed=31.4MB external=44.9MB
+[LSTM R3] Epoch 11/30 | Loss: 0.0269 | Val Acc (sample=500): 86.40% | Best: 89.40%
+After LSTM R3 epoch 11 | rss=417.5MB heapUsed=51.4MB external=97.8MB
+[LSTM R3] Epoch 12/30 | Loss: 0.0328 | Val Acc (sample=500): 83.80% | Best: 89.40%
+After LSTM R3 epoch 12 | rss=417.5MB heapUsed=84.5MB external=60.1MB
+[LSTM R3] Epoch 13/30 | Loss: 0.0250 | Val Acc (sample=500): 87.40% | Best: 89.40%
+After LSTM R3 epoch 13 | rss=417.5MB heapUsed=49.6MB external=95.4MB
+[LSTM R3] Epoch 14/30 | Loss: 0.0409 | Val Acc (sample=500): 85.20% | Best: 89.40%
+After LSTM R3 epoch 14 | rss=417.5MB heapUsed=82.3MB external=57.7MB
+[LSTM R3] Epoch 15/30 | Loss: 0.0234 | Val Acc (full=2200): 84.82% | Best: 89.40%
+After LSTM R3 epoch 15 | rss=417.5MB heapUsed=23.5MB external=45.0MB
+[LSTM R3] Epoch 16/30 | Loss: 0.0211 | Val Acc (sample=500): 83.60% | Best: 89.40%
+After LSTM R3 epoch 16 | rss=417.5MB heapUsed=53.0MB external=100.0MB
+[LSTM R3] Epoch 17/30 | Loss: 0.0164 | Val Acc (sample=500): 85.80% | Best: 89.40%
+After LSTM R3 epoch 17 | rss=417.5MB heapUsed=84.5MB external=60.2MB
+[LSTM R3] Epoch 18/30 | Loss: 0.0151 | Val Acc (sample=500): 87.40% | Best: 89.40%
+After LSTM R3 epoch 18 | rss=417.5MB heapUsed=49.6MB external=95.4MB
+[LSTM R3] Epoch 19/30 | Loss: 0.0163 | Val Acc (sample=500): 84.80% | Best: 89.40%
+After LSTM R3 epoch 19 | rss=417.5MB heapUsed=80.7MB external=55.5MB
+[LSTM R3] Epoch 20/30 | Loss: 0.0285 | Val Acc (full=2200): 85.09% | Best: 89.40%
+After LSTM R3 epoch 20 | rss=417.5MB heapUsed=85.8MB external=43.7MB
+[LSTM R3] Epoch 21/30 | Loss: 0.0175 | Val Acc (sample=500): 82.80% | Best: 89.40%
+After LSTM R3 epoch 21 | rss=417.5MB heapUsed=53.0MB external=100.0MB
+[LSTM R3] Epoch 22/30 | Loss: 0.0146 | Val Acc (sample=500): 89.00% | Best: 89.40%
+After LSTM R3 epoch 22 | rss=417.5MB heapUsed=22.9MB external=63.8MB
+[LSTM R3] Epoch 23/30 | Loss: 0.0146 | Val Acc (sample=500): 85.60% | Best: 89.40%
+After LSTM R3 epoch 23 | rss=417.5MB heapUsed=55.2MB external=102.5MB
+[LSTM R3] Epoch 24/30 | Loss: 0.0203 | Val Acc (sample=500): 86.80% | Best: 89.40%
+After LSTM R3 epoch 24 | rss=417.5MB heapUsed=86.2MB external=62.4MB
+[LSTM R3] Epoch 25/30 | Loss: 0.0107 | Val Acc (full=2200): 86.09% | Best: 89.40%
+After LSTM R3 epoch 25 | rss=417.5MB heapUsed=25.8MB external=43.9MB
+[LSTM R3] Epoch 26/30 | Loss: 0.0081 | Val Acc (sample=500): 86.80% | Best: 89.40%
+After LSTM R3 epoch 26 | rss=417.5MB heapUsed=55.0MB external=102.3MB
+[LSTM R3] Epoch 27/30 | Loss: 0.0067 | Val Acc (sample=500): 87.60% | Best: 89.40%
+After LSTM R3 epoch 27 | rss=417.5MB heapUsed=84.5MB external=60.2MB
+[LSTM R3] Epoch 28/30 | Loss: 0.0055 | Val Acc (sample=500): 85.20% | Best: 89.40%
+After LSTM R3 epoch 28 | rss=417.5MB heapUsed=47.7MB external=94.3MB
+[LSTM R3] Epoch 29/30 | Loss: 0.0325 | Val Acc (sample=500): 86.00% | Best: 89.40%
+After LSTM R3 epoch 29 | rss=417.5MB heapUsed=78.9MB external=53.2MB
+[LSTM R3] Epoch 30/30 | Loss: 0.0129 | Val Acc (full=2200): 85.77% | Best: 89.40%
+After LSTM R3 epoch 30 | rss=417.5MB heapUsed=23.7MB external=43.8MB
+Evaluating F1 Score for LSTM Run 3...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   340    50     4
+positive:    62   663    10
+neutral :    25    21    85
+
+Per-class Metrics:
+negative -> Precision: 79.63%, Recall: 86.29%, F1: 82.83%
+positive -> Precision: 90.33%, Recall: 90.20%, F1: 90.27%
+neutral  -> Precision: 85.86%, Recall: 64.89%, F1: 73.91%
+--------------------------
+Accuracy:         86.35%
+Macro F1 Score:   82.33%
+Weighted F1 Score:86.24%
+--------------------------
+After LSTM Run 3 cleanup | rss=456.6MB heapUsed=78.8MB external=43.8MB
+
+--- [LSTM] Run 4/10 ---
+[LSTM R4] Epoch 1/30 | Loss: 0.6378 | Val Acc (sample=500): 82.80% | Best: 82.80%
+After LSTM R4 epoch 1 | rss=424.8MB heapUsed=45.6MB external=90.7MB
+[LSTM R4] Epoch 2/30 | Loss: 0.3499 | Val Acc (sample=500): 85.60% | Best: 85.60%
+After LSTM R4 epoch 2 | rss=424.8MB heapUsed=79.0MB external=53.2MB
+[LSTM R4] Epoch 3/30 | Loss: 0.2117 | Val Acc (sample=500): 87.20% | Best: 87.20%
+After LSTM R4 epoch 3 | rss=424.8MB heapUsed=51.4MB external=97.6MB
+[LSTM R4] Epoch 4/30 | Loss: 0.1404 | Val Acc (sample=500): 87.00% | Best: 87.20%
+After LSTM R4 epoch 4 | rss=424.8MB heapUsed=84.3MB external=60.1MB
+[LSTM R4] Epoch 5/30 | Loss: 0.1113 | Val Acc (full=2200): 83.36% | Best: 87.20%
+After LSTM R4 epoch 5 | rss=424.8MB heapUsed=23.9MB external=43.8MB
+[LSTM R4] Epoch 6/30 | Loss: 0.1001 | Val Acc (sample=500): 85.60% | Best: 87.20%
+After LSTM R4 epoch 6 | rss=424.8MB heapUsed=51.4MB external=97.7MB
+[LSTM R4] Epoch 7/30 | Loss: 0.0575 | Val Acc (sample=500): 85.40% | Best: 87.20%
+After LSTM R4 epoch 7 | rss=424.8MB heapUsed=80.9MB external=55.6MB
+[LSTM R4] Epoch 8/30 | Loss: 0.0434 | Val Acc (sample=500): 82.40% | Best: 87.20%
+After LSTM R4 epoch 8 | rss=424.8MB heapUsed=51.2MB external=97.6MB
+[LSTM R4] Epoch 9/30 | Loss: 0.0439 | Val Acc (sample=500): 87.00% | Best: 87.20%
+After LSTM R4 epoch 9 | rss=424.8MB heapUsed=80.4MB external=55.4MB
+[LSTM R4] Epoch 10/30 | Loss: 0.0330 | Val Acc (full=2200): 84.64% | Best: 87.20%
+After LSTM R4 epoch 10 | rss=424.8MB heapUsed=23.6MB external=44.9MB
+[LSTM R4] Epoch 11/30 | Loss: 0.0279 | Val Acc (sample=500): 86.40% | Best: 87.20%
+After LSTM R4 epoch 11 | rss=424.8MB heapUsed=53.4MB external=100.2MB
+[LSTM R4] Epoch 12/30 | Loss: 0.0287 | Val Acc (sample=500): 82.40% | Best: 87.20%
+After LSTM R4 epoch 12 | rss=424.8MB heapUsed=84.6MB external=60.2MB
+[LSTM R4] Epoch 13/30 | Loss: 0.0379 | Val Acc (sample=500): 87.60% | Best: 87.60%
+After LSTM R4 epoch 13 | rss=424.8MB heapUsed=53.1MB external=100.0MB
+[LSTM R4] Epoch 14/30 | Loss: 0.0251 | Val Acc (sample=500): 86.60% | Best: 87.60%
+After LSTM R4 epoch 14 | rss=424.8MB heapUsed=84.7MB external=60.2MB
+[LSTM R4] Epoch 15/30 | Loss: 0.0250 | Val Acc (full=2200): 85.09% | Best: 87.60%
+After LSTM R4 epoch 15 | rss=424.8MB heapUsed=25.8MB external=43.9MB
+[LSTM R4] Epoch 16/30 | Loss: 0.0208 | Val Acc (sample=500): 84.20% | Best: 87.60%
+After LSTM R4 epoch 16 | rss=424.8MB heapUsed=51.4MB external=97.7MB
+[LSTM R4] Epoch 17/30 | Loss: 0.0163 | Val Acc (sample=500): 83.80% | Best: 87.60%
+After LSTM R4 epoch 17 | rss=424.8MB heapUsed=82.3MB external=57.7MB
+[LSTM R4] Epoch 18/30 | Loss: 0.0362 | Val Acc (sample=500): 85.60% | Best: 87.60%
+After LSTM R4 epoch 18 | rss=424.8MB heapUsed=49.2MB external=95.3MB
+[LSTM R4] Epoch 19/30 | Loss: 0.0196 | Val Acc (sample=500): 83.80% | Best: 87.60%
+After LSTM R4 epoch 19 | rss=424.8MB heapUsed=80.9MB external=55.6MB
+[LSTM R4] Epoch 20/30 | Loss: 0.0144 | Val Acc (full=2200): 84.18% | Best: 87.60%
+After LSTM R4 epoch 20 | rss=424.8MB heapUsed=84.0MB external=43.9MB
+[LSTM R4] Epoch 21/30 | Loss: 0.0112 | Val Acc (sample=500): 80.20% | Best: 87.60%
+After LSTM R4 epoch 21 | rss=424.8MB heapUsed=53.4MB external=100.1MB
+[LSTM R4] Epoch 22/30 | Loss: 0.0093 | Val Acc (sample=500): 86.00% | Best: 87.60%
+After LSTM R4 epoch 22 | rss=424.8MB heapUsed=80.8MB external=55.5MB
+[LSTM R4] Epoch 23/30 | Loss: 0.0125 | Val Acc (sample=500): 85.00% | Best: 87.60%
+After LSTM R4 epoch 23 | rss=424.8MB heapUsed=49.5MB external=95.4MB
+[LSTM R4] Epoch 24/30 | Loss: 0.0083 | Val Acc (sample=500): 85.60% | Best: 87.60%
+After LSTM R4 epoch 24 | rss=424.8MB heapUsed=80.5MB external=55.4MB
+[LSTM R4] Epoch 25/30 | Loss: 0.0057 | Val Acc (full=2200): 85.14% | Best: 87.60%
+After LSTM R4 epoch 25 | rss=424.8MB heapUsed=80.0MB external=43.7MB
+[LSTM R4] Epoch 26/30 | Loss: 0.0043 | Val Acc (sample=500): 84.60% | Best: 87.60%
+After LSTM R4 epoch 26 | rss=424.8MB heapUsed=47.4MB external=92.9MB
+[LSTM R4] Epoch 27/30 | Loss: 0.0039 | Val Acc (sample=500): 86.20% | Best: 87.60%
+After LSTM R4 epoch 27 | rss=424.8MB heapUsed=78.4MB external=53.1MB
+[LSTM R4] Epoch 28/30 | Loss: 0.0033 | Val Acc (sample=500): 87.00% | Best: 87.60%
+After LSTM R4 epoch 28 | rss=424.8MB heapUsed=47.6MB external=93.0MB
+[LSTM R4] Epoch 29/30 | Loss: 0.0020 | Val Acc (sample=500): 84.80% | Best: 87.60%
+After LSTM R4 epoch 29 | rss=424.8MB heapUsed=78.9MB external=53.2MB
+[LSTM R4] Epoch 30/30 | Loss: 0.0330 | Val Acc (full=2200): 85.14% | Best: 87.60%
+After LSTM R4 epoch 30 | rss=424.8MB heapUsed=85.5MB external=45.0MB
+Evaluating F1 Score for LSTM Run 4...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   321    64     9
+positive:    55   671     9
+neutral :    27    16    88
+
+Per-class Metrics:
+negative -> Precision: 79.65%, Recall: 81.47%, F1: 80.55%
+positive -> Precision: 89.35%, Recall: 91.29%, F1: 90.31%
+neutral  -> Precision: 83.02%, Recall: 67.18%, F1: 74.26%
+--------------------------
+Accuracy:         85.71%
+Macro F1 Score:   81.71%
+Weighted F1 Score:85.59%
+--------------------------
+After LSTM Run 4 cleanup | rss=464.0MB heapUsed=78.1MB external=45.2MB
+
+--- [LSTM] Run 5/10 ---
+[LSTM R5] Epoch 1/30 | Loss: 0.6316 | Val Acc (sample=500): 78.80% | Best: 78.80%
+After LSTM R5 epoch 1 | rss=425.0MB heapUsed=47.3MB external=92.9MB
+[LSTM R5] Epoch 2/30 | Loss: 0.3631 | Val Acc (sample=500): 85.40% | Best: 85.40%
+After LSTM R5 epoch 2 | rss=425.0MB heapUsed=82.4MB external=57.7MB
+[LSTM R5] Epoch 3/30 | Loss: 0.2336 | Val Acc (sample=500): 86.00% | Best: 86.00%
+After LSTM R5 epoch 3 | rss=425.0MB heapUsed=51.5MB external=97.7MB
+[LSTM R5] Epoch 4/30 | Loss: 0.1496 | Val Acc (sample=500): 87.00% | Best: 87.00%
+After LSTM R5 epoch 4 | rss=425.0MB heapUsed=84.3MB external=60.1MB
+[LSTM R5] Epoch 5/30 | Loss: 0.1056 | Val Acc (full=2200): 86.59% | Best: 87.00%
+After LSTM R5 epoch 5 | rss=425.0MB heapUsed=25.7MB external=44.8MB
+[LSTM R5] Epoch 6/30 | Loss: 0.0794 | Val Acc (sample=500): 87.40% | Best: 87.40%
+After LSTM R5 epoch 6 | rss=425.0MB heapUsed=53.0MB external=100.0MB
+[LSTM R5] Epoch 7/30 | Loss: 0.0850 | Val Acc (sample=500): 85.60% | Best: 87.40%
+After LSTM R5 epoch 7 | rss=425.0MB heapUsed=82.5MB external=57.7MB
+[LSTM R5] Epoch 8/30 | Loss: 0.0539 | Val Acc (sample=500): 85.80% | Best: 87.40%
+After LSTM R5 epoch 8 | rss=425.0MB heapUsed=47.7MB external=93.3MB
+[LSTM R5] Epoch 9/30 | Loss: 0.0451 | Val Acc (sample=500): 87.40% | Best: 87.40%
+After LSTM R5 epoch 9 | rss=425.0MB heapUsed=78.7MB external=53.1MB
+[LSTM R5] Epoch 10/30 | Loss: 0.0387 | Val Acc (full=2200): 86.05% | Best: 87.40%
+After LSTM R5 epoch 10 | rss=425.0MB heapUsed=80.1MB external=43.8MB
+[LSTM R5] Epoch 11/30 | Loss: 0.0308 | Val Acc (sample=500): 86.40% | Best: 87.40%
+After LSTM R5 epoch 11 | rss=425.0MB heapUsed=45.7MB external=90.7MB
+[LSTM R5] Epoch 12/30 | Loss: 0.0283 | Val Acc (sample=500): 82.60% | Best: 87.40%
+After LSTM R5 epoch 12 | rss=425.0MB heapUsed=73.2MB external=46.1MB
+[LSTM R5] Epoch 13/30 | Loss: 0.0252 | Val Acc (sample=500): 87.60% | Best: 87.60%
+After LSTM R5 epoch 13 | rss=425.0MB heapUsed=37.7MB external=81.2MB
+[LSTM R5] Epoch 14/30 | Loss: 0.0251 | Val Acc (sample=500): 84.80% | Best: 87.60%
+After LSTM R5 epoch 14 | rss=425.0MB heapUsed=55.0MB external=102.3MB
+[LSTM R5] Epoch 15/30 | Loss: 0.0209 | Val Acc (full=2200): 85.09% | Best: 87.60%
+After LSTM R5 epoch 15 | rss=425.0MB heapUsed=58.8MB external=44.9MB
+[LSTM R5] Epoch 16/30 | Loss: 0.0210 | Val Acc (sample=500): 84.20% | Best: 87.60%
+After LSTM R5 epoch 16 | rss=425.0MB heapUsed=24.4MB external=64.8MB
+[LSTM R5] Epoch 17/30 | Loss: 0.0288 | Val Acc (sample=500): 85.80% | Best: 87.60%
+After LSTM R5 epoch 17 | rss=425.0MB heapUsed=53.3MB external=100.1MB
+[LSTM R5] Epoch 18/30 | Loss: 0.0236 | Val Acc (sample=500): 88.60% | Best: 88.60%
+After LSTM R5 epoch 18 | rss=425.0MB heapUsed=84.6MB external=60.1MB
+[LSTM R5] Epoch 19/30 | Loss: 0.0179 | Val Acc (sample=500): 84.80% | Best: 88.60%
+After LSTM R5 epoch 19 | rss=425.0MB heapUsed=49.6MB external=95.5MB
+[LSTM R5] Epoch 20/30 | Loss: 0.0112 | Val Acc (full=2200): 85.50% | Best: 88.60%
+After LSTM R5 epoch 20 | rss=425.0MB heapUsed=51.4MB external=43.8MB
+[LSTM R5] Epoch 21/30 | Loss: 0.0085 | Val Acc (sample=500): 84.00% | Best: 88.60%
+After LSTM R5 epoch 21 | rss=425.0MB heapUsed=82.8MB external=59.0MB
+[LSTM R5] Epoch 22/30 | Loss: 0.0070 | Val Acc (sample=500): 87.20% | Best: 88.60%
+After LSTM R5 epoch 22 | rss=425.0MB heapUsed=53.1MB external=100.0MB
+[LSTM R5] Epoch 23/30 | Loss: 0.0054 | Val Acc (sample=500): 86.60% | Best: 88.60%
+After LSTM R5 epoch 23 | rss=425.0MB heapUsed=80.9MB external=55.6MB
+[LSTM R5] Epoch 24/30 | Loss: 0.0042 | Val Acc (sample=500): 85.80% | Best: 88.60%
+After LSTM R5 epoch 24 | rss=425.0MB heapUsed=47.3MB external=93.0MB
+[LSTM R5] Epoch 25/30 | Loss: 0.0113 | Val Acc (full=2200): 85.05% | Best: 88.60%
+After LSTM R5 epoch 25 | rss=425.0MB heapUsed=51.5MB external=45.0MB
+[LSTM R5] Epoch 26/30 | Loss: 0.0050 | Val Acc (sample=500): 86.80% | Best: 88.60%
+After LSTM R5 epoch 26 | rss=425.0MB heapUsed=80.8MB external=55.5MB
+[LSTM R5] Epoch 27/30 | Loss: 0.0070 | Val Acc (sample=500): 86.60% | Best: 88.60%
+After LSTM R5 epoch 27 | rss=425.0MB heapUsed=43.8MB external=88.3MB
+[LSTM R5] Epoch 28/30 | Loss: 0.0102 | Val Acc (sample=500): 86.40% | Best: 88.60%
+After LSTM R5 epoch 28 | rss=425.0MB heapUsed=73.2MB external=46.3MB
+[LSTM R5] Epoch 29/30 | Loss: 0.0069 | Val Acc (sample=500): 83.60% | Best: 88.60%
+After LSTM R5 epoch 29 | rss=425.0MB heapUsed=41.9MB external=86.1MB
+[LSTM R5] Epoch 30/30 | Loss: 0.0029 | Val Acc (full=2200): 86.73% | Best: 88.60%
+After LSTM R5 epoch 30 | rss=425.0MB heapUsed=47.3MB external=43.7MB
+Evaluating F1 Score for LSTM Run 5...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   343    46     5
+positive:    58   664    13
+neutral :    29    13    89
+
+Per-class Metrics:
+negative -> Precision: 79.77%, Recall: 87.06%, F1: 83.25%
+positive -> Precision: 91.84%, Recall: 90.34%, F1: 91.08%
+neutral  -> Precision: 83.18%, Recall: 67.94%, F1: 74.79%
+--------------------------
+Accuracy:         86.98%
+Macro F1 Score:   83.04%
+Weighted F1 Score:86.94%
+--------------------------
+After LSTM Run 5 cleanup | rss=464.2MB heapUsed=102.4MB external=43.8MB
+
+--- [LSTM] Run 6/10 ---
+[LSTM R6] Epoch 1/30 | Loss: 0.6346 | Val Acc (sample=500): 80.00% | Best: 80.00%
+After LSTM R6 epoch 1 | rss=417.4MB heapUsed=43.8MB external=89.6MB
+[LSTM R6] Epoch 2/30 | Loss: 0.3867 | Val Acc (sample=500): 85.20% | Best: 85.20%
+After LSTM R6 epoch 2 | rss=417.4MB heapUsed=78.6MB external=53.1MB
+[LSTM R6] Epoch 3/30 | Loss: 0.2516 | Val Acc (sample=500): 86.00% | Best: 86.00%
+After LSTM R6 epoch 3 | rss=417.4MB heapUsed=45.5MB external=90.6MB
+[LSTM R6] Epoch 4/30 | Loss: 0.1600 | Val Acc (sample=500): 89.80% | Best: 89.80%
+After LSTM R6 epoch 4 | rss=417.4MB heapUsed=77.0MB external=50.9MB
+[LSTM R6] Epoch 5/30 | Loss: 0.1182 | Val Acc (full=2200): 85.64% | Best: 89.80%
+After LSTM R6 epoch 5 | rss=417.4MB heapUsed=81.8MB external=44.9MB
+[LSTM R6] Epoch 6/30 | Loss: 0.0942 | Val Acc (sample=500): 85.80% | Best: 89.80%
+After LSTM R6 epoch 6 | rss=417.4MB heapUsed=49.3MB external=95.3MB
+[LSTM R6] Epoch 7/30 | Loss: 0.0763 | Val Acc (sample=500): 85.80% | Best: 89.80%
+After LSTM R6 epoch 7 | rss=417.4MB heapUsed=80.8MB external=55.5MB
+[LSTM R6] Epoch 8/30 | Loss: 0.0620 | Val Acc (sample=500): 85.00% | Best: 89.80%
+After LSTM R6 epoch 8 | rss=417.4MB heapUsed=45.8MB external=90.7MB
+[LSTM R6] Epoch 9/30 | Loss: 0.0505 | Val Acc (sample=500): 87.40% | Best: 89.80%
+After LSTM R6 epoch 9 | rss=417.4MB heapUsed=77.1MB external=50.8MB
+[LSTM R6] Epoch 10/30 | Loss: 0.0580 | Val Acc (full=2200): 84.18% | Best: 89.80%
+After LSTM R6 epoch 10 | rss=417.4MB heapUsed=83.6MB external=45.0MB
+[LSTM R6] Epoch 11/30 | Loss: 0.0426 | Val Acc (sample=500): 88.20% | Best: 89.80%
+After LSTM R6 epoch 11 | rss=417.4MB heapUsed=47.3MB external=93.0MB
+[LSTM R6] Epoch 12/30 | Loss: 0.0341 | Val Acc (sample=500): 83.20% | Best: 89.80%
+After LSTM R6 epoch 12 | rss=417.4MB heapUsed=78.5MB external=53.1MB
+[LSTM R6] Epoch 13/30 | Loss: 0.0328 | Val Acc (sample=500): 88.20% | Best: 89.80%
+After LSTM R6 epoch 13 | rss=417.4MB heapUsed=44.0MB external=89.6MB
+[LSTM R6] Epoch 14/30 | Loss: 0.0255 | Val Acc (sample=500): 85.40% | Best: 89.80%
+After LSTM R6 epoch 14 | rss=417.4MB heapUsed=74.8MB external=48.4MB
+[LSTM R6] Epoch 15/30 | Loss: 0.0599 | Val Acc (full=2200): 84.82% | Best: 89.80%
+After LSTM R6 epoch 15 | rss=417.4MB heapUsed=77.9MB external=45.0MB
+[LSTM R6] Epoch 16/30 | Loss: 0.0297 | Val Acc (sample=500): 84.60% | Best: 89.80%
+After LSTM R6 epoch 16 | rss=417.4MB heapUsed=45.5MB external=90.6MB
+[LSTM R6] Epoch 17/30 | Loss: 0.0201 | Val Acc (sample=500): 86.20% | Best: 89.80%
+After LSTM R6 epoch 17 | rss=417.4MB heapUsed=73.1MB external=46.1MB
+[LSTM R6] Epoch 18/30 | Loss: 0.0168 | Val Acc (sample=500): 87.20% | Best: 89.80%
+After LSTM R6 epoch 18 | rss=417.4MB heapUsed=38.1MB external=81.2MB
+[LSTM R6] Epoch 19/30 | Loss: 0.0134 | Val Acc (sample=500): 83.20% | Best: 89.80%
+After LSTM R6 epoch 19 | rss=417.4MB heapUsed=57.4MB external=106.0MB
+[LSTM R6] Epoch 20/30 | Loss: 0.0114 | Val Acc (full=2200): 84.73% | Best: 89.80%
+After LSTM R6 epoch 20 | rss=417.4MB heapUsed=62.6MB external=44.9MB
+[LSTM R6] Epoch 21/30 | Loss: 0.0191 | Val Acc (sample=500): 82.00% | Best: 89.80%
+After LSTM R6 epoch 21 | rss=417.4MB heapUsed=30.2MB external=71.8MB
+[LSTM R6] Epoch 22/30 | Loss: 0.0200 | Val Acc (sample=500): 85.80% | Best: 89.80%
+After LSTM R6 epoch 22 | rss=417.4MB heapUsed=51.4MB external=97.7MB
+[LSTM R6] Epoch 23/30 | Loss: 0.0128 | Val Acc (sample=500): 85.20% | Best: 89.80%
+After LSTM R6 epoch 23 | rss=417.4MB heapUsed=80.5MB external=55.4MB
+[LSTM R6] Epoch 24/30 | Loss: 0.0089 | Val Acc (sample=500): 84.20% | Best: 89.80%
+After LSTM R6 epoch 24 | rss=417.4MB heapUsed=45.7MB external=90.7MB
+[LSTM R6] Epoch 25/30 | Loss: 0.0088 | Val Acc (full=2200): 84.77% | Best: 89.80%
+After LSTM R6 epoch 25 | rss=417.4MB heapUsed=51.1MB external=45.0MB
+[LSTM R6] Epoch 26/30 | Loss: 0.0070 | Val Acc (sample=500): 85.60% | Best: 89.80%
+After LSTM R6 epoch 26 | rss=417.4MB heapUsed=78.9MB external=53.2MB
+[LSTM R6] Epoch 27/30 | Loss: 0.0169 | Val Acc (sample=500): 85.20% | Best: 89.80%
+After LSTM R6 epoch 27 | rss=417.4MB heapUsed=43.8MB external=88.3MB
+[LSTM R6] Epoch 28/30 | Loss: 0.0124 | Val Acc (sample=500): 84.40% | Best: 89.80%
+After LSTM R6 epoch 28 | rss=417.4MB heapUsed=75.1MB external=48.4MB
+[LSTM R6] Epoch 29/30 | Loss: 0.0057 | Val Acc (sample=500): 84.80% | Best: 89.80%
+After LSTM R6 epoch 29 | rss=417.4MB heapUsed=39.7MB external=83.6MB
+[LSTM R6] Epoch 30/30 | Loss: 0.0071 | Val Acc (full=2200): 83.27% | Best: 89.80%
+After LSTM R6 epoch 30 | rss=417.4MB heapUsed=29.8MB external=44.9MB
+Evaluating F1 Score for LSTM Run 6...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   335    50     9
+positive:    92   631    12
+neutral :    36    20    75
+
+Per-class Metrics:
+negative -> Precision: 72.35%, Recall: 85.03%, F1: 78.18%
+positive -> Precision: 90.01%, Recall: 85.85%, F1: 87.88%
+neutral  -> Precision: 78.13%, Recall: 57.25%, F1: 66.08%
+--------------------------
+Accuracy:         82.62%
+Macro F1 Score:   77.38%
+Weighted F1 Score:82.58%
+--------------------------
+After LSTM Run 6 cleanup | rss=456.6MB heapUsed=84.8MB external=45.0MB
+
+--- [LSTM] Run 7/10 ---
+[LSTM R7] Epoch 1/30 | Loss: 0.6191 | Val Acc (sample=500): 80.60% | Best: 80.60%
+After LSTM R7 epoch 1 | rss=431.3MB heapUsed=41.8MB external=86.1MB
+[LSTM R7] Epoch 2/30 | Loss: 0.3357 | Val Acc (sample=500): 87.20% | Best: 87.20%
+After LSTM R7 epoch 2 | rss=431.3MB heapUsed=71.2MB external=109.4MB
+[LSTM R7] Epoch 3/30 | Loss: 0.2029 | Val Acc (sample=500): 86.00% | Best: 87.20%
+After LSTM R7 epoch 3 | rss=431.3MB heapUsed=36.1MB external=79.0MB
+[LSTM R7] Epoch 4/30 | Loss: 0.1360 | Val Acc (sample=500): 88.40% | Best: 88.40%
+After LSTM R7 epoch 4 | rss=431.3MB heapUsed=56.8MB external=104.7MB
+[LSTM R7] Epoch 5/30 | Loss: 0.0902 | Val Acc (full=2200): 86.95% | Best: 88.40%
+After LSTM R7 epoch 5 | rss=431.3MB heapUsed=57.2MB external=43.9MB
+[LSTM R7] Epoch 6/30 | Loss: 0.0696 | Val Acc (sample=500): 86.20% | Best: 88.40%
+After LSTM R7 epoch 6 | rss=431.3MB heapUsed=23.0MB external=63.8MB
+[LSTM R7] Epoch 7/30 | Loss: 0.0522 | Val Acc (sample=500): 83.80% | Best: 88.40%
+After LSTM R7 epoch 7 | rss=431.3MB heapUsed=53.1MB external=100.0MB
+[LSTM R7] Epoch 8/30 | Loss: 0.0358 | Val Acc (sample=500): 85.40% | Best: 88.40%
+After LSTM R7 epoch 8 | rss=431.3MB heapUsed=82.5MB external=57.8MB
+[LSTM R7] Epoch 9/30 | Loss: 0.0386 | Val Acc (sample=500): 89.20% | Best: 89.20%
+After LSTM R7 epoch 9 | rss=431.3MB heapUsed=51.4MB external=97.7MB
+[LSTM R7] Epoch 10/30 | Loss: 0.0280 | Val Acc (full=2200): 85.23% | Best: 89.20%
+After LSTM R7 epoch 10 | rss=431.3MB heapUsed=53.3MB external=43.8MB
+[LSTM R7] Epoch 11/30 | Loss: 0.0291 | Val Acc (sample=500): 83.40% | Best: 89.20%
+After LSTM R7 epoch 11 | rss=431.3MB heapUsed=83.0MB external=59.1MB
+[LSTM R7] Epoch 12/30 | Loss: 0.0301 | Val Acc (sample=500): 82.40% | Best: 89.20%
+After LSTM R7 epoch 12 | rss=431.3MB heapUsed=47.2MB external=93.0MB
+[LSTM R7] Epoch 13/30 | Loss: 0.0207 | Val Acc (sample=500): 87.80% | Best: 89.20%
+After LSTM R7 epoch 13 | rss=431.3MB heapUsed=76.9MB external=50.7MB
+[LSTM R7] Epoch 14/30 | Loss: 0.0273 | Val Acc (sample=500): 81.40% | Best: 89.20%
+After LSTM R7 epoch 14 | rss=431.3MB heapUsed=41.7MB external=85.9MB
+[LSTM R7] Epoch 15/30 | Loss: 0.0205 | Val Acc (full=2200): 85.64% | Best: 89.20%
+After LSTM R7 epoch 15 | rss=431.3MB heapUsed=45.5MB external=43.8MB
+[LSTM R7] Epoch 16/30 | Loss: 0.0188 | Val Acc (sample=500): 84.80% | Best: 89.20%
+After LSTM R7 epoch 16 | rss=431.3MB heapUsed=75.1MB external=48.6MB
+[LSTM R7] Epoch 17/30 | Loss: 0.0160 | Val Acc (sample=500): 86.00% | Best: 89.20%
+After LSTM R7 epoch 17 | rss=431.3MB heapUsed=43.8MB external=88.3MB
+[LSTM R7] Epoch 18/30 | Loss: 0.0155 | Val Acc (sample=500): 88.20% | Best: 89.20%
+After LSTM R7 epoch 18 | rss=431.3MB heapUsed=75.1MB external=48.5MB
+[LSTM R7] Epoch 19/30 | Loss: 0.0098 | Val Acc (sample=500): 85.60% | Best: 89.20%
+After LSTM R7 epoch 19 | rss=431.3MB heapUsed=39.7MB external=83.6MB
+[LSTM R7] Epoch 20/30 | Loss: 0.0209 | Val Acc (full=2200): 85.91% | Best: 89.20%
+After LSTM R7 epoch 20 | rss=431.3MB heapUsed=33.4MB external=43.8MB
+[LSTM R7] Epoch 21/30 | Loss: 0.0368 | Val Acc (sample=500): 80.40% | Best: 89.20%
+After LSTM R7 epoch 21 | rss=431.3MB heapUsed=55.3MB external=102.4MB
+[LSTM R7] Epoch 22/30 | Loss: 0.0129 | Val Acc (sample=500): 88.20% | Best: 89.20%
+After LSTM R7 epoch 22 | rss=431.3MB heapUsed=82.4MB external=57.8MB
+[LSTM R7] Epoch 23/30 | Loss: 0.0072 | Val Acc (sample=500): 85.80% | Best: 89.20%
+After LSTM R7 epoch 23 | rss=431.3MB heapUsed=45.5MB external=90.6MB
+[LSTM R7] Epoch 24/30 | Loss: 0.0052 | Val Acc (sample=500): 86.60% | Best: 89.20%
+After LSTM R7 epoch 24 | rss=431.3MB heapUsed=73.2MB external=46.1MB
+[LSTM R7] Epoch 25/30 | Loss: 0.0055 | Val Acc (full=2200): 86.27% | Best: 89.20%
+After LSTM R7 epoch 25 | rss=431.3MB heapUsed=74.6MB external=45.0MB
+[LSTM R7] Epoch 26/30 | Loss: 0.0033 | Val Acc (sample=500): 87.40% | Best: 89.20%
+After LSTM R7 epoch 26 | rss=431.3MB heapUsed=39.7MB external=83.6MB
+[LSTM R7] Epoch 27/30 | Loss: 0.0024 | Val Acc (sample=500): 86.40% | Best: 89.20%
+After LSTM R7 epoch 27 | rss=431.3MB heapUsed=58.9MB external=107.0MB
+[LSTM R7] Epoch 28/30 | Loss: 0.0097 | Val Acc (sample=500): 85.40% | Best: 89.20%
+After LSTM R7 epoch 28 | rss=431.3MB heapUsed=24.4MB external=64.8MB
+[LSTM R7] Epoch 29/30 | Loss: 0.0128 | Val Acc (sample=500): 85.00% | Best: 89.20%
+After LSTM R7 epoch 29 | rss=431.3MB heapUsed=49.7MB external=95.6MB
+[LSTM R7] Epoch 30/30 | Loss: 0.0083 | Val Acc (full=2200): 86.32% | Best: 89.20%
+After LSTM R7 epoch 30 | rss=431.3MB heapUsed=51.2MB external=44.9MB
+Evaluating F1 Score for LSTM Run 7...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   321    63    10
+positive:    52   673    10
+neutral :    26    22    83
+
+Per-class Metrics:
+negative -> Precision: 80.45%, Recall: 81.47%, F1: 80.96%
+positive -> Precision: 88.79%, Recall: 91.56%, F1: 90.15%
+neutral  -> Precision: 80.58%, Recall: 63.36%, F1: 70.94%
+--------------------------
+Accuracy:         85.48%
+Macro F1 Score:   80.68%
+Weighted F1 Score:85.28%
+--------------------------
+After LSTM Run 7 cleanup | rss=470.5MB heapUsed=106.3MB external=45.0MB
+
+--- [LSTM] Run 8/10 ---
+[LSTM R8] Epoch 1/30 | Loss: 0.6337 | Val Acc (sample=500): 78.40% | Best: 78.40%
+After LSTM R8 epoch 1 | rss=416.6MB heapUsed=49.2MB external=95.3MB
+[LSTM R8] Epoch 2/30 | Loss: 0.3744 | Val Acc (sample=500): 86.40% | Best: 86.40%
+After LSTM R8 epoch 2 | rss=416.6MB heapUsed=82.5MB external=57.8MB
+[LSTM R8] Epoch 3/30 | Loss: 0.2175 | Val Acc (sample=500): 86.60% | Best: 86.60%
+After LSTM R8 epoch 3 | rss=416.6MB heapUsed=45.5MB external=90.6MB
+[LSTM R8] Epoch 4/30 | Loss: 0.1411 | Val Acc (sample=500): 89.00% | Best: 89.00%
+After LSTM R8 epoch 4 | rss=416.6MB heapUsed=71.2MB external=109.4MB
+[LSTM R8] Epoch 5/30 | Loss: 0.0964 | Val Acc (full=2200): 86.91% | Best: 89.00%
+After LSTM R8 epoch 5 | rss=416.6MB heapUsed=76.0MB external=45.0MB
+[LSTM R8] Epoch 6/30 | Loss: 0.0790 | Val Acc (sample=500): 87.20% | Best: 89.00%
+After LSTM R8 epoch 6 | rss=416.6MB heapUsed=43.8MB external=88.3MB
+[LSTM R8] Epoch 7/30 | Loss: 0.0549 | Val Acc (sample=500): 83.40% | Best: 89.00%
+After LSTM R8 epoch 7 | rss=416.6MB heapUsed=76.7MB external=50.7MB
+[LSTM R8] Epoch 8/30 | Loss: 0.0567 | Val Acc (sample=500): 84.20% | Best: 89.00%
+After LSTM R8 epoch 8 | rss=416.6MB heapUsed=41.6MB external=85.9MB
+[LSTM R8] Epoch 9/30 | Loss: 0.0409 | Val Acc (sample=500): 89.20% | Best: 89.20%
+After LSTM R8 epoch 9 | rss=416.6MB heapUsed=71.3MB external=109.4MB
+[LSTM R8] Epoch 10/30 | Loss: 0.0312 | Val Acc (full=2200): 85.91% | Best: 89.20%
+After LSTM R8 epoch 10 | rss=416.6MB heapUsed=74.5MB external=45.0MB
+[LSTM R8] Epoch 11/30 | Loss: 0.0362 | Val Acc (sample=500): 87.00% | Best: 89.20%
+After LSTM R8 epoch 11 | rss=416.6MB heapUsed=40.2MB external=84.9MB
+[LSTM R8] Epoch 12/30 | Loss: 0.0779 | Val Acc (sample=500): 71.40% | Best: 89.20%
+After LSTM R8 epoch 12 | rss=416.6MB heapUsed=59.0MB external=107.0MB
+[LSTM R8] Epoch 13/30 | Loss: 0.0843 | Val Acc (sample=500): 89.00% | Best: 89.20%
+After LSTM R8 epoch 13 | rss=416.6MB heapUsed=26.2MB external=67.2MB
+[LSTM R8] Epoch 14/30 | Loss: 0.0259 | Val Acc (sample=500): 84.00% | Best: 89.20%
+After LSTM R8 epoch 14 | rss=416.6MB heapUsed=51.4MB external=97.7MB
+[LSTM R8] Epoch 15/30 | Loss: 0.0206 | Val Acc (full=2200): 85.23% | Best: 89.20%
+After LSTM R8 epoch 15 | rss=416.6MB heapUsed=51.5MB external=44.0MB
+[LSTM R8] Epoch 16/30 | Loss: 0.0194 | Val Acc (sample=500): 84.40% | Best: 89.20%
+After LSTM R8 epoch 16 | rss=416.6MB heapUsed=79.0MB external=53.3MB
+[LSTM R8] Epoch 17/30 | Loss: 0.0181 | Val Acc (sample=500): 85.20% | Best: 89.20%
+After LSTM R8 epoch 17 | rss=416.6MB heapUsed=47.6MB external=93.1MB
+[LSTM R8] Epoch 18/30 | Loss: 0.0333 | Val Acc (sample=500): 87.20% | Best: 89.20%
+After LSTM R8 epoch 18 | rss=416.6MB heapUsed=80.5MB external=55.4MB
+[LSTM R8] Epoch 19/30 | Loss: 0.0235 | Val Acc (sample=500): 84.60% | Best: 89.20%
+After LSTM R8 epoch 19 | rss=416.6MB heapUsed=45.5MB external=90.6MB
+[LSTM R8] Epoch 20/30 | Loss: 0.0169 | Val Acc (full=2200): 84.82% | Best: 89.20%
+After LSTM R8 epoch 20 | rss=416.6MB heapUsed=47.0MB external=45.0MB
+[LSTM R8] Epoch 21/30 | Loss: 0.0140 | Val Acc (sample=500): 82.20% | Best: 89.20%
+After LSTM R8 epoch 21 | rss=416.6MB heapUsed=75.2MB external=48.6MB
+[LSTM R8] Epoch 22/30 | Loss: 0.0128 | Val Acc (sample=500): 86.80% | Best: 89.20%
+After LSTM R8 epoch 22 | rss=416.6MB heapUsed=43.8MB external=88.4MB
+[LSTM R8] Epoch 23/30 | Loss: 0.0114 | Val Acc (sample=500): 85.00% | Best: 89.20%
+After LSTM R8 epoch 23 | rss=416.6MB heapUsed=72.9MB external=46.0MB
+[LSTM R8] Epoch 24/30 | Loss: 0.0109 | Val Acc (sample=500): 82.80% | Best: 89.20%
+After LSTM R8 epoch 24 | rss=416.6MB heapUsed=37.8MB external=81.2MB
+[LSTM R8] Epoch 25/30 | Loss: 0.0177 | Val Acc (full=2200): 85.41% | Best: 89.20%
+After LSTM R8 epoch 25 | rss=416.6MB heapUsed=33.4MB external=43.7MB
+[LSTM R8] Epoch 26/30 | Loss: 0.0114 | Val Acc (sample=500): 87.20% | Best: 89.20%
+After LSTM R8 epoch 26 | rss=416.6MB heapUsed=55.0MB external=102.4MB
+[LSTM R8] Epoch 27/30 | Loss: 0.0292 | Val Acc (sample=500): 86.60% | Best: 89.20%
+After LSTM R8 epoch 27 | rss=416.6MB heapUsed=80.9MB external=55.6MB
+[LSTM R8] Epoch 28/30 | Loss: 0.0097 | Val Acc (sample=500): 86.40% | Best: 89.20%
+After LSTM R8 epoch 28 | rss=416.6MB heapUsed=47.6MB external=93.1MB
+[LSTM R8] Epoch 29/30 | Loss: 0.0084 | Val Acc (sample=500): 84.20% | Best: 89.20%
+After LSTM R8 epoch 29 | rss=416.6MB heapUsed=74.8MB external=48.4MB
+[LSTM R8] Epoch 30/30 | Loss: 0.0076 | Val Acc (full=2200): 85.41% | Best: 89.20%
+After LSTM R8 epoch 30 | rss=416.6MB heapUsed=77.9MB external=45.0MB
+Evaluating F1 Score for LSTM Run 8...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   326    60     8
+positive:    59   663    13
+neutral :    30    14    87
+
+Per-class Metrics:
+negative -> Precision: 78.55%, Recall: 82.74%, F1: 80.59%
+positive -> Precision: 89.96%, Recall: 90.20%, F1: 90.08%
+neutral  -> Precision: 80.56%, Recall: 66.41%, F1: 72.80%
+--------------------------
+Accuracy:         85.40%
+Macro F1 Score:   81.16%
+Weighted F1 Score:85.32%
+--------------------------
+After LSTM Run 8 cleanup | rss=455.7MB heapUsed=78.2MB external=45.1MB
+
+--- [LSTM] Run 9/10 ---
+[LSTM R9] Epoch 1/30 | Loss: 0.6196 | Val Acc (sample=500): 84.40% | Best: 84.40%
+After LSTM R9 epoch 1 | rss=431.3MB heapUsed=41.6MB external=85.9MB
+[LSTM R9] Epoch 2/30 | Loss: 0.3462 | Val Acc (sample=500): 86.20% | Best: 86.20%
+After LSTM R9 epoch 2 | rss=431.3MB heapUsed=57.0MB external=104.7MB
+[LSTM R9] Epoch 3/30 | Loss: 0.2036 | Val Acc (sample=500): 86.60% | Best: 86.60%
+After LSTM R9 epoch 3 | rss=431.3MB heapUsed=86.6MB external=62.5MB
+[LSTM R9] Epoch 4/30 | Loss: 0.1417 | Val Acc (sample=500): 88.40% | Best: 88.40%
+After LSTM R9 epoch 4 | rss=431.3MB heapUsed=49.7MB external=95.6MB
+[LSTM R9] Epoch 5/30 | Loss: 0.0982 | Val Acc (full=2200): 86.82% | Best: 88.40%
+After LSTM R9 epoch 5 | rss=431.3MB heapUsed=53.5MB external=43.9MB
+[LSTM R9] Epoch 6/30 | Loss: 0.0784 | Val Acc (sample=500): 87.20% | Best: 88.40%
+After LSTM R9 epoch 6 | rss=431.3MB heapUsed=82.5MB external=57.8MB
+[LSTM R9] Epoch 7/30 | Loss: 0.0638 | Val Acc (sample=500): 85.00% | Best: 88.40%
+After LSTM R9 epoch 7 | rss=431.3MB heapUsed=45.8MB external=90.7MB
+[LSTM R9] Epoch 8/30 | Loss: 0.0519 | Val Acc (sample=500): 84.80% | Best: 88.40%
+After LSTM R9 epoch 8 | rss=431.3MB heapUsed=74.9MB external=48.4MB
+[LSTM R9] Epoch 9/30 | Loss: 0.0370 | Val Acc (sample=500): 89.20% | Best: 89.20%
+After LSTM R9 epoch 9 | rss=431.3MB heapUsed=43.5MB external=88.3MB
+[LSTM R9] Epoch 10/30 | Loss: 0.0382 | Val Acc (full=2200): 85.05% | Best: 89.20%
+After LSTM R9 epoch 10 | rss=431.3MB heapUsed=47.1MB external=45.0MB
+[LSTM R9] Epoch 11/30 | Loss: 0.0306 | Val Acc (sample=500): 84.00% | Best: 89.20%
+After LSTM R9 epoch 11 | rss=431.3MB heapUsed=73.0MB external=46.0MB
+[LSTM R9] Epoch 12/30 | Loss: 0.0381 | Val Acc (sample=500): 83.40% | Best: 89.20%
+After LSTM R9 epoch 12 | rss=431.3MB heapUsed=38.1MB external=81.3MB
+[LSTM R9] Epoch 13/30 | Loss: 0.0245 | Val Acc (sample=500): 86.40% | Best: 89.20%
+After LSTM R9 epoch 13 | rss=431.3MB heapUsed=57.2MB external=104.9MB
+[LSTM R9] Epoch 14/30 | Loss: 0.0208 | Val Acc (sample=500): 85.80% | Best: 89.20%
+After LSTM R9 epoch 14 | rss=431.3MB heapUsed=82.5MB external=57.8MB
+[LSTM R9] Epoch 15/30 | Loss: 0.0170 | Val Acc (full=2200): 84.91% | Best: 89.20%
+After LSTM R9 epoch 15 | rss=430.0MB heapUsed=23.8MB external=44.9MB
+[LSTM R9] Epoch 16/30 | Loss: 0.0158 | Val Acc (sample=500): 85.00% | Best: 89.20%
+After LSTM R9 epoch 16 | rss=430.0MB heapUsed=49.6MB external=95.4MB
+[LSTM R9] Epoch 17/30 | Loss: 0.0325 | Val Acc (sample=500): 83.00% | Best: 89.20%
+After LSTM R9 epoch 17 | rss=430.0MB heapUsed=77.0MB external=50.9MB
+[LSTM R9] Epoch 18/30 | Loss: 0.0263 | Val Acc (sample=500): 87.40% | Best: 89.20%
+After LSTM R9 epoch 18 | rss=430.0MB heapUsed=39.8MB external=83.6MB
+[LSTM R9] Epoch 19/30 | Loss: 0.0152 | Val Acc (sample=500): 85.20% | Best: 89.20%
+After LSTM R9 epoch 19 | rss=430.0MB heapUsed=56.9MB external=104.7MB
+[LSTM R9] Epoch 20/30 | Loss: 0.0130 | Val Acc (full=2200): 84.82% | Best: 89.20%
+After LSTM R9 epoch 20 | rss=430.0MB heapUsed=59.1MB external=43.9MB
+[LSTM R9] Epoch 21/30 | Loss: 0.0153 | Val Acc (sample=500): 77.00% | Best: 89.20%
+After LSTM R9 epoch 21 | rss=430.0MB heapUsed=84.3MB external=60.1MB
+[LSTM R9] Epoch 22/30 | Loss: 0.0137 | Val Acc (sample=500): 86.20% | Best: 89.20%
+After LSTM R9 epoch 22 | rss=430.0MB heapUsed=47.8MB external=93.2MB
+[LSTM R9] Epoch 23/30 | Loss: 0.0082 | Val Acc (sample=500): 86.20% | Best: 89.20%
+After LSTM R9 epoch 23 | rss=430.0MB heapUsed=75.1MB external=48.4MB
+[LSTM R9] Epoch 24/30 | Loss: 0.0122 | Val Acc (sample=500): 85.00% | Best: 89.20%
+After LSTM R9 epoch 24 | rss=430.0MB heapUsed=34.3MB external=76.7MB
+[LSTM R9] Epoch 25/30 | Loss: 0.0075 | Val Acc (full=2200): 85.27% | Best: 89.20%
+After LSTM R9 epoch 25 | rss=430.0MB heapUsed=25.6MB external=44.9MB
+[LSTM R9] Epoch 26/30 | Loss: 0.0047 | Val Acc (sample=500): 85.20% | Best: 89.20%
+After LSTM R9 epoch 26 | rss=430.0MB heapUsed=47.4MB external=93.0MB
+[LSTM R9] Epoch 27/30 | Loss: 0.0039 | Val Acc (sample=500): 85.80% | Best: 89.20%
+After LSTM R9 epoch 27 | rss=430.0MB heapUsed=77.0MB external=50.8MB
+[LSTM R9] Epoch 28/30 | Loss: 0.0030 | Val Acc (sample=500): 86.80% | Best: 89.20%
+After LSTM R9 epoch 28 | rss=430.0MB heapUsed=43.8MB external=88.3MB
+[LSTM R9] Epoch 29/30 | Loss: 0.0021 | Val Acc (sample=500): 83.80% | Best: 89.20%
+After LSTM R9 epoch 29 | rss=430.0MB heapUsed=73.2MB external=46.1MB
+[LSTM R9] Epoch 30/30 | Loss: 0.0136 | Val Acc (full=2200): 85.00% | Best: 89.20%
+After LSTM R9 epoch 30 | rss=430.0MB heapUsed=72.6MB external=43.9MB
+Evaluating F1 Score for LSTM Run 9...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   311    73    10
+positive:    50   674    11
+neutral :    23    31    77
+
+Per-class Metrics:
+negative -> Precision: 80.99%, Recall: 78.93%, F1: 79.95%
+positive -> Precision: 86.63%, Recall: 91.70%, F1: 89.09%
+neutral  -> Precision: 78.57%, Recall: 58.78%, F1: 67.25%
+--------------------------
+Accuracy:         84.29%
+Macro F1 Score:   78.76%
+Weighted F1 Score:83.96%
+--------------------------
+After LSTM Run 9 cleanup | rss=469.1MB heapUsed=78.2MB external=44.0MB
+
+--- [LSTM] Run 10/10 ---
+[LSTM R10] Epoch 1/30 | Loss: 0.6946 | Val Acc (sample=500): 77.80% | Best: 77.80%
+After LSTM R10 epoch 1 | rss=430.2MB heapUsed=45.7MB external=90.7MB
+[LSTM R10] Epoch 2/30 | Loss: 0.4267 | Val Acc (sample=500): 85.40% | Best: 85.40%
+After LSTM R10 epoch 2 | rss=430.2MB heapUsed=56.8MB external=104.7MB
+[LSTM R10] Epoch 3/30 | Loss: 0.2572 | Val Acc (sample=500): 84.60% | Best: 85.40%
+After LSTM R10 epoch 3 | rss=430.2MB heapUsed=82.8MB external=58.0MB
+[LSTM R10] Epoch 4/30 | Loss: 0.1622 | Val Acc (sample=500): 87.20% | Best: 87.20%
+After LSTM R10 epoch 4 | rss=430.2MB heapUsed=45.7MB external=90.7MB
+[LSTM R10] Epoch 5/30 | Loss: 0.1089 | Val Acc (full=2200): 87.18% | Best: 87.20%
+After LSTM R10 epoch 5 | rss=430.2MB heapUsed=35.1MB external=45.0MB
+[LSTM R10] Epoch 6/30 | Loss: 0.0746 | Val Acc (sample=500): 87.00% | Best: 87.20%
+After LSTM R10 epoch 6 | rss=430.2MB heapUsed=51.6MB external=97.9MB
+[LSTM R10] Epoch 7/30 | Loss: 0.0729 | Val Acc (sample=500): 85.00% | Best: 87.20%
+After LSTM R10 epoch 7 | rss=430.2MB heapUsed=78.9MB external=53.1MB
+[LSTM R10] Epoch 8/30 | Loss: 0.0516 | Val Acc (sample=500): 83.80% | Best: 87.20%
+After LSTM R10 epoch 8 | rss=430.2MB heapUsed=41.6MB external=85.9MB
+[LSTM R10] Epoch 9/30 | Loss: 0.0363 | Val Acc (sample=500): 88.60% | Best: 88.60%
+After LSTM R10 epoch 9 | rss=430.2MB heapUsed=57.2MB external=104.7MB
+[LSTM R10] Epoch 10/30 | Loss: 0.0346 | Val Acc (full=2200): 85.32% | Best: 88.60%
+After LSTM R10 epoch 10 | rss=430.2MB heapUsed=58.8MB external=45.0MB
+[LSTM R10] Epoch 11/30 | Loss: 0.0292 | Val Acc (sample=500): 87.00% | Best: 88.60%
+After LSTM R10 epoch 11 | rss=430.2MB heapUsed=84.4MB external=60.1MB
+[LSTM R10] Epoch 12/30 | Loss: 0.0308 | Val Acc (sample=500): 82.80% | Best: 88.60%
+After LSTM R10 epoch 12 | rss=430.2MB heapUsed=45.7MB external=90.8MB
+[LSTM R10] Epoch 13/30 | Loss: 0.0244 | Val Acc (sample=500): 83.40% | Best: 88.60%
+After LSTM R10 epoch 13 | rss=430.2MB heapUsed=59.2MB external=107.2MB
+[LSTM R10] Epoch 14/30 | Loss: 0.0216 | Val Acc (sample=500): 85.20% | Best: 88.60%
+After LSTM R10 epoch 14 | rss=430.2MB heapUsed=24.5MB external=64.8MB
+[LSTM R10] Epoch 15/30 | Loss: 0.0167 | Val Acc (full=2200): 85.32% | Best: 88.60%
+After LSTM R10 epoch 15 | rss=430.2MB heapUsed=25.7MB external=44.9MB
+[LSTM R10] Epoch 16/30 | Loss: 0.0210 | Val Acc (sample=500): 85.00% | Best: 88.60%
+After LSTM R10 epoch 16 | rss=430.2MB heapUsed=49.4MB external=95.3MB
+[LSTM R10] Epoch 17/30 | Loss: 0.0139 | Val Acc (sample=500): 86.40% | Best: 88.60%
+After LSTM R10 epoch 17 | rss=430.2MB heapUsed=77.0MB external=50.7MB
+[LSTM R10] Epoch 18/30 | Loss: 0.0199 | Val Acc (sample=500): 87.80% | Best: 88.60%
+After LSTM R10 epoch 18 | rss=430.2MB heapUsed=37.9MB external=81.2MB
+[LSTM R10] Epoch 19/30 | Loss: 0.0138 | Val Acc (sample=500): 84.40% | Best: 88.60%
+After LSTM R10 epoch 19 | rss=430.2MB heapUsed=55.0MB external=102.4MB
+[LSTM R10] Epoch 20/30 | Loss: 0.0133 | Val Acc (full=2200): 85.68% | Best: 88.60%
+After LSTM R10 epoch 20 | rss=430.2MB heapUsed=57.0MB external=45.0MB
+[LSTM R10] Epoch 21/30 | Loss: 0.0126 | Val Acc (sample=500): 82.40% | Best: 88.60%
+After LSTM R10 epoch 21 | rss=430.2MB heapUsed=86.6MB external=62.5MB
+[LSTM R10] Epoch 22/30 | Loss: 0.0073 | Val Acc (sample=500): 86.40% | Best: 88.60%
+After LSTM R10 epoch 22 | rss=430.2MB heapUsed=47.3MB external=93.0MB
+[LSTM R10] Epoch 23/30 | Loss: 0.0046 | Val Acc (sample=500): 87.20% | Best: 88.60%
+After LSTM R10 epoch 23 | rss=430.2MB heapUsed=71.6MB external=109.5MB
+[LSTM R10] Epoch 24/30 | Loss: 0.0035 | Val Acc (sample=500): 86.80% | Best: 88.60%
+After LSTM R10 epoch 24 | rss=430.2MB heapUsed=34.2MB external=76.6MB
+[LSTM R10] Epoch 25/30 | Loss: 0.0028 | Val Acc (full=2200): 86.36% | Best: 88.60%
+After LSTM R10 epoch 25 | rss=430.2MB heapUsed=23.9MB external=43.8MB
+[LSTM R10] Epoch 26/30 | Loss: 0.0369 | Val Acc (sample=500): 87.00% | Best: 88.60%
+After LSTM R10 epoch 26 | rss=430.2MB heapUsed=49.4MB external=95.3MB
+[LSTM R10] Epoch 27/30 | Loss: 0.0079 | Val Acc (sample=500): 88.20% | Best: 88.60%
+After LSTM R10 epoch 27 | rss=430.2MB heapUsed=73.0MB external=46.0MB
+[LSTM R10] Epoch 28/30 | Loss: 0.0054 | Val Acc (sample=500): 87.20% | Best: 88.60%
+After LSTM R10 epoch 28 | rss=430.2MB heapUsed=36.2MB external=78.9MB
+[LSTM R10] Epoch 29/30 | Loss: 0.0037 | Val Acc (sample=500): 85.20% | Best: 88.60%
+After LSTM R10 epoch 29 | rss=430.2MB heapUsed=51.6MB external=97.9MB
+[LSTM R10] Epoch 30/30 | Loss: 0.0016 | Val Acc (full=2200): 86.27% | Best: 88.60%
+After LSTM R10 epoch 30 | rss=430.2MB heapUsed=55.3MB external=43.7MB
+Evaluating F1 Score for LSTM Run 10...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   312    70    12
+positive:    43   677    15
+neutral :    21    25    85
+
+Per-class Metrics:
+negative -> Precision: 82.98%, Recall: 79.19%, F1: 81.04%
+positive -> Precision: 87.69%, Recall: 92.11%, F1: 89.85%
+neutral  -> Precision: 75.89%, Recall: 64.89%, F1: 69.96%
+--------------------------
+Accuracy:         85.24%
+Macro F1 Score:   80.28%
+Weighted F1 Score:85.03%
+--------------------------
+After LSTM Run 10 cleanup | rss=469.3MB heapUsed=110.1MB external=43.8MB
+
+
+===========================================================
+>>> STARTING STABILITY EXPERIMENT FOR MODEL: GRU <<<
+===========================================================
+
+
+--- [GRU] Run 1/10 ---
+Model GRU Total Parameters: 1958851
+========== Model Info ==========
+Layer name   : embedding layer
+Layer input  : [0,0]
+Layer output : [0,0]
+Layer param  : 1943296
+
+Layer name   : gru layer
+Layer input  : [128,0]
+Layer output : [32,1]
+Layer param  : 15456
+
+Layer name   : dense layer
+Layer input  : [32,1]
+Layer output : [3,1]
+Layer param  : 99
+
+Total params = [33m1958851[39m
+========== End Info ==========
+[GRU R1] Epoch 1/30 | Loss: 0.6719 | Val Acc (sample=500): 74.00% | Best: 74.00%
+After GRU R1 epoch 1 | rss=414.2MB heapUsed=66.9MB external=48.1MB
+[GRU R1] Epoch 2/30 | Loss: 0.5104 | Val Acc (sample=500): 78.60% | Best: 78.60%
+After GRU R1 epoch 2 | rss=433.0MB heapUsed=59.2MB external=60.4MB
+[GRU R1] Epoch 3/30 | Loss: 0.4352 | Val Acc (sample=500): 79.40% | Best: 79.40%
+After GRU R1 epoch 3 | rss=432.9MB heapUsed=59.9MB external=72.8MB
+[GRU R1] Epoch 4/30 | Loss: 0.3183 | Val Acc (sample=500): 84.60% | Best: 84.60%
+After GRU R1 epoch 4 | rss=432.9MB heapUsed=60.6MB external=85.2MB
+[GRU R1] Epoch 5/30 | Loss: 0.2277 | Val Acc (full=2200): 83.45% | Best: 84.60%
+After GRU R1 epoch 5 | rss=420.8MB heapUsed=54.4MB external=44.0MB
+[GRU R1] Epoch 6/30 | Loss: 0.1841 | Val Acc (sample=500): 84.60% | Best: 84.60%
+After GRU R1 epoch 6 | rss=416.1MB heapUsed=59.1MB external=57.4MB
+[GRU R1] Epoch 7/30 | Loss: 0.2442 | Val Acc (sample=500): 75.20% | Best: 84.60%
+After GRU R1 epoch 7 | rss=433.8MB heapUsed=59.8MB external=69.7MB
+[GRU R1] Epoch 8/30 | Loss: 0.3959 | Val Acc (sample=500): 76.80% | Best: 84.60%
+After GRU R1 epoch 8 | rss=416.0MB heapUsed=60.5MB external=82.1MB
+[GRU R1] Epoch 9/30 | Loss: 0.2260 | Val Acc (sample=500): 83.80% | Best: 84.60%
+After GRU R1 epoch 9 | rss=433.8MB heapUsed=61.2MB external=94.5MB
+[GRU R1] Epoch 10/30 | Loss: 0.2127 | Val Acc (full=2200): 80.64% | Best: 84.60%
+After GRU R1 epoch 10 | rss=429.8MB heapUsed=55.0MB external=45.0MB
+[GRU R1] Epoch 11/30 | Loss: 0.1520 | Val Acc (sample=500): 81.60% | Best: 84.60%
+After GRU R1 epoch 11 | rss=433.9MB heapUsed=59.1MB external=57.4MB
+[GRU R1] Epoch 12/30 | Loss: 0.1573 | Val Acc (sample=500): 79.40% | Best: 84.60%
+After GRU R1 epoch 12 | rss=415.9MB heapUsed=59.8MB external=69.7MB
+[GRU R1] Epoch 13/30 | Loss: 0.1326 | Val Acc (sample=500): 84.40% | Best: 84.60%
+After GRU R1 epoch 13 | rss=433.7MB heapUsed=60.5MB external=82.1MB
+[GRU R1] Epoch 14/30 | Loss: 0.1251 | Val Acc (sample=500): 80.80% | Best: 84.60%
+After GRU R1 epoch 14 | rss=417.8MB heapUsed=61.2MB external=94.5MB
+[GRU R1] Epoch 15/30 | Loss: 0.1118 | Val Acc (full=2200): 82.32% | Best: 84.60%
+After GRU R1 epoch 15 | rss=433.6MB heapUsed=55.0MB external=45.0MB
+[GRU R1] Epoch 16/30 | Loss: 0.1297 | Val Acc (sample=500): 80.40% | Best: 84.60%
+After GRU R1 epoch 16 | rss=416.1MB heapUsed=59.1MB external=57.4MB
+[GRU R1] Epoch 17/30 | Loss: 0.1012 | Val Acc (sample=500): 82.40% | Best: 84.60%
+After GRU R1 epoch 17 | rss=434.4MB heapUsed=59.8MB external=68.7MB
+[GRU R1] Epoch 18/30 | Loss: 0.2136 | Val Acc (sample=500): 75.80% | Best: 84.60%
+After GRU R1 epoch 18 | rss=416.6MB heapUsed=60.5MB external=82.1MB
+[GRU R1] Epoch 19/30 | Loss: 0.4376 | Val Acc (sample=500): 68.00% | Best: 84.60%
+After GRU R1 epoch 19 | rss=434.4MB heapUsed=61.2MB external=94.5MB
+[GRU R1] Epoch 20/30 | Loss: 0.3930 | Val Acc (full=2200): 72.00% | Best: 84.60%
+After GRU R1 epoch 20 | rss=430.2MB heapUsed=55.0MB external=45.0MB
+[GRU R1] Epoch 21/30 | Loss: 0.3363 | Val Acc (sample=500): 73.40% | Best: 84.60%
+After GRU R1 epoch 21 | rss=434.3MB heapUsed=59.1MB external=57.4MB
+[GRU R1] Epoch 22/30 | Loss: 0.2926 | Val Acc (sample=500): 75.80% | Best: 84.60%
+After GRU R1 epoch 22 | rss=416.6MB heapUsed=59.8MB external=69.7MB
+[GRU R1] Epoch 23/30 | Loss: 0.2620 | Val Acc (sample=500): 75.80% | Best: 84.60%
+After GRU R1 epoch 23 | rss=434.3MB heapUsed=60.5MB external=82.1MB
+[GRU R1] Epoch 24/30 | Loss: 0.2343 | Val Acc (sample=500): 75.40% | Best: 84.60%
+After GRU R1 epoch 24 | rss=418.4MB heapUsed=61.2MB external=94.5MB
+[GRU R1] Epoch 25/30 | Loss: 0.2137 | Val Acc (full=2200): 76.23% | Best: 84.60%
+After GRU R1 epoch 25 | rss=434.4MB heapUsed=55.0MB external=45.0MB
+[GRU R1] Epoch 26/30 | Loss: 0.1945 | Val Acc (sample=500): 77.80% | Best: 84.60%
+After GRU R1 epoch 26 | rss=416.6MB heapUsed=59.1MB external=57.4MB
+[GRU R1] Epoch 27/30 | Loss: 0.1767 | Val Acc (sample=500): 79.80% | Best: 84.60%
+After GRU R1 epoch 27 | rss=434.4MB heapUsed=59.8MB external=69.7MB
+[GRU R1] Epoch 28/30 | Loss: 0.1605 | Val Acc (sample=500): 78.00% | Best: 84.60%
+After GRU R1 epoch 28 | rss=416.4MB heapUsed=60.5MB external=82.1MB
+[GRU R1] Epoch 29/30 | Loss: 0.1435 | Val Acc (sample=500): 78.00% | Best: 84.60%
+After GRU R1 epoch 29 | rss=434.3MB heapUsed=61.2MB external=94.5MB
+[GRU R1] Epoch 30/30 | Loss: 0.1287 | Val Acc (full=2200): 79.64% | Best: 84.60%
+After GRU R1 epoch 30 | rss=434.3MB heapUsed=55.0MB external=45.0MB
+Evaluating F1 Score for GRU Run 1...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   305    75    14
+positive:   128   586    21
+neutral :    39    25    67
+
+Per-class Metrics:
+negative -> Precision: 64.62%, Recall: 77.41%, F1: 70.44%
+positive -> Precision: 85.42%, Recall: 79.73%, F1: 82.48%
+neutral  -> Precision: 65.69%, Recall: 51.15%, F1: 57.51%
+--------------------------
+Accuracy:         76.03%
+Macro F1 Score:   70.14%
+Weighted F1 Score:76.12%
+--------------------------
+After GRU Run 1 cleanup | rss=473.3MB heapUsed=99.6MB external=45.1MB
+
+--- [GRU] Run 2/10 ---
+[GRU R2] Epoch 1/30 | Loss: 0.6789 | Val Acc (sample=500): 75.60% | Best: 75.60%
+After GRU R2 epoch 1 | rss=442.0MB heapUsed=58.5MB external=48.1MB
+[GRU R2] Epoch 2/30 | Loss: 0.7668 | Val Acc (sample=500): 59.60% | Best: 75.60%
+After GRU R2 epoch 2 | rss=442.0MB heapUsed=59.2MB external=60.4MB
+[GRU R2] Epoch 3/30 | Loss: 0.7525 | Val Acc (sample=500): 73.20% | Best: 75.60%
+After GRU R2 epoch 3 | rss=442.0MB heapUsed=60.0MB external=72.8MB
+[GRU R2] Epoch 4/30 | Loss: 0.6581 | Val Acc (sample=500): 77.80% | Best: 77.80%
+After GRU R2 epoch 4 | rss=442.0MB heapUsed=60.7MB external=85.2MB
+[GRU R2] Epoch 5/30 | Loss: 0.5854 | Val Acc (full=2200): 79.45% | Best: 79.45%
+After GRU R2 epoch 5 | rss=442.0MB heapUsed=54.5MB external=44.0MB
+[GRU R2] Epoch 6/30 | Loss: 0.4769 | Val Acc (sample=500): 74.40% | Best: 79.45%
+After GRU R2 epoch 6 | rss=442.0MB heapUsed=59.1MB external=57.4MB
+[GRU R2] Epoch 7/30 | Loss: 0.6238 | Val Acc (sample=500): 71.40% | Best: 79.45%
+After GRU R2 epoch 7 | rss=442.0MB heapUsed=59.8MB external=69.7MB
+[GRU R2] Epoch 8/30 | Loss: 0.5996 | Val Acc (sample=500): 70.40% | Best: 79.45%
+After GRU R2 epoch 8 | rss=442.0MB heapUsed=60.5MB external=82.1MB
+[GRU R2] Epoch 9/30 | Loss: 0.5771 | Val Acc (sample=500): 73.00% | Best: 79.45%
+After GRU R2 epoch 9 | rss=442.0MB heapUsed=61.3MB external=94.5MB
+[GRU R2] Epoch 10/30 | Loss: 0.5585 | Val Acc (full=2200): 69.91% | Best: 79.45%
+After GRU R2 epoch 10 | rss=442.0MB heapUsed=55.0MB external=45.0MB
+[GRU R2] Epoch 11/30 | Loss: 0.5488 | Val Acc (sample=500): 72.40% | Best: 79.45%
+After GRU R2 epoch 11 | rss=442.0MB heapUsed=59.1MB external=57.4MB
+[GRU R2] Epoch 12/30 | Loss: 0.6114 | Val Acc (sample=500): 70.80% | Best: 79.45%
+After GRU R2 epoch 12 | rss=442.0MB heapUsed=59.8MB external=69.7MB
+[GRU R2] Epoch 13/30 | Loss: 0.5416 | Val Acc (sample=500): 75.60% | Best: 79.45%
+After GRU R2 epoch 13 | rss=442.0MB heapUsed=60.5MB external=82.1MB
+[GRU R2] Epoch 14/30 | Loss: 0.5146 | Val Acc (sample=500): 69.20% | Best: 79.45%
+After GRU R2 epoch 14 | rss=442.0MB heapUsed=61.3MB external=94.5MB
+[GRU R2] Epoch 15/30 | Loss: 0.5096 | Val Acc (full=2200): 72.23% | Best: 79.45%
+After GRU R2 epoch 15 | rss=442.0MB heapUsed=55.1MB external=45.0MB
+[GRU R2] Epoch 16/30 | Loss: 0.4963 | Val Acc (sample=500): 74.00% | Best: 79.45%
+After GRU R2 epoch 16 | rss=442.0MB heapUsed=59.1MB external=57.4MB
+[GRU R2] Epoch 17/30 | Loss: 0.4791 | Val Acc (sample=500): 72.60% | Best: 79.45%
+After GRU R2 epoch 17 | rss=442.0MB heapUsed=59.8MB external=69.8MB
+[GRU R2] Epoch 18/30 | Loss: 0.4767 | Val Acc (sample=500): 74.40% | Best: 79.45%
+After GRU R2 epoch 18 | rss=442.0MB heapUsed=60.5MB external=82.1MB
+[GRU R2] Epoch 19/30 | Loss: 0.4695 | Val Acc (sample=500): 68.20% | Best: 79.45%
+After GRU R2 epoch 19 | rss=442.0MB heapUsed=61.3MB external=94.5MB
+[GRU R2] Epoch 20/30 | Loss: 0.4576 | Val Acc (full=2200): 73.59% | Best: 79.45%
+After GRU R2 epoch 20 | rss=442.0MB heapUsed=55.0MB external=45.0MB
+[GRU R2] Epoch 21/30 | Loss: 0.4531 | Val Acc (sample=500): 73.80% | Best: 79.45%
+After GRU R2 epoch 21 | rss=442.0MB heapUsed=59.1MB external=57.4MB
+[GRU R2] Epoch 22/30 | Loss: 0.4528 | Val Acc (sample=500): 77.00% | Best: 79.45%
+After GRU R2 epoch 22 | rss=442.0MB heapUsed=59.8MB external=69.8MB
+[GRU R2] Epoch 23/30 | Loss: 0.4366 | Val Acc (sample=500): 73.00% | Best: 79.45%
+After GRU R2 epoch 23 | rss=442.0MB heapUsed=60.5MB external=82.1MB
+[GRU R2] Epoch 24/30 | Loss: 0.4288 | Val Acc (sample=500): 75.00% | Best: 79.45%
+After GRU R2 epoch 24 | rss=442.0MB heapUsed=61.3MB external=94.5MB
+[GRU R2] Epoch 25/30 | Loss: 0.4210 | Val Acc (full=2200): 74.23% | Best: 79.45%
+After GRU R2 epoch 25 | rss=442.0MB heapUsed=55.1MB external=45.0MB
+[GRU R2] Epoch 26/30 | Loss: 0.4129 | Val Acc (sample=500): 75.40% | Best: 79.45%
+After GRU R2 epoch 26 | rss=442.0MB heapUsed=59.1MB external=57.4MB
+[GRU R2] Epoch 27/30 | Loss: 0.4072 | Val Acc (sample=500): 75.20% | Best: 79.45%
+After GRU R2 epoch 27 | rss=442.0MB heapUsed=59.8MB external=69.8MB
+[GRU R2] Epoch 28/30 | Loss: 0.4049 | Val Acc (sample=500): 69.40% | Best: 79.45%
+After GRU R2 epoch 28 | rss=442.0MB heapUsed=60.5MB external=82.1MB
+[GRU R2] Epoch 29/30 | Loss: 0.4063 | Val Acc (sample=500): 79.00% | Best: 79.45%
+After GRU R2 epoch 29 | rss=442.0MB heapUsed=61.3MB external=94.5MB
+[GRU R2] Epoch 30/30 | Loss: 0.7905 | Val Acc (full=2200): 68.73% | Best: 79.45%
+After GRU R2 epoch 30 | rss=442.0MB heapUsed=55.0MB external=45.0MB
+Evaluating F1 Score for GRU Run 2...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   348    40     6
+positive:   485   193    57
+neutral :    66    44    21
+
+Per-class Metrics:
+negative -> Precision: 38.71%, Recall: 88.32%, F1: 53.83%
+positive -> Precision: 69.68%, Recall: 26.26%, F1: 38.14%
+neutral  -> Precision: 25.00%, Recall: 16.03%, F1: 19.53%
+--------------------------
+Accuracy:         44.60%
+Macro F1 Score:   37.17%
+Weighted F1 Score:41.11%
+--------------------------
+After GRU Run 2 cleanup | rss=481.2MB heapUsed=99.7MB external=45.1MB
+
+--- [GRU] Run 3/10 ---
+[GRU R3] Epoch 1/30 | Loss: 0.8508 | Val Acc (sample=500): 57.80% | Best: 57.80%
+After GRU R3 epoch 1 | rss=442.2MB heapUsed=58.5MB external=48.1MB
+[GRU R3] Epoch 2/30 | Loss: 0.8472 | Val Acc (sample=500): 61.00% | Best: 61.00%
+After GRU R3 epoch 2 | rss=442.2MB heapUsed=59.3MB external=60.5MB
+[GRU R3] Epoch 3/30 | Loss: 0.7435 | Val Acc (sample=500): 65.60% | Best: 65.60%
+After GRU R3 epoch 3 | rss=442.2MB heapUsed=60.0MB external=72.8MB
+[GRU R3] Epoch 4/30 | Loss: 0.6141 | Val Acc (sample=500): 71.40% | Best: 71.40%
+After GRU R3 epoch 4 | rss=442.2MB heapUsed=60.7MB external=85.2MB
+[GRU R3] Epoch 5/30 | Loss: 0.4811 | Val Acc (full=2200): 77.68% | Best: 77.68%
+After GRU R3 epoch 5 | rss=442.2MB heapUsed=54.5MB external=44.0MB
+[GRU R3] Epoch 6/30 | Loss: 0.4448 | Val Acc (sample=500): 77.80% | Best: 77.80%
+After GRU R3 epoch 6 | rss=442.2MB heapUsed=59.1MB external=57.4MB
+[GRU R3] Epoch 7/30 | Loss: 0.3488 | Val Acc (sample=500): 78.00% | Best: 78.00%
+After GRU R3 epoch 7 | rss=442.2MB heapUsed=59.8MB external=69.8MB
+[GRU R3] Epoch 8/30 | Loss: 0.2757 | Val Acc (sample=500): 79.60% | Best: 79.60%
+After GRU R3 epoch 8 | rss=442.2MB heapUsed=60.5MB external=82.1MB
+[GRU R3] Epoch 9/30 | Loss: 0.2175 | Val Acc (sample=500): 85.20% | Best: 85.20%
+After GRU R3 epoch 9 | rss=442.2MB heapUsed=61.2MB external=94.5MB
+[GRU R3] Epoch 10/30 | Loss: 0.1724 | Val Acc (full=2200): 81.50% | Best: 85.20%
+After GRU R3 epoch 10 | rss=442.2MB heapUsed=55.1MB external=45.0MB
+[GRU R3] Epoch 11/30 | Loss: 0.1336 | Val Acc (sample=500): 81.40% | Best: 85.20%
+After GRU R3 epoch 11 | rss=442.2MB heapUsed=59.1MB external=57.4MB
+[GRU R3] Epoch 12/30 | Loss: 0.0976 | Val Acc (sample=500): 78.00% | Best: 85.20%
+After GRU R3 epoch 12 | rss=442.2MB heapUsed=59.8MB external=69.8MB
+[GRU R3] Epoch 13/30 | Loss: 0.0780 | Val Acc (sample=500): 84.80% | Best: 85.20%
+After GRU R3 epoch 13 | rss=442.2MB heapUsed=60.5MB external=82.1MB
+[GRU R3] Epoch 14/30 | Loss: 0.0619 | Val Acc (sample=500): 81.20% | Best: 85.20%
+After GRU R3 epoch 14 | rss=442.2MB heapUsed=61.2MB external=94.5MB
+[GRU R3] Epoch 15/30 | Loss: 0.0514 | Val Acc (full=2200): 81.05% | Best: 85.20%
+After GRU R3 epoch 15 | rss=442.2MB heapUsed=54.9MB external=45.0MB
+[GRU R3] Epoch 16/30 | Loss: 0.0430 | Val Acc (sample=500): 78.00% | Best: 85.20%
+After GRU R3 epoch 16 | rss=442.2MB heapUsed=59.1MB external=57.4MB
+[GRU R3] Epoch 17/30 | Loss: 0.0365 | Val Acc (sample=500): 79.80% | Best: 85.20%
+After GRU R3 epoch 17 | rss=442.2MB heapUsed=59.8MB external=69.8MB
+[GRU R3] Epoch 18/30 | Loss: 0.0323 | Val Acc (sample=500): 83.80% | Best: 85.20%
+After GRU R3 epoch 18 | rss=442.2MB heapUsed=60.5MB external=82.1MB
+[GRU R3] Epoch 19/30 | Loss: 0.0292 | Val Acc (sample=500): 79.00% | Best: 85.20%
+After GRU R3 epoch 19 | rss=442.2MB heapUsed=61.2MB external=94.5MB
+[GRU R3] Epoch 20/30 | Loss: 0.0240 | Val Acc (full=2200): 79.64% | Best: 85.20%
+After GRU R3 epoch 20 | rss=442.2MB heapUsed=54.9MB external=45.0MB
+[GRU R3] Epoch 21/30 | Loss: 0.0216 | Val Acc (sample=500): 75.60% | Best: 85.20%
+After GRU R3 epoch 21 | rss=442.2MB heapUsed=59.1MB external=57.4MB
+[GRU R3] Epoch 22/30 | Loss: 0.0165 | Val Acc (sample=500): 83.80% | Best: 85.20%
+After GRU R3 epoch 22 | rss=442.2MB heapUsed=59.8MB external=69.8MB
+[GRU R3] Epoch 23/30 | Loss: 0.0153 | Val Acc (sample=500): 80.80% | Best: 85.20%
+After GRU R3 epoch 23 | rss=442.2MB heapUsed=60.5MB external=82.1MB
+[GRU R3] Epoch 24/30 | Loss: 0.0095 | Val Acc (sample=500): 80.60% | Best: 85.20%
+After GRU R3 epoch 24 | rss=442.2MB heapUsed=61.2MB external=94.5MB
+[GRU R3] Epoch 25/30 | Loss: 0.0111 | Val Acc (full=2200): 80.05% | Best: 85.20%
+After GRU R3 epoch 25 | rss=442.2MB heapUsed=54.9MB external=45.0MB
+[GRU R3] Epoch 26/30 | Loss: 0.0090 | Val Acc (sample=500): 82.40% | Best: 85.20%
+After GRU R3 epoch 26 | rss=442.2MB heapUsed=59.1MB external=57.4MB
+[GRU R3] Epoch 27/30 | Loss: 0.0063 | Val Acc (sample=500): 79.60% | Best: 85.20%
+After GRU R3 epoch 27 | rss=442.2MB heapUsed=59.8MB external=69.8MB
+[GRU R3] Epoch 28/30 | Loss: 0.0050 | Val Acc (sample=500): 80.40% | Best: 85.20%
+After GRU R3 epoch 28 | rss=442.2MB heapUsed=60.5MB external=82.1MB
+[GRU R3] Epoch 29/30 | Loss: 0.0035 | Val Acc (sample=500): 78.20% | Best: 85.20%
+After GRU R3 epoch 29 | rss=442.2MB heapUsed=61.2MB external=94.5MB
+[GRU R3] Epoch 30/30 | Loss: 0.0022 | Val Acc (full=2200): 80.91% | Best: 85.20%
+After GRU R3 epoch 30 | rss=442.2MB heapUsed=54.9MB external=45.0MB
+Evaluating F1 Score for GRU Run 3...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   301    66    27
+positive:    48   441   246
+neutral :    32    27    72
+
+Per-class Metrics:
+negative -> Precision: 79.00%, Recall: 76.40%, F1: 77.68%
+positive -> Precision: 82.58%, Recall: 60.00%, F1: 69.50%
+neutral  -> Precision: 20.87%, Recall: 54.96%, F1: 30.25%
+--------------------------
+Accuracy:         64.60%
+Macro F1 Score:   59.14%
+Weighted F1 Score:67.98%
+--------------------------
+After GRU Run 3 cleanup | rss=481.2MB heapUsed=99.4MB external=45.1MB
+
+--- [GRU] Run 4/10 ---
+[GRU R4] Epoch 1/30 | Loss: 0.7078 | Val Acc (sample=500): 32.40% | Best: 32.40%
+After GRU R4 epoch 1 | rss=439.3MB heapUsed=58.6MB external=48.1MB
+[GRU R4] Epoch 2/30 | Loss: 0.8781 | Val Acc (sample=500): 57.00% | Best: 57.00%
+After GRU R4 epoch 2 | rss=439.3MB heapUsed=59.3MB external=61.5MB
+[GRU R4] Epoch 3/30 | Loss: 0.8118 | Val Acc (sample=500): 59.20% | Best: 59.20%
+After GRU R4 epoch 3 | rss=439.3MB heapUsed=60.0MB external=73.9MB
+[GRU R4] Epoch 4/30 | Loss: 0.7435 | Val Acc (sample=500): 66.00% | Best: 66.00%
+After GRU R4 epoch 4 | rss=439.3MB heapUsed=60.8MB external=86.2MB
+[GRU R4] Epoch 5/30 | Loss: 0.6671 | Val Acc (full=2200): 68.00% | Best: 68.00%
+After GRU R4 epoch 5 | rss=439.3MB heapUsed=54.5MB external=45.0MB
+[GRU R4] Epoch 6/30 | Loss: 0.5841 | Val Acc (sample=500): 68.20% | Best: 68.20%
+After GRU R4 epoch 6 | rss=439.3MB heapUsed=59.1MB external=57.4MB
+[GRU R4] Epoch 7/30 | Loss: 0.5046 | Val Acc (sample=500): 73.40% | Best: 73.40%
+After GRU R4 epoch 7 | rss=439.3MB heapUsed=59.8MB external=69.8MB
+[GRU R4] Epoch 8/30 | Loss: 0.4400 | Val Acc (sample=500): 76.60% | Best: 76.60%
+After GRU R4 epoch 8 | rss=439.3MB heapUsed=60.5MB external=82.1MB
+[GRU R4] Epoch 9/30 | Loss: 0.3802 | Val Acc (sample=500): 80.80% | Best: 80.80%
+After GRU R4 epoch 9 | rss=439.3MB heapUsed=61.2MB external=94.5MB
+[GRU R4] Epoch 10/30 | Loss: 0.3220 | Val Acc (full=2200): 78.41% | Best: 80.80%
+After GRU R4 epoch 10 | rss=439.3MB heapUsed=54.9MB external=45.0MB
+[GRU R4] Epoch 11/30 | Loss: 0.2598 | Val Acc (sample=500): 79.20% | Best: 80.80%
+After GRU R4 epoch 11 | rss=439.3MB heapUsed=59.1MB external=57.4MB
+[GRU R4] Epoch 12/30 | Loss: 0.2063 | Val Acc (sample=500): 79.20% | Best: 80.80%
+After GRU R4 epoch 12 | rss=439.3MB heapUsed=59.8MB external=69.8MB
+[GRU R4] Epoch 13/30 | Loss: 0.3588 | Val Acc (sample=500): 80.40% | Best: 80.80%
+After GRU R4 epoch 13 | rss=439.3MB heapUsed=60.5MB external=82.1MB
+[GRU R4] Epoch 14/30 | Loss: 0.3530 | Val Acc (sample=500): 75.00% | Best: 80.80%
+After GRU R4 epoch 14 | rss=439.3MB heapUsed=61.2MB external=94.5MB
+[GRU R4] Epoch 15/30 | Loss: 0.3401 | Val Acc (full=2200): 78.23% | Best: 80.80%
+After GRU R4 epoch 15 | rss=439.3MB heapUsed=54.9MB external=45.0MB
+[GRU R4] Epoch 16/30 | Loss: 0.3273 | Val Acc (sample=500): 78.60% | Best: 80.80%
+After GRU R4 epoch 16 | rss=439.3MB heapUsed=59.1MB external=57.4MB
+[GRU R4] Epoch 17/30 | Loss: 0.3075 | Val Acc (sample=500): 79.00% | Best: 80.80%
+After GRU R4 epoch 17 | rss=439.3MB heapUsed=59.8MB external=69.8MB
+[GRU R4] Epoch 18/30 | Loss: 0.3005 | Val Acc (sample=500): 79.40% | Best: 80.80%
+After GRU R4 epoch 18 | rss=439.3MB heapUsed=60.5MB external=82.1MB
+[GRU R4] Epoch 19/30 | Loss: 0.2834 | Val Acc (sample=500): 76.00% | Best: 80.80%
+After GRU R4 epoch 19 | rss=439.3MB heapUsed=61.2MB external=94.5MB
+[GRU R4] Epoch 20/30 | Loss: 0.3161 | Val Acc (full=2200): 71.64% | Best: 80.80%
+After GRU R4 epoch 20 | rss=439.3MB heapUsed=54.9MB external=45.0MB
+[GRU R4] Epoch 21/30 | Loss: 0.3942 | Val Acc (sample=500): 78.60% | Best: 80.80%
+After GRU R4 epoch 21 | rss=439.3MB heapUsed=59.1MB external=57.4MB
+[GRU R4] Epoch 22/30 | Loss: 0.3750 | Val Acc (sample=500): 75.20% | Best: 80.80%
+After GRU R4 epoch 22 | rss=439.3MB heapUsed=59.8MB external=69.8MB
+[GRU R4] Epoch 23/30 | Loss: 0.3101 | Val Acc (sample=500): 74.20% | Best: 80.80%
+After GRU R4 epoch 23 | rss=439.3MB heapUsed=60.5MB external=82.1MB
+[GRU R4] Epoch 24/30 | Loss: 0.2847 | Val Acc (sample=500): 73.20% | Best: 80.80%
+After GRU R4 epoch 24 | rss=439.3MB heapUsed=61.2MB external=94.5MB
+[GRU R4] Epoch 25/30 | Loss: 0.2650 | Val Acc (full=2200): 76.18% | Best: 80.80%
+After GRU R4 epoch 25 | rss=439.3MB heapUsed=54.9MB external=45.0MB
+[GRU R4] Epoch 26/30 | Loss: 0.2497 | Val Acc (sample=500): 78.00% | Best: 80.80%
+After GRU R4 epoch 26 | rss=439.3MB heapUsed=59.1MB external=57.4MB
+[GRU R4] Epoch 27/30 | Loss: 0.2370 | Val Acc (sample=500): 76.00% | Best: 80.80%
+After GRU R4 epoch 27 | rss=439.3MB heapUsed=59.8MB external=69.8MB
+[GRU R4] Epoch 28/30 | Loss: 0.2264 | Val Acc (sample=500): 73.20% | Best: 80.80%
+After GRU R4 epoch 28 | rss=439.3MB heapUsed=60.5MB external=82.1MB
+[GRU R4] Epoch 29/30 | Loss: 0.2179 | Val Acc (sample=500): 75.40% | Best: 80.80%
+After GRU R4 epoch 29 | rss=439.3MB heapUsed=61.2MB external=94.5MB
+[GRU R4] Epoch 30/30 | Loss: 0.2092 | Val Acc (full=2200): 76.27% | Best: 80.80%
+After GRU R4 epoch 30 | rss=439.3MB heapUsed=54.9MB external=45.0MB
+Evaluating F1 Score for GRU Run 4...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   334    50    10
+positive:   407   314    14
+neutral :    54    21    56
+
+Per-class Metrics:
+negative -> Precision: 42.01%, Recall: 84.77%, F1: 56.18%
+positive -> Precision: 81.56%, Recall: 42.72%, F1: 56.07%
+neutral  -> Precision: 70.00%, Recall: 42.75%, F1: 53.08%
+--------------------------
+Accuracy:         55.87%
+Macro F1 Score:   55.11%
+Weighted F1 Score:55.79%
+--------------------------
+After GRU Run 4 cleanup | rss=478.2MB heapUsed=99.4MB external=45.1MB
+
+--- [GRU] Run 5/10 ---
+[GRU R5] Epoch 1/30 | Loss: 0.6738 | Val Acc (sample=500): 67.80% | Best: 67.80%
+After GRU R5 epoch 1 | rss=439.4MB heapUsed=58.6MB external=48.1MB
+[GRU R5] Epoch 2/30 | Loss: 0.7487 | Val Acc (sample=500): 66.60% | Best: 67.80%
+After GRU R5 epoch 2 | rss=439.4MB heapUsed=59.3MB external=60.5MB
+[GRU R5] Epoch 3/30 | Loss: 0.6870 | Val Acc (sample=500): 74.60% | Best: 74.60%
+After GRU R5 epoch 3 | rss=439.4MB heapUsed=60.0MB external=72.8MB
+[GRU R5] Epoch 4/30 | Loss: 0.4869 | Val Acc (sample=500): 78.60% | Best: 78.60%
+After GRU R5 epoch 4 | rss=439.4MB heapUsed=60.7MB external=85.2MB
+[GRU R5] Epoch 5/30 | Loss: 0.3755 | Val Acc (full=2200): 80.36% | Best: 80.36%
+After GRU R5 epoch 5 | rss=439.4MB heapUsed=54.4MB external=44.0MB
+[GRU R5] Epoch 6/30 | Loss: 0.2889 | Val Acc (sample=500): 80.20% | Best: 80.36%
+After GRU R5 epoch 6 | rss=439.4MB heapUsed=59.1MB external=57.4MB
+[GRU R5] Epoch 7/30 | Loss: 0.2204 | Val Acc (sample=500): 80.60% | Best: 80.60%
+After GRU R5 epoch 7 | rss=439.4MB heapUsed=59.8MB external=69.8MB
+[GRU R5] Epoch 8/30 | Loss: 0.1676 | Val Acc (sample=500): 78.80% | Best: 80.60%
+After GRU R5 epoch 8 | rss=439.4MB heapUsed=60.5MB external=82.1MB
+[GRU R5] Epoch 9/30 | Loss: 0.1248 | Val Acc (sample=500): 86.20% | Best: 86.20%
+After GRU R5 epoch 9 | rss=439.4MB heapUsed=61.3MB external=94.5MB
+[GRU R5] Epoch 10/30 | Loss: 0.0961 | Val Acc (full=2200): 83.14% | Best: 86.20%
+After GRU R5 epoch 10 | rss=439.4MB heapUsed=54.9MB external=45.0MB
+[GRU R5] Epoch 11/30 | Loss: 0.0687 | Val Acc (sample=500): 83.20% | Best: 86.20%
+After GRU R5 epoch 11 | rss=439.4MB heapUsed=59.1MB external=57.4MB
+[GRU R5] Epoch 12/30 | Loss: 0.0491 | Val Acc (sample=500): 80.00% | Best: 86.20%
+After GRU R5 epoch 12 | rss=439.4MB heapUsed=59.8MB external=69.8MB
+[GRU R5] Epoch 13/30 | Loss: 0.0345 | Val Acc (sample=500): 84.00% | Best: 86.20%
+After GRU R5 epoch 13 | rss=439.4MB heapUsed=60.5MB external=82.1MB
+[GRU R5] Epoch 14/30 | Loss: 0.0229 | Val Acc (sample=500): 83.00% | Best: 86.20%
+After GRU R5 epoch 14 | rss=439.4MB heapUsed=61.3MB external=94.5MB
+[GRU R5] Epoch 15/30 | Loss: 0.0178 | Val Acc (full=2200): 82.23% | Best: 86.20%
+After GRU R5 epoch 15 | rss=439.4MB heapUsed=54.9MB external=45.1MB
+[GRU R5] Epoch 16/30 | Loss: 0.0168 | Val Acc (sample=500): 80.20% | Best: 86.20%
+After GRU R5 epoch 16 | rss=439.4MB heapUsed=59.1MB external=57.4MB
+[GRU R5] Epoch 17/30 | Loss: 0.0151 | Val Acc (sample=500): 82.00% | Best: 86.20%
+After GRU R5 epoch 17 | rss=439.4MB heapUsed=59.8MB external=69.8MB
+[GRU R5] Epoch 18/30 | Loss: 0.0058 | Val Acc (sample=500): 84.20% | Best: 86.20%
+After GRU R5 epoch 18 | rss=439.4MB heapUsed=60.5MB external=82.1MB
+[GRU R5] Epoch 19/30 | Loss: 0.0036 | Val Acc (sample=500): 82.80% | Best: 86.20%
+After GRU R5 epoch 19 | rss=439.4MB heapUsed=61.3MB external=94.5MB
+[GRU R5] Epoch 20/30 | Loss: 0.0030 | Val Acc (full=2200): 82.55% | Best: 86.20%
+After GRU R5 epoch 20 | rss=439.4MB heapUsed=54.9MB external=45.1MB
+[GRU R5] Epoch 21/30 | Loss: 0.0030 | Val Acc (sample=500): 79.40% | Best: 86.20%
+After GRU R5 epoch 21 | rss=439.4MB heapUsed=59.1MB external=57.4MB
+[GRU R5] Epoch 22/30 | Loss: 0.0036 | Val Acc (sample=500): 83.00% | Best: 86.20%
+After GRU R5 epoch 22 | rss=439.4MB heapUsed=59.8MB external=69.8MB
+[GRU R5] Epoch 23/30 | Loss: 0.0021 | Val Acc (sample=500): 84.00% | Best: 86.20%
+After GRU R5 epoch 23 | rss=439.4MB heapUsed=60.5MB external=82.1MB
+[GRU R5] Epoch 24/30 | Loss: 0.0028 | Val Acc (sample=500): 82.60% | Best: 86.20%
+After GRU R5 epoch 24 | rss=439.4MB heapUsed=61.3MB external=94.5MB
+[GRU R5] Epoch 25/30 | Loss: 0.0055 | Val Acc (full=2200): 81.50% | Best: 86.20%
+After GRU R5 epoch 25 | rss=439.4MB heapUsed=55.0MB external=45.1MB
+[GRU R5] Epoch 26/30 | Loss: 0.0098 | Val Acc (sample=500): 82.00% | Best: 86.20%
+After GRU R5 epoch 26 | rss=439.4MB heapUsed=59.1MB external=57.4MB
+[GRU R5] Epoch 27/30 | Loss: 0.0014 | Val Acc (sample=500): 83.80% | Best: 86.20%
+After GRU R5 epoch 27 | rss=439.4MB heapUsed=59.8MB external=69.8MB
+[GRU R5] Epoch 28/30 | Loss: 0.0018 | Val Acc (sample=500): 84.80% | Best: 86.20%
+After GRU R5 epoch 28 | rss=439.4MB heapUsed=60.5MB external=82.1MB
+[GRU R5] Epoch 29/30 | Loss: 0.0010 | Val Acc (sample=500): 82.60% | Best: 86.20%
+After GRU R5 epoch 29 | rss=439.4MB heapUsed=61.3MB external=94.5MB
+[GRU R5] Epoch 30/30 | Loss: 0.0013 | Val Acc (full=2200): 82.41% | Best: 86.20%
+After GRU R5 epoch 30 | rss=439.4MB heapUsed=54.9MB external=45.1MB
+Evaluating F1 Score for GRU Run 5...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   279   101    14
+positive:    36   683    16
+neutral :    21    31    79
+
+Per-class Metrics:
+negative -> Precision: 83.04%, Recall: 70.81%, F1: 76.44%
+positive -> Precision: 83.80%, Recall: 92.93%, F1: 88.13%
+neutral  -> Precision: 72.48%, Recall: 60.31%, F1: 65.83%
+--------------------------
+Accuracy:         82.62%
+Macro F1 Score:   76.80%
+Weighted F1 Score:82.16%
+--------------------------
+After GRU Run 5 cleanup | rss=478.4MB heapUsed=99.5MB external=45.1MB
+
+--- [GRU] Run 6/10 ---
+[GRU R6] Epoch 1/30 | Loss: 0.6486 | Val Acc (sample=500): 77.40% | Best: 77.40%
+After GRU R6 epoch 1 | rss=439.4MB heapUsed=58.6MB external=48.1MB
+[GRU R6] Epoch 2/30 | Loss: 0.5074 | Val Acc (sample=500): 81.20% | Best: 81.20%
+After GRU R6 epoch 2 | rss=439.4MB heapUsed=59.3MB external=60.5MB
+[GRU R6] Epoch 3/30 | Loss: 0.4034 | Val Acc (sample=500): 80.00% | Best: 81.20%
+After GRU R6 epoch 3 | rss=439.4MB heapUsed=60.0MB external=72.8MB
+[GRU R6] Epoch 4/30 | Loss: 0.3328 | Val Acc (sample=500): 82.60% | Best: 82.60%
+After GRU R6 epoch 4 | rss=439.4MB heapUsed=60.7MB external=85.2MB
+[GRU R6] Epoch 5/30 | Loss: 0.2721 | Val Acc (full=2200): 82.91% | Best: 82.91%
+After GRU R6 epoch 5 | rss=439.4MB heapUsed=54.4MB external=44.0MB
+[GRU R6] Epoch 6/30 | Loss: 0.2305 | Val Acc (sample=500): 83.00% | Best: 83.00%
+After GRU R6 epoch 6 | rss=439.4MB heapUsed=59.1MB external=57.4MB
+[GRU R6] Epoch 7/30 | Loss: 0.4223 | Val Acc (sample=500): 61.80% | Best: 83.00%
+After GRU R6 epoch 7 | rss=439.4MB heapUsed=59.8MB external=69.8MB
+[GRU R6] Epoch 8/30 | Loss: 0.6567 | Val Acc (sample=500): 74.40% | Best: 83.00%
+After GRU R6 epoch 8 | rss=439.4MB heapUsed=60.6MB external=82.1MB
+[GRU R6] Epoch 9/30 | Loss: 0.4220 | Val Acc (sample=500): 81.40% | Best: 83.00%
+After GRU R6 epoch 9 | rss=439.4MB heapUsed=61.3MB external=94.5MB
+[GRU R6] Epoch 10/30 | Loss: 0.2835 | Val Acc (full=2200): 80.18% | Best: 83.00%
+After GRU R6 epoch 10 | rss=439.4MB heapUsed=55.0MB external=45.1MB
+[GRU R6] Epoch 11/30 | Loss: 0.2036 | Val Acc (sample=500): 81.80% | Best: 83.00%
+After GRU R6 epoch 11 | rss=439.4MB heapUsed=59.1MB external=57.4MB
+[GRU R6] Epoch 12/30 | Loss: 0.1582 | Val Acc (sample=500): 80.60% | Best: 83.00%
+After GRU R6 epoch 12 | rss=439.4MB heapUsed=59.9MB external=69.8MB
+[GRU R6] Epoch 13/30 | Loss: 0.1267 | Val Acc (sample=500): 86.00% | Best: 86.00%
+After GRU R6 epoch 13 | rss=439.4MB heapUsed=60.6MB external=82.1MB
+[GRU R6] Epoch 14/30 | Loss: 0.1044 | Val Acc (sample=500): 82.20% | Best: 86.00%
+After GRU R6 epoch 14 | rss=439.5MB heapUsed=61.3MB external=94.5MB
+[GRU R6] Epoch 15/30 | Loss: 0.0870 | Val Acc (full=2200): 83.45% | Best: 86.00%
+After GRU R6 epoch 15 | rss=439.5MB heapUsed=55.0MB external=45.1MB
+[GRU R6] Epoch 16/30 | Loss: 0.0681 | Val Acc (sample=500): 82.80% | Best: 86.00%
+After GRU R6 epoch 16 | rss=439.5MB heapUsed=59.1MB external=57.4MB
+[GRU R6] Epoch 17/30 | Loss: 0.0553 | Val Acc (sample=500): 83.60% | Best: 86.00%
+After GRU R6 epoch 17 | rss=439.5MB heapUsed=59.9MB external=69.8MB
+[GRU R6] Epoch 18/30 | Loss: 0.0439 | Val Acc (sample=500): 85.80% | Best: 86.00%
+After GRU R6 epoch 18 | rss=439.5MB heapUsed=60.6MB external=82.1MB
+[GRU R6] Epoch 19/30 | Loss: 0.0323 | Val Acc (sample=500): 82.40% | Best: 86.00%
+After GRU R6 epoch 19 | rss=439.5MB heapUsed=61.3MB external=94.5MB
+[GRU R6] Epoch 20/30 | Loss: 0.0279 | Val Acc (full=2200): 82.95% | Best: 86.00%
+After GRU R6 epoch 20 | rss=439.5MB heapUsed=55.0MB external=45.1MB
+[GRU R6] Epoch 21/30 | Loss: 0.0200 | Val Acc (sample=500): 80.20% | Best: 86.00%
+After GRU R6 epoch 21 | rss=439.5MB heapUsed=59.1MB external=57.4MB
+[GRU R6] Epoch 22/30 | Loss: 0.0167 | Val Acc (sample=500): 83.60% | Best: 86.00%
+After GRU R6 epoch 22 | rss=439.5MB heapUsed=59.9MB external=69.8MB
+[GRU R6] Epoch 23/30 | Loss: 0.0125 | Val Acc (sample=500): 84.60% | Best: 86.00%
+After GRU R6 epoch 23 | rss=439.5MB heapUsed=60.6MB external=82.1MB
+[GRU R6] Epoch 24/30 | Loss: 0.0095 | Val Acc (sample=500): 84.00% | Best: 86.00%
+After GRU R6 epoch 24 | rss=439.5MB heapUsed=61.3MB external=94.5MB
+[GRU R6] Epoch 25/30 | Loss: 0.0119 | Val Acc (full=2200): 82.55% | Best: 86.00%
+After GRU R6 epoch 25 | rss=439.5MB heapUsed=55.0MB external=45.1MB
+[GRU R6] Epoch 26/30 | Loss: 0.0062 | Val Acc (sample=500): 82.40% | Best: 86.00%
+After GRU R6 epoch 26 | rss=439.5MB heapUsed=59.1MB external=57.4MB
+[GRU R6] Epoch 27/30 | Loss: 0.0067 | Val Acc (sample=500): 84.20% | Best: 86.00%
+After GRU R6 epoch 27 | rss=439.5MB heapUsed=59.9MB external=69.8MB
+[GRU R6] Epoch 28/30 | Loss: 0.0087 | Val Acc (sample=500): 82.60% | Best: 86.00%
+After GRU R6 epoch 28 | rss=439.5MB heapUsed=60.6MB external=82.1MB
+[GRU R6] Epoch 29/30 | Loss: 0.0069 | Val Acc (sample=500): 81.80% | Best: 86.00%
+After GRU R6 epoch 29 | rss=439.5MB heapUsed=61.3MB external=94.5MB
+[GRU R6] Epoch 30/30 | Loss: 0.0054 | Val Acc (full=2200): 82.59% | Best: 86.00%
+After GRU R6 epoch 30 | rss=439.5MB heapUsed=55.0MB external=45.1MB
+Evaluating F1 Score for GRU Run 6...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   315    60    19
+positive:   108   611    16
+neutral :    35    20    76
+
+Per-class Metrics:
+negative -> Precision: 68.78%, Recall: 79.95%, F1: 73.94%
+positive -> Precision: 88.42%, Recall: 83.13%, F1: 85.69%
+neutral  -> Precision: 68.47%, Recall: 58.02%, F1: 62.81%
+--------------------------
+Accuracy:         79.52%
+Macro F1 Score:   74.15%
+Weighted F1 Score:79.64%
+--------------------------
+After GRU Run 6 cleanup | rss=478.6MB heapUsed=99.6MB external=45.1MB
+
+--- [GRU] Run 7/10 ---
+[GRU R7] Epoch 1/30 | Loss: 0.7491 | Val Acc (sample=500): 60.80% | Best: 60.80%
+After GRU R7 epoch 1 | rss=446.7MB heapUsed=58.6MB external=48.1MB
+[GRU R7] Epoch 2/30 | Loss: 0.6390 | Val Acc (sample=500): 77.80% | Best: 77.80%
+After GRU R7 epoch 2 | rss=446.7MB heapUsed=59.3MB external=60.5MB
+[GRU R7] Epoch 3/30 | Loss: 0.3193 | Val Acc (sample=500): 84.60% | Best: 84.60%
+After GRU R7 epoch 3 | rss=446.7MB heapUsed=60.0MB external=72.8MB
+[GRU R7] Epoch 4/30 | Loss: 0.1882 | Val Acc (sample=500): 89.60% | Best: 89.60%
+After GRU R7 epoch 4 | rss=446.7MB heapUsed=60.7MB external=85.2MB
+[GRU R7] Epoch 5/30 | Loss: 0.1257 | Val Acc (full=2200): 84.23% | Best: 89.60%
+After GRU R7 epoch 5 | rss=446.7MB heapUsed=54.4MB external=44.0MB
+[GRU R7] Epoch 6/30 | Loss: 0.0842 | Val Acc (sample=500): 85.40% | Best: 89.60%
+After GRU R7 epoch 6 | rss=446.7MB heapUsed=59.1MB external=57.4MB
+[GRU R7] Epoch 7/30 | Loss: 0.0612 | Val Acc (sample=500): 82.20% | Best: 89.60%
+After GRU R7 epoch 7 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R7] Epoch 8/30 | Loss: 0.0686 | Val Acc (sample=500): 83.40% | Best: 89.60%
+After GRU R7 epoch 8 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R7] Epoch 9/30 | Loss: 0.0503 | Val Acc (sample=500): 84.40% | Best: 89.60%
+After GRU R7 epoch 9 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R7] Epoch 10/30 | Loss: 0.0327 | Val Acc (full=2200): 84.86% | Best: 89.60%
+After GRU R7 epoch 10 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R7] Epoch 11/30 | Loss: 0.0217 | Val Acc (sample=500): 84.60% | Best: 89.60%
+After GRU R7 epoch 11 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R7] Epoch 12/30 | Loss: 0.0153 | Val Acc (sample=500): 83.00% | Best: 89.60%
+After GRU R7 epoch 12 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R7] Epoch 13/30 | Loss: 0.0102 | Val Acc (sample=500): 84.20% | Best: 89.60%
+After GRU R7 epoch 13 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R7] Epoch 14/30 | Loss: 0.0094 | Val Acc (sample=500): 84.40% | Best: 89.60%
+After GRU R7 epoch 14 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R7] Epoch 15/30 | Loss: 0.0090 | Val Acc (full=2200): 84.32% | Best: 89.60%
+After GRU R7 epoch 15 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R7] Epoch 16/30 | Loss: 0.0060 | Val Acc (sample=500): 82.80% | Best: 89.60%
+After GRU R7 epoch 16 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R7] Epoch 17/30 | Loss: 0.0097 | Val Acc (sample=500): 84.00% | Best: 89.60%
+After GRU R7 epoch 17 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R7] Epoch 18/30 | Loss: 0.0092 | Val Acc (sample=500): 86.00% | Best: 89.60%
+After GRU R7 epoch 18 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R7] Epoch 19/30 | Loss: 0.0083 | Val Acc (sample=500): 84.80% | Best: 89.60%
+After GRU R7 epoch 19 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R7] Epoch 20/30 | Loss: 0.0066 | Val Acc (full=2200): 84.45% | Best: 89.60%
+After GRU R7 epoch 20 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R7] Epoch 21/30 | Loss: 0.0031 | Val Acc (sample=500): 82.00% | Best: 89.60%
+After GRU R7 epoch 21 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R7] Epoch 22/30 | Loss: 0.0038 | Val Acc (sample=500): 86.20% | Best: 89.60%
+After GRU R7 epoch 22 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R7] Epoch 23/30 | Loss: 0.0021 | Val Acc (sample=500): 84.80% | Best: 89.60%
+After GRU R7 epoch 23 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R7] Epoch 24/30 | Loss: 0.0038 | Val Acc (sample=500): 85.00% | Best: 89.60%
+After GRU R7 epoch 24 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R7] Epoch 25/30 | Loss: 0.0021 | Val Acc (full=2200): 82.59% | Best: 89.60%
+After GRU R7 epoch 25 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R7] Epoch 26/30 | Loss: 0.0157 | Val Acc (sample=500): 85.20% | Best: 89.60%
+After GRU R7 epoch 26 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R7] Epoch 27/30 | Loss: 0.0028 | Val Acc (sample=500): 86.40% | Best: 89.60%
+After GRU R7 epoch 27 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R7] Epoch 28/30 | Loss: 0.0016 | Val Acc (sample=500): 84.60% | Best: 89.60%
+After GRU R7 epoch 28 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R7] Epoch 29/30 | Loss: 0.0012 | Val Acc (sample=500): 83.60% | Best: 89.60%
+After GRU R7 epoch 29 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R7] Epoch 30/30 | Loss: 0.0011 | Val Acc (full=2200): 84.32% | Best: 89.60%
+After GRU R7 epoch 30 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+Evaluating F1 Score for GRU Run 7...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   314    75     5
+positive:    54   675     6
+neutral :    36    45    50
+
+Per-class Metrics:
+negative -> Precision: 77.72%, Recall: 79.70%, F1: 78.70%
+positive -> Precision: 84.91%, Recall: 91.84%, F1: 88.24%
+neutral  -> Precision: 81.97%, Recall: 38.17%, F1: 52.08%
+--------------------------
+Accuracy:         82.46%
+Macro F1 Score:   73.01%
+Weighted F1 Score:81.49%
+--------------------------
+After GRU Run 7 cleanup | rss=485.8MB heapUsed=99.7MB external=45.1MB
+
+--- [GRU] Run 8/10 ---
+[GRU R8] Epoch 1/30 | Loss: 0.8227 | Val Acc (sample=500): 57.80% | Best: 57.80%
+After GRU R8 epoch 1 | rss=446.7MB heapUsed=58.7MB external=49.2MB
+[GRU R8] Epoch 2/30 | Loss: 0.8872 | Val Acc (sample=500): 55.60% | Best: 57.80%
+After GRU R8 epoch 2 | rss=446.7MB heapUsed=59.4MB external=61.5MB
+[GRU R8] Epoch 3/30 | Loss: 0.8407 | Val Acc (sample=500): 57.80% | Best: 57.80%
+After GRU R8 epoch 3 | rss=446.7MB heapUsed=60.1MB external=73.9MB
+[GRU R8] Epoch 4/30 | Loss: 0.7779 | Val Acc (sample=500): 64.20% | Best: 64.20%
+After GRU R8 epoch 4 | rss=446.7MB heapUsed=60.8MB external=86.3MB
+[GRU R8] Epoch 5/30 | Loss: 0.7033 | Val Acc (full=2200): 64.86% | Best: 64.86%
+After GRU R8 epoch 5 | rss=446.7MB heapUsed=54.5MB external=45.1MB
+[GRU R8] Epoch 6/30 | Loss: 0.6282 | Val Acc (sample=500): 67.60% | Best: 67.60%
+After GRU R8 epoch 6 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R8] Epoch 7/30 | Loss: 0.5603 | Val Acc (sample=500): 72.80% | Best: 72.80%
+After GRU R8 epoch 7 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R8] Epoch 8/30 | Loss: 0.5005 | Val Acc (sample=500): 73.00% | Best: 73.00%
+After GRU R8 epoch 8 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R8] Epoch 9/30 | Loss: 0.4497 | Val Acc (sample=500): 78.20% | Best: 78.20%
+After GRU R8 epoch 9 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R8] Epoch 10/30 | Loss: 0.4060 | Val Acc (full=2200): 75.91% | Best: 78.20%
+After GRU R8 epoch 10 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R8] Epoch 11/30 | Loss: 0.4305 | Val Acc (sample=500): 75.40% | Best: 78.20%
+After GRU R8 epoch 11 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R8] Epoch 12/30 | Loss: 0.4093 | Val Acc (sample=500): 73.00% | Best: 78.20%
+After GRU R8 epoch 12 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R8] Epoch 13/30 | Loss: 0.3714 | Val Acc (sample=500): 81.80% | Best: 81.80%
+After GRU R8 epoch 13 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R8] Epoch 14/30 | Loss: 0.3079 | Val Acc (sample=500): 77.20% | Best: 81.80%
+After GRU R8 epoch 14 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R8] Epoch 15/30 | Loss: 0.2785 | Val Acc (full=2200): 79.64% | Best: 81.80%
+After GRU R8 epoch 15 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R8] Epoch 16/30 | Loss: 0.2579 | Val Acc (sample=500): 77.80% | Best: 81.80%
+After GRU R8 epoch 16 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R8] Epoch 17/30 | Loss: 0.2356 | Val Acc (sample=500): 79.60% | Best: 81.80%
+After GRU R8 epoch 17 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R8] Epoch 18/30 | Loss: 0.2188 | Val Acc (sample=500): 81.20% | Best: 81.80%
+After GRU R8 epoch 18 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R8] Epoch 19/30 | Loss: 0.1971 | Val Acc (sample=500): 77.00% | Best: 81.80%
+After GRU R8 epoch 19 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R8] Epoch 20/30 | Loss: 0.1838 | Val Acc (full=2200): 79.45% | Best: 81.80%
+After GRU R8 epoch 20 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R8] Epoch 21/30 | Loss: 0.1754 | Val Acc (sample=500): 75.40% | Best: 81.80%
+After GRU R8 epoch 21 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R8] Epoch 22/30 | Loss: 0.1649 | Val Acc (sample=500): 81.80% | Best: 81.80%
+After GRU R8 epoch 22 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R8] Epoch 23/30 | Loss: 0.1534 | Val Acc (sample=500): 79.20% | Best: 81.80%
+After GRU R8 epoch 23 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R8] Epoch 24/30 | Loss: 0.1513 | Val Acc (sample=500): 80.60% | Best: 81.80%
+After GRU R8 epoch 24 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R8] Epoch 25/30 | Loss: 0.1461 | Val Acc (full=2200): 78.59% | Best: 81.80%
+After GRU R8 epoch 25 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+[GRU R8] Epoch 26/30 | Loss: 0.1326 | Val Acc (sample=500): 80.00% | Best: 81.80%
+After GRU R8 epoch 26 | rss=446.7MB heapUsed=59.2MB external=57.4MB
+[GRU R8] Epoch 27/30 | Loss: 0.1233 | Val Acc (sample=500): 79.60% | Best: 81.80%
+After GRU R8 epoch 27 | rss=446.7MB heapUsed=59.9MB external=69.8MB
+[GRU R8] Epoch 28/30 | Loss: 0.1240 | Val Acc (sample=500): 79.60% | Best: 81.80%
+After GRU R8 epoch 28 | rss=446.7MB heapUsed=60.6MB external=82.1MB
+[GRU R8] Epoch 29/30 | Loss: 0.0937 | Val Acc (sample=500): 77.40% | Best: 81.80%
+After GRU R8 epoch 29 | rss=446.7MB heapUsed=61.3MB external=94.5MB
+[GRU R8] Epoch 30/30 | Loss: 0.0809 | Val Acc (full=2200): 80.55% | Best: 81.80%
+After GRU R8 epoch 30 | rss=446.7MB heapUsed=55.0MB external=45.1MB
+Evaluating F1 Score for GRU Run 8...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   279    93    22
+positive:    50   667    18
+neutral :    32    38    61
+
+Per-class Metrics:
+negative -> Precision: 77.29%, Recall: 70.81%, F1: 73.91%
+positive -> Precision: 83.58%, Recall: 90.75%, F1: 87.02%
+neutral  -> Precision: 60.40%, Recall: 46.56%, F1: 52.59%
+--------------------------
+Accuracy:         79.92%
+Macro F1 Score:   71.17%
+Weighted F1 Score:79.34%
+--------------------------
+After GRU Run 8 cleanup | rss=485.5MB heapUsed=99.2MB external=45.1MB
+
+--- [GRU] Run 9/10 ---
+[GRU R9] Epoch 1/30 | Loss: 0.6786 | Val Acc (sample=500): 75.20% | Best: 75.20%
+After GRU R9 epoch 1 | rss=446.9MB heapUsed=58.6MB external=48.1MB
+[GRU R9] Epoch 2/30 | Loss: 0.5743 | Val Acc (sample=500): 75.20% | Best: 75.20%
+After GRU R9 epoch 2 | rss=446.9MB heapUsed=59.3MB external=60.5MB
+[GRU R9] Epoch 3/30 | Loss: 0.5107 | Val Acc (sample=500): 78.00% | Best: 78.00%
+After GRU R9 epoch 3 | rss=446.9MB heapUsed=60.0MB external=72.8MB
+[GRU R9] Epoch 4/30 | Loss: 0.4693 | Val Acc (sample=500): 78.20% | Best: 78.20%
+After GRU R9 epoch 4 | rss=446.9MB heapUsed=60.8MB external=85.2MB
+[GRU R9] Epoch 5/30 | Loss: 0.4279 | Val Acc (full=2200): 78.36% | Best: 78.36%
+After GRU R9 epoch 5 | rss=446.9MB heapUsed=54.4MB external=44.0MB
+[GRU R9] Epoch 6/30 | Loss: 0.3913 | Val Acc (sample=500): 76.20% | Best: 78.36%
+After GRU R9 epoch 6 | rss=446.9MB heapUsed=59.2MB external=57.4MB
+[GRU R9] Epoch 7/30 | Loss: 0.3620 | Val Acc (sample=500): 79.20% | Best: 79.20%
+After GRU R9 epoch 7 | rss=446.9MB heapUsed=59.9MB external=69.8MB
+[GRU R9] Epoch 8/30 | Loss: 0.3438 | Val Acc (sample=500): 77.20% | Best: 79.20%
+After GRU R9 epoch 8 | rss=446.9MB heapUsed=60.6MB external=82.1MB
+[GRU R9] Epoch 9/30 | Loss: 0.3155 | Val Acc (sample=500): 81.60% | Best: 81.60%
+After GRU R9 epoch 9 | rss=446.9MB heapUsed=61.3MB external=94.5MB
+[GRU R9] Epoch 10/30 | Loss: 0.2980 | Val Acc (full=2200): 78.95% | Best: 81.60%
+After GRU R9 epoch 10 | rss=446.9MB heapUsed=55.0MB external=45.1MB
+[GRU R9] Epoch 11/30 | Loss: 0.2844 | Val Acc (sample=500): 78.20% | Best: 81.60%
+After GRU R9 epoch 11 | rss=446.9MB heapUsed=59.2MB external=57.4MB
+[GRU R9] Epoch 12/30 | Loss: 0.2678 | Val Acc (sample=500): 77.80% | Best: 81.60%
+After GRU R9 epoch 12 | rss=446.9MB heapUsed=59.9MB external=69.8MB
+[GRU R9] Epoch 13/30 | Loss: 0.2539 | Val Acc (sample=500): 81.00% | Best: 81.60%
+After GRU R9 epoch 13 | rss=446.9MB heapUsed=60.6MB external=82.1MB
+[GRU R9] Epoch 14/30 | Loss: 0.2435 | Val Acc (sample=500): 78.00% | Best: 81.60%
+After GRU R9 epoch 14 | rss=446.9MB heapUsed=61.3MB external=94.5MB
+[GRU R9] Epoch 15/30 | Loss: 0.2343 | Val Acc (full=2200): 79.50% | Best: 81.60%
+After GRU R9 epoch 15 | rss=446.9MB heapUsed=55.0MB external=45.1MB
+[GRU R9] Epoch 16/30 | Loss: 0.2279 | Val Acc (sample=500): 82.00% | Best: 82.00%
+After GRU R9 epoch 16 | rss=446.9MB heapUsed=59.2MB external=57.4MB
+[GRU R9] Epoch 17/30 | Loss: 0.2145 | Val Acc (sample=500): 79.00% | Best: 82.00%
+After GRU R9 epoch 17 | rss=446.9MB heapUsed=59.9MB external=69.8MB
+[GRU R9] Epoch 18/30 | Loss: 0.1998 | Val Acc (sample=500): 83.00% | Best: 83.00%
+After GRU R9 epoch 18 | rss=446.9MB heapUsed=60.6MB external=82.1MB
+[GRU R9] Epoch 19/30 | Loss: 0.1965 | Val Acc (sample=500): 78.60% | Best: 83.00%
+After GRU R9 epoch 19 | rss=446.9MB heapUsed=61.3MB external=94.5MB
+[GRU R9] Epoch 20/30 | Loss: 0.1894 | Val Acc (full=2200): 80.18% | Best: 83.00%
+After GRU R9 epoch 20 | rss=446.9MB heapUsed=55.0MB external=45.1MB
+[GRU R9] Epoch 21/30 | Loss: 0.1833 | Val Acc (sample=500): 77.80% | Best: 83.00%
+After GRU R9 epoch 21 | rss=446.9MB heapUsed=59.2MB external=57.4MB
+[GRU R9] Epoch 22/30 | Loss: 0.1722 | Val Acc (sample=500): 81.80% | Best: 83.00%
+After GRU R9 epoch 22 | rss=446.9MB heapUsed=59.9MB external=69.8MB
+[GRU R9] Epoch 23/30 | Loss: 0.1662 | Val Acc (sample=500): 79.80% | Best: 83.00%
+After GRU R9 epoch 23 | rss=446.9MB heapUsed=60.6MB external=82.2MB
+[GRU R9] Epoch 24/30 | Loss: 0.1499 | Val Acc (sample=500): 80.00% | Best: 83.00%
+After GRU R9 epoch 24 | rss=446.9MB heapUsed=61.3MB external=94.5MB
+[GRU R9] Epoch 25/30 | Loss: 0.1580 | Val Acc (full=2200): 80.82% | Best: 83.00%
+After GRU R9 epoch 25 | rss=446.9MB heapUsed=55.0MB external=45.1MB
+[GRU R9] Epoch 26/30 | Loss: 0.1368 | Val Acc (sample=500): 80.80% | Best: 83.00%
+After GRU R9 epoch 26 | rss=446.9MB heapUsed=59.2MB external=57.4MB
+[GRU R9] Epoch 27/30 | Loss: 0.1290 | Val Acc (sample=500): 82.80% | Best: 83.00%
+After GRU R9 epoch 27 | rss=446.9MB heapUsed=59.9MB external=69.8MB
+[GRU R9] Epoch 28/30 | Loss: 0.1161 | Val Acc (sample=500): 81.60% | Best: 83.00%
+After GRU R9 epoch 28 | rss=446.9MB heapUsed=60.6MB external=82.2MB
+[GRU R9] Epoch 29/30 | Loss: 0.1084 | Val Acc (sample=500): 81.40% | Best: 83.00%
+After GRU R9 epoch 29 | rss=446.9MB heapUsed=61.3MB external=94.5MB
+[GRU R9] Epoch 30/30 | Loss: 0.1011 | Val Acc (full=2200): 81.23% | Best: 83.00%
+After GRU R9 epoch 30 | rss=446.9MB heapUsed=55.0MB external=45.1MB
+Evaluating F1 Score for GRU Run 9...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   304    83     7
+positive:    53   671    11
+neutral :    32    42    57
+
+Per-class Metrics:
+negative -> Precision: 78.15%, Recall: 77.16%, F1: 77.65%
+positive -> Precision: 84.30%, Recall: 91.29%, F1: 87.66%
+neutral  -> Precision: 76.00%, Recall: 43.51%, F1: 55.34%
+--------------------------
+Accuracy:         81.90%
+Macro F1 Score:   73.55%
+Weighted F1 Score:81.17%
+--------------------------
+After GRU Run 9 cleanup | rss=485.9MB heapUsed=99.4MB external=45.1MB
+
+--- [GRU] Run 10/10 ---
+[GRU R10] Epoch 1/30 | Loss: 0.7457 | Val Acc (sample=500): 58.20% | Best: 58.20%
+After GRU R10 epoch 1 | rss=447.1MB heapUsed=58.6MB external=48.1MB
+[GRU R10] Epoch 2/30 | Loss: 0.7913 | Val Acc (sample=500): 75.40% | Best: 75.40%
+After GRU R10 epoch 2 | rss=447.1MB heapUsed=59.3MB external=60.5MB
+[GRU R10] Epoch 3/30 | Loss: 0.4041 | Val Acc (sample=500): 82.60% | Best: 82.60%
+After GRU R10 epoch 3 | rss=447.1MB heapUsed=60.1MB external=72.9MB
+[GRU R10] Epoch 4/30 | Loss: 0.2358 | Val Acc (sample=500): 88.80% | Best: 88.80%
+After GRU R10 epoch 4 | rss=447.1MB heapUsed=60.8MB external=85.2MB
+[GRU R10] Epoch 5/30 | Loss: 0.1360 | Val Acc (full=2200): 85.91% | Best: 88.80%
+After GRU R10 epoch 5 | rss=447.1MB heapUsed=54.5MB external=44.0MB
+[GRU R10] Epoch 6/30 | Loss: 0.0796 | Val Acc (sample=500): 83.40% | Best: 88.80%
+After GRU R10 epoch 6 | rss=447.1MB heapUsed=59.2MB external=57.4MB
+[GRU R10] Epoch 7/30 | Loss: 0.0552 | Val Acc (sample=500): 84.40% | Best: 88.80%
+After GRU R10 epoch 7 | rss=447.1MB heapUsed=59.9MB external=69.8MB
+[GRU R10] Epoch 8/30 | Loss: 0.0342 | Val Acc (sample=500): 82.40% | Best: 88.80%
+After GRU R10 epoch 8 | rss=447.1MB heapUsed=60.6MB external=82.2MB
+[GRU R10] Epoch 9/30 | Loss: 0.0233 | Val Acc (sample=500): 85.60% | Best: 88.80%
+After GRU R10 epoch 9 | rss=447.1MB heapUsed=61.3MB external=94.5MB
+[GRU R10] Epoch 10/30 | Loss: 0.0157 | Val Acc (full=2200): 83.36% | Best: 88.80%
+After GRU R10 epoch 10 | rss=447.1MB heapUsed=55.0MB external=45.1MB
+[GRU R10] Epoch 11/30 | Loss: 0.0157 | Val Acc (sample=500): 86.00% | Best: 88.80%
+After GRU R10 epoch 11 | rss=447.1MB heapUsed=59.2MB external=57.4MB
+[GRU R10] Epoch 12/30 | Loss: 0.0073 | Val Acc (sample=500): 82.80% | Best: 88.80%
+After GRU R10 epoch 12 | rss=447.1MB heapUsed=59.9MB external=69.8MB
+[GRU R10] Epoch 13/30 | Loss: 0.0061 | Val Acc (sample=500): 87.60% | Best: 88.80%
+After GRU R10 epoch 13 | rss=447.1MB heapUsed=60.6MB external=82.2MB
+[GRU R10] Epoch 14/30 | Loss: 0.0038 | Val Acc (sample=500): 84.00% | Best: 88.80%
+After GRU R10 epoch 14 | rss=447.1MB heapUsed=61.3MB external=94.5MB
+[GRU R10] Epoch 15/30 | Loss: 0.0023 | Val Acc (full=2200): 84.91% | Best: 88.80%
+After GRU R10 epoch 15 | rss=447.1MB heapUsed=55.0MB external=45.1MB
+[GRU R10] Epoch 16/30 | Loss: 0.0056 | Val Acc (sample=500): 84.20% | Best: 88.80%
+After GRU R10 epoch 16 | rss=447.1MB heapUsed=59.2MB external=57.4MB
+[GRU R10] Epoch 17/30 | Loss: 0.0079 | Val Acc (sample=500): 84.00% | Best: 88.80%
+After GRU R10 epoch 17 | rss=447.1MB heapUsed=59.9MB external=69.8MB
+[GRU R10] Epoch 18/30 | Loss: 0.0043 | Val Acc (sample=500): 85.60% | Best: 88.80%
+After GRU R10 epoch 18 | rss=447.1MB heapUsed=60.6MB external=82.2MB
+[GRU R10] Epoch 19/30 | Loss: 0.0025 | Val Acc (sample=500): 83.20% | Best: 88.80%
+After GRU R10 epoch 19 | rss=447.1MB heapUsed=61.3MB external=94.5MB
+[GRU R10] Epoch 20/30 | Loss: 0.0021 | Val Acc (full=2200): 83.86% | Best: 88.80%
+After GRU R10 epoch 20 | rss=447.1MB heapUsed=55.0MB external=45.1MB
+[GRU R10] Epoch 21/30 | Loss: 0.0013 | Val Acc (sample=500): 80.80% | Best: 88.80%
+After GRU R10 epoch 21 | rss=447.1MB heapUsed=59.2MB external=57.4MB
+[GRU R10] Epoch 22/30 | Loss: 0.0010 | Val Acc (sample=500): 85.60% | Best: 88.80%
+After GRU R10 epoch 22 | rss=447.1MB heapUsed=59.9MB external=69.8MB
+[GRU R10] Epoch 23/30 | Loss: 0.0015 | Val Acc (sample=500): 82.80% | Best: 88.80%
+After GRU R10 epoch 23 | rss=447.1MB heapUsed=60.6MB external=82.2MB
+[GRU R10] Epoch 24/30 | Loss: 0.0009 | Val Acc (sample=500): 83.60% | Best: 88.80%
+After GRU R10 epoch 24 | rss=447.1MB heapUsed=61.3MB external=94.5MB
+[GRU R10] Epoch 25/30 | Loss: 0.0057 | Val Acc (full=2200): 83.73% | Best: 88.80%
+After GRU R10 epoch 25 | rss=447.1MB heapUsed=55.0MB external=45.1MB
+[GRU R10] Epoch 26/30 | Loss: 0.0041 | Val Acc (sample=500): 84.40% | Best: 88.80%
+After GRU R10 epoch 26 | rss=447.1MB heapUsed=59.2MB external=57.4MB
+[GRU R10] Epoch 27/30 | Loss: 0.0015 | Val Acc (sample=500): 85.20% | Best: 88.80%
+After GRU R10 epoch 27 | rss=447.1MB heapUsed=59.9MB external=69.8MB
+[GRU R10] Epoch 28/30 | Loss: 0.0006 | Val Acc (sample=500): 81.80% | Best: 88.80%
+After GRU R10 epoch 28 | rss=447.1MB heapUsed=60.6MB external=82.2MB
+[GRU R10] Epoch 29/30 | Loss: 0.0007 | Val Acc (sample=500): 86.00% | Best: 88.80%
+After GRU R10 epoch 29 | rss=447.1MB heapUsed=61.3MB external=94.5MB
+[GRU R10] Epoch 30/30 | Loss: 0.0008 | Val Acc (full=2200): 84.73% | Best: 88.80%
+After GRU R10 epoch 30 | rss=447.1MB heapUsed=55.0MB external=45.1MB
+Evaluating F1 Score for GRU Run 10...
+Processed 500/1260 samples...
+Processed 1000/1260 samples...
+
+--- Evaluation Results ---
+Processed: 1260, Skipped: 0
+
+Confusion Matrix (Actual \ Predicted):
+          Neg   Pos   Neu
+negative:   298    80    16
+positive:    42   673    20
+neutral :    28    37    66
+
+Per-class Metrics:
+negative -> Precision: 80.98%, Recall: 75.63%, F1: 78.22%
+positive -> Precision: 85.19%, Recall: 91.56%, F1: 88.26%
+neutral  -> Precision: 64.71%, Recall: 50.38%, F1: 56.65%
+--------------------------
+Accuracy:         82.30%
+Macro F1 Score:   74.38%
+Weighted F1 Score:81.83%
+--------------------------
+After GRU Run 10 cleanup | rss=486.3MB heapUsed=99.4MB external=45.1MB
+
+Stability experiment metadata saved to: /home/akhyar/Dokumen/Code/NODE JS/clasification_indonesia/log/stability_experiment_20260427_230251.json
+
+============================================================
+FINAL MULTI-MODEL REPORT
+============================================================
+Dataset Size (Train):      11000
+Dataset Size (Valid):      1260
+Tokenizer Status:          Fixed (Not updated during test)
+------------------------------------------------------------
+Model Type | Avg Loss | Avg Val Acc | Avg Weighted F1 | Params
+---------------------------------------------------------------------------
+RNN        | 0.0141     |      83.62% |          76.72% |    1948547
+LSTM       | 0.0093     |      89.24% |          85.16% |    1964003
+GRU        | 0.1321     |      84.55% |          72.66% |    1958851
+===========================================================================
