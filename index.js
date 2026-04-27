@@ -310,8 +310,14 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, layerNormBackwardNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingForwardNativeInt32Into, embeddingBackwardNative, embeddingBackwardNativeInt32, embeddingBackwardSparseNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, adamSparseUpdateNative, sgdUpdateNative, sgdSparseUpdateNative, adagradUpdateNative, adagradSparseUpdateNative, momentumUpdateNative, momentumSparseUpdateNative, nagUpdateNative, nagSparseUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative, denseLinearBackwardNativeInto, maskedSparseSoftmaxCrossEntropyInto, projectLastTokenLogitsNativeInto, multiHeadAttentionForwardNativeInto, multiHeadAttentionBackwardNativeInto } = nativeBinding
+const { rnnForwardNativeInto, rnnBackwardNativeInto, lstmForwardNativeInto, lstmBackwardNativeInto, gruForwardNativeInto, gruBackwardNativeInto, dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, softmaxNativeInto, softmaxBackwardNativeInto, layerNormNativeInto, layerNormBackwardNativeInto, reluNativeInto, sigmoidNativeInto, tanhNativeInto, embeddingForwardNativeInto, embeddingForwardNativeInt32Into, embeddingBackwardNative, embeddingBackwardNativeInt32, embeddingBackwardSparseNative, convolutionNativeInto, convBackwardInputNativeInto, applyAttentionMaskNative, adamUpdateNative, adamSparseUpdateNative, sgdUpdateNative, sgdSparseUpdateNative, adagradUpdateNative, adagradSparseUpdateNative, momentumUpdateNative, momentumSparseUpdateNative, nagUpdateNative, nagSparseUpdateNative, addInPlace, subInPlace, mulInPlace, mseNative, addBiasNative, sumAxisNative, clipGradientsNative, denseLinearBackwardNativeInto, maskedSparseSoftmaxCrossEntropyInto, projectLastTokenLogitsNativeInto, multiHeadAttentionForwardNativeInto, multiHeadAttentionBackwardNativeInto } = nativeBinding
 
+module.exports.rnnForwardNativeInto = rnnForwardNativeInto
+module.exports.rnnBackwardNativeInto = rnnBackwardNativeInto
+module.exports.lstmForwardNativeInto = lstmForwardNativeInto
+module.exports.lstmBackwardNativeInto = lstmBackwardNativeInto
+module.exports.gruForwardNativeInto = gruForwardNativeInto
+module.exports.gruBackwardNativeInto = gruBackwardNativeInto
 module.exports.dotProduct = dotProduct
 module.exports.dotProductInto = dotProductInto
 module.exports.dotProductIntoDims = dotProductIntoDims

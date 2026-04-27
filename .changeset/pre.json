@@ -1,0 +1,10 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@akhyar11/ml-v1": "2.2.8"
+  },
+  "changesets": [
+    "native-gru-backend"
+  ]
+}

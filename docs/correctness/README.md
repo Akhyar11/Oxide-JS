@@ -46,10 +46,11 @@ npm test
 | [v2.2.6](#) | 2026-04-25 | `local-docs-trans` | Documented version bump after full English translation of documentation guides and API reference pages. |
 | [v2.2.7](#) | 2026-04-25 | `local-tokenizer-unicode` | Unicode-aware BPE pre-tokenizers and multilingual tokenizer correctness coverage. |
 | [v2.2.8](./v2.2.8.md) | 2026-04-27 | `local-sparse-native` | Correctness snapshot for Full Native Optimizer support and Sparse Embedding integration. |
+| [v2.3.0-alpha.0](./v2.3.0-alpha.0.md) | 2026-04-27 | `develop-mode` | Correctness snapshot for Native Backend and Batching support in RNN, LSTM, and GRU families. |
 
 ## Versioning
 
-The current active version of the project is `2.2.8`.
+The current active version of the project is `2.3.0-alpha.0`.
 
 This project uses the `MAJOR.MINOR.PATCH` version format, such as `2.2.7`.
 

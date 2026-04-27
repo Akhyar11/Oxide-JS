@@ -11,3 +11,7 @@
 /src-rust/target
 # Compiled Node.js binary modules
 *.node
+
+# Skills directory
+.agents/
+.agent/

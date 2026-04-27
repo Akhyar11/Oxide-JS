@@ -1,6 +1,6 @@
 {
   "name": "@akhyar11/ml-v1",
-  "version": "2.2.8",
+  "version": "2.3.0-alpha.0",
   "description": "TypeScript + Rust Native machine learning library. Matrix ops, layers (Dense, Embedding, RNN, LSTM, GRU, MultiHeadAttention, etc), models (Sequential, Transformers), dan BPE tokenizer.",
   "napi": {
     "name": "ml-native"
@@ -72,8 +72,9 @@
     "@types/node": "^20.11.20"
   },
   "dependencies": {
+    "@changesets/cli": "^2.31.0",
     "@napi-rs/cli": "^2.18.0",
-    "ts-node": "^10.9.2",
-    "@napi-rs/wasm-runtime": "^0.2.4"
+    "@napi-rs/wasm-runtime": "^0.2.4",
+    "ts-node": "^10.9.2"
   }
 }

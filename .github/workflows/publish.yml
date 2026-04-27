@@ -2,7 +2,7 @@ name: Publish to NPM
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop-mode]
 
 jobs:
   publish:
@@ -11,40 +11,30 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Check version change
-        id: version_check
-        run: |
-          LOCAL_VERSION=$(node -p "require('./package.json').version")
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          NPM_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
-          echo "local=$LOCAL_VERSION" >> $GITHUB_OUTPUT
-          echo "npm=$NPM_VERSION" >> $GITHUB_OUTPUT
-          if [ "$LOCAL_VERSION" = "$NPM_VERSION" ]; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "⏭️ Version unchanged ($LOCAL_VERSION). Skipping publish."
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "🚀 Version changed: $NPM_VERSION → $LOCAL_VERSION"
-          fi
+        with:
+          # Penting agar Changesets bisa melihat riwayat commit
+          fetch-depth: 0
 
       - name: Setup Node.js
-        if: steps.version_check.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
-        if: steps.version_check.outputs.changed == 'true'
         run: npm ci
 
       - name: Build TypeScript
-        if: steps.version_check.outputs.changed == 'true'
         run: npm run build:publish
 
-      - name: Publish to NPM
-        if: steps.version_check.outputs.changed == 'true'
-        run: npm publish --access public
+      # Logika Otomatisasi Changesets
+      - name: Publish or Create Version PR
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # Jika di branch develop-mode, gunakan tag 'next' atau 'canary'
+          publish: npx changeset publish
+          version: npx changeset version
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

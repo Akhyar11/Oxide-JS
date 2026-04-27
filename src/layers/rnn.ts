@@ -1,4 +1,6 @@
 import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
+import concat from "../math/concat";
+import { isNativeAvailable, rnnForwardNative, rnnBackwardNative } from "../math/rust_backend";
 import mj from "../math";
 import Matrix from "../matrix";
 import setLoss from "../utils/setLoss";
@@ -66,12 +68,33 @@ export default class RNN {
   private batchBiasGradBuffer: Matrix = mj.matrix([]);
   private inputSequenceBuffer: Float32Array = new Float32Array(0);
   private hiddenSequenceBuffer: Float32Array = new Float32Array(0);
-  private activationGradientBuffer: Float32Array = new Float32Array(0);
+  private activationGradientsBuffer: Float32Array = new Float32Array(0);
   private batchInputSequenceBuffer: Float32Array = new Float32Array(0);
   private batchHiddenSequenceBuffer: Float32Array = new Float32Array(0);
   private batchActivationGradientBuffer: Float32Array = new Float32Array(0);
   private errorStepBuffer: Float32Array = new Float32Array(0);
   private batchErrorStepBuffer: Float32Array = new Float32Array(0);
+
+  private bTensors?: {
+    dWxh: Matrix;
+    dWhh: Matrix;
+    dBh: Matrix;
+    dxBuffer: Float32Array;
+    dhNext: Float32Array;
+    dhBuffer: Float32Array;
+    dzBuffer: Float32Array;
+    dhPrevBuffer: Float32Array;
+  };
+  private bBatchTensors?: {
+    dWxh: Matrix;
+    dWhh: Matrix;
+    dBh: Matrix;
+    dxBuffer: Float32Array;
+    dhNext: Float32Array;
+    dhBuffer: Float32Array;
+    dzBuffer: Float32Array;
+    dhPrevBuffer: Float32Array;
+  };
 
   constructor({
     units,
@@ -227,39 +250,63 @@ export default class RNN {
       prev.set(this.h_stateful._data);
     }
 
-    for (let t = 0; t < seqLen; t++) {
-      const x_t = this.inputSequence[t];
-      this.copyColumnToArray(x, t, x_t);
-      const h_t = this.hiddenSequence[t + 1];
-      const dAct = this.activationGradients[t];
-      const hPrev = this.hiddenSequence[t];
-
-      for (let i = 0; i < this.hiddenUnits; i++) {
-        let sum = this.bh._data[i];
-        const wxhOffset = i * this.units;
-        for (let j = 0; j < this.units; j++) sum += this.Wxh._data[wxhOffset + j] * x_t[j];
-        const whhOffset = i * this.hiddenUnits;
-        for (let j = 0; j < this.hiddenUnits; j++) sum += this.Whh._data[whhOffset + j] * hPrev[j];
-
-        if (this.activation === "relu") {
-          if (sum > 0) {
-            h_t[i] = sum;
-            dAct[i] = 1;
-          } else {
-            h_t[i] = 0;
-            dAct[i] = 0;
-          }
-        } else {
-          const tv = Math.tanh(sum);
-          h_t[i] = tv;
-          dAct[i] = 1 - tv * tv;
-        }
-      }
-
+    if (isNativeAvailable()) {
+      this.inputSequenceBuffer.set(x._data);
+      rnnForwardNative(
+        x._data,
+        this.Wxh._data,
+        this.Whh._data,
+        this.bh._data,
+        seqLen,
+        1,
+        this.units,
+        this.hiddenUnits,
+        this.activation === "relu",
+        this.hiddenSequenceBuffer,
+        this.activationGradientsBuffer
+      );
       if (this.returnSequences) {
-        this.setColumnData(this.resultBuffer._data, outCols, t, h_t);
-      } else if (t === seqLen - 1) {
-        this.resultBuffer._data.set(h_t);
+        for (let t = 0; t < seqLen; t++) {
+          this.setColumnData(this.resultBuffer._data, outCols, t, this.hiddenSequence[t + 1]);
+        }
+      } else {
+        this.resultBuffer._data.set(this.hiddenSequence[seqLen]);
+      }
+    } else {
+      for (let t = 0; t < seqLen; t++) {
+        const x_t = this.inputSequence[t];
+        this.copyColumnToArray(x, t, x_t);
+        const h_t = this.hiddenSequence[t + 1];
+        const dAct = this.activationGradients[t];
+        const hPrev = this.hiddenSequence[t];
+
+        for (let i = 0; i < this.hiddenUnits; i++) {
+          let sum = this.bh._data[i];
+          const wxhOffset = i * this.units;
+          for (let j = 0; j < this.units; j++) sum += this.Wxh._data[wxhOffset + j] * x_t[j];
+          const whhOffset = i * this.hiddenUnits;
+          for (let j = 0; j < this.hiddenUnits; j++) sum += this.Whh._data[whhOffset + j] * hPrev[j];
+
+          if (this.activation === "relu") {
+            if (sum > 0) {
+              h_t[i] = sum;
+              dAct[i] = 1;
+            } else {
+              h_t[i] = 0;
+              dAct[i] = 0;
+            }
+          } else {
+            const tv = Math.tanh(sum);
+            h_t[i] = tv;
+            dAct[i] = 1 - tv * tv;
+          }
+        }
+
+        if (this.returnSequences) {
+          this.setColumnData(this.resultBuffer._data, outCols, t, h_t);
+        } else if (t === seqLen - 1) {
+          this.resultBuffer._data.set(h_t);
+        }
       }
     }
 
@@ -290,41 +337,64 @@ export default class RNN {
       prev.set(this.h_stateful._data);
     }
 
-    for (let t = 0; t < seqLen; t++) {
-      const colOffset = t * batchSize;
-      this.copyColumnBlock(x, colOffset, batchSize, this.batchInputSliceBuffer);
-      this.copyColumnBlock(this.batchInputProjectionBuffer, colOffset, batchSize, this.batchProjectionSliceBuffer);
-
-      const hPrev = Matrix.fromFlat(this.batchHiddenSequence[t], [this.hiddenUnits, batchSize]);
-      mj.dotProduct(this.Whh, hPrev, this.batchRecurrentBuffer);
-
-      const h_t = this.batchHiddenSequence[t + 1];
-      const dAct = this.batchActivationGradients[t];
-      const projected = this.batchProjectionSliceBuffer._data;
-      const recurrent = this.batchRecurrentBuffer._data;
-      for (let i = 0; i < h_t.length; i++) {
-        const sum = projected[i] + recurrent[i];
-        if (this.activation === "relu") {
-          if (sum > 0) {
-            h_t[i] = sum;
-            dAct[i] = 1;
-          } else {
-            h_t[i] = 0;
-            dAct[i] = 0;
-          }
-        } else {
-          const tv = Math.tanh(sum);
-          h_t[i] = tv;
-          dAct[i] = 1 - tv * tv;
-        }
-      }
-
-      this.batchInputSequence[t].set(this.batchInputSliceBuffer._data);
-
+    if (isNativeAvailable()) {
+      rnnForwardNative(
+        x._data,
+        this.Wxh._data,
+        this.Whh._data,
+        this.bh._data,
+        seqLen,
+        batchSize,
+        this.units,
+        this.hiddenUnits,
+        this.activation === "relu",
+        this.batchHiddenSequenceBuffer,
+        this.batchActivationGradientBuffer
+      );
       if (this.returnSequences) {
-        this.writeColumnBlock(this.resultBuffer, colOffset, batchSize, h_t);
-      } else if (t === seqLen - 1) {
-        this.resultBuffer._data.set(h_t);
+        for (let t = 0; t < seqLen; t++) {
+          this.writeColumnBlock(this.resultBuffer, t * batchSize, batchSize, this.batchHiddenSequence[t + 1]);
+        }
+      } else {
+        this.resultBuffer._data.set(this.batchHiddenSequence[seqLen]);
+      }
+    } else {
+      for (let t = 0; t < seqLen; t++) {
+        const colOffset = t * batchSize;
+        this.copyColumnBlock(x, colOffset, batchSize, this.batchInputSliceBuffer);
+        this.copyColumnBlock(this.batchInputProjectionBuffer, colOffset, batchSize, this.batchProjectionSliceBuffer);
+
+        const hPrev = Matrix.fromFlat(this.batchHiddenSequence[t], [this.hiddenUnits, batchSize]);
+        mj.dotProduct(this.Whh, hPrev, this.batchRecurrentBuffer);
+
+        const h_t = this.batchHiddenSequence[t + 1];
+        const dAct = this.batchActivationGradients[t];
+        const projected = this.batchProjectionSliceBuffer._data;
+        const recurrent = this.batchRecurrentBuffer._data;
+        for (let i = 0; i < h_t.length; i++) {
+          const sum = projected[i] + recurrent[i];
+          if (this.activation === "relu") {
+            if (sum > 0) {
+              h_t[i] = sum;
+              dAct[i] = 1;
+            } else {
+              h_t[i] = 0;
+              dAct[i] = 0;
+            }
+          } else {
+            const tv = Math.tanh(sum);
+            h_t[i] = tv;
+            dAct[i] = 1 - tv * tv;
+          }
+        }
+
+        this.batchInputSequence[t].set(this.batchInputSliceBuffer._data);
+
+        if (this.returnSequences) {
+          this.writeColumnBlock(this.resultBuffer, colOffset, batchSize, h_t);
+        } else if (t === seqLen - 1) {
+          this.resultBuffer._data.set(h_t);
+        }
       }
     }
 
@@ -341,42 +411,78 @@ export default class RNN {
     }
 
     const externalError = this.resolveError(y, err, seqLen);
-    const dWxh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.units), [this.hiddenUnits, this.units]);
-    const dWhh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.hiddenUnits), [this.hiddenUnits, this.hiddenUnits]);
-    const dBh = Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]);
-    const dxData = new Float32Array(this.units * seqLen);
-    let dhNext = new Float32Array(this.hiddenUnits);
-    const dhBuffer = new Float32Array(this.hiddenUnits);
-    const dzBuffer = new Float32Array(this.hiddenUnits);
-    let dhPrevBuffer = new Float32Array(this.hiddenUnits);
+    if (!this.bTensors || this.bTensors.dxBuffer.length < this.units * seqLen) {
+      this.bTensors = {
+        dWxh: Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.units), [this.hiddenUnits, this.units]),
+        dWhh: Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.hiddenUnits), [this.hiddenUnits, this.hiddenUnits]),
+        dBh: Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]),
+        dxBuffer: new Float32Array(Math.max(this.units * seqLen, this.bTensors ? this.bTensors.dxBuffer.length * 2 : 1024)),
+        dhNext: new Float32Array(this.hiddenUnits),
+        dhBuffer: new Float32Array(this.hiddenUnits),
+        dzBuffer: new Float32Array(this.hiddenUnits),
+        dhPrevBuffer: new Float32Array(this.hiddenUnits),
+      };
+    }
+    const dWxh = this.bTensors.dWxh; dWxh._data.fill(0);
+    const dWhh = this.bTensors.dWhh; dWhh._data.fill(0);
+    const dBh = this.bTensors.dBh; dBh._data.fill(0);
+    const dxData = this.bTensors.dxBuffer; dxData.fill(0, 0, this.units * seqLen);
+    let dhNext = this.bTensors.dhNext; dhNext.fill(0);
+    const dhBuffer = this.bTensors.dhBuffer;
+    const dzBuffer = this.bTensors.dzBuffer;
+    let dhPrevBuffer = this.bTensors.dhPrevBuffer;
 
-    for (let t = seqLen - 1; t >= 0; t--) {
-      const dh = dhBuffer;
-      dh.set(externalError[t]);
-      for (let i = 0; i < this.hiddenUnits; i++) dh[i] += dhNext[i];
-
-      const dz = dzBuffer;
-      for (let i = 0; i < this.hiddenUnits; i++) dz[i] = dh[i] * this.activationGradients[t][i];
-
-      this.outerAccumulate(dWxh._data, this.hiddenUnits, this.units, dz, this.inputSequence[t]);
-      this.outerAccumulate(dWhh._data, this.hiddenUnits, this.hiddenUnits, dz, this.hiddenSequence[t]);
-      for (let i = 0; i < this.hiddenUnits; i++) dBh._data[i] += dz[i];
-
-      for (let j = 0; j < this.units; j++) {
-        let sum = 0;
-        for (let i = 0; i < this.hiddenUnits; i++) sum += this.Wxh._data[i * this.units + j] * dz[i];
-        dxData[j * seqLen + t] = sum;
+    if (isNativeAvailable()) {
+      const flatExtError = new Float32Array(this.hiddenUnits * seqLen);
+      for (let t = 0; t < seqLen; t++) {
+        flatExtError.set(externalError[t], t * this.hiddenUnits);
       }
 
-      const dhPrev = dhPrevBuffer;
-      for (let j = 0; j < this.hiddenUnits; j++) {
-        let sum = 0;
-        for (let i = 0; i < this.hiddenUnits; i++) sum += this.Whh._data[i * this.hiddenUnits + j] * dz[i];
-        dhPrev[j] = sum;
+      rnnBackwardNative(
+        this.inputSequenceBuffer,
+        this.Wxh._data,
+        this.Whh._data,
+        this.hiddenSequenceBuffer,
+        this.activationGradientsBuffer,
+        flatExtError,
+        seqLen,
+        1,
+        this.units,
+        this.hiddenUnits,
+        dWxh._data,
+        dWhh._data,
+        dBh._data,
+        dxData
+      );
+    } else {
+      for (let t = seqLen - 1; t >= 0; t--) {
+        const dh = dhBuffer;
+        dh.set(externalError[t]);
+        for (let i = 0; i < this.hiddenUnits; i++) dh[i] += dhNext[i];
+
+        const dz = dzBuffer;
+        for (let i = 0; i < this.hiddenUnits; i++) dz[i] = dh[i] * this.activationGradients[t][i];
+
+        this.outerAccumulate(dWxh._data, this.hiddenUnits, this.units, dz, this.inputSequence[t]);
+        this.outerAccumulate(dWhh._data, this.hiddenUnits, this.hiddenUnits, dz, this.hiddenSequence[t]);
+        for (let i = 0; i < this.hiddenUnits; i++) dBh._data[i] += dz[i];
+
+        for (let j = 0; j < this.units; j++) {
+          let sum = 0;
+          for (let i = 0; i < this.hiddenUnits; i++) sum += this.Wxh._data[i * this.units + j] * dz[i];
+          dxData[j * seqLen + t] = sum;
+        }
+
+        const dhPrev = dhPrevBuffer;
+        for (let j = 0; j < this.hiddenUnits; j++) {
+          let sum = 0;
+          for (let i = 0; i < this.hiddenUnits; i++) sum += this.Whh._data[i * this.hiddenUnits + j] * dz[i];
+          dhPrev[j] = sum;
+        }
+        const prevDhNext = dhNext;
+        dhNext = dhPrev;
+        dhPrevBuffer = prevDhNext;
       }
-      const prevDhNext = dhNext;
-      dhNext = dhPrev;
-      dhPrevBuffer = prevDhNext;
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
@@ -396,43 +502,79 @@ export default class RNN {
     }
 
     const externalError = this.resolveBatchError(y, err, seqLen, batchSize);
-    const dWxh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.units), [this.hiddenUnits, this.units]);
-    const dWhh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.hiddenUnits), [this.hiddenUnits, this.hiddenUnits]);
-    const dBh = Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]);
-    const dx = Matrix.fromFlat(new Float32Array(this.units * totalCols), [this.units, totalCols]);
-    let dhNext = new Float32Array(this.hiddenUnits * batchSize);
-
+    if (!this.bBatchTensors || this.bBatchTensors.dxBuffer.length < this.units * totalCols || this.bBatchTensors.dhNext.length < this.hiddenUnits * batchSize) {
+      this.bBatchTensors = {
+        dWxh: Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.units), [this.hiddenUnits, this.units]),
+        dWhh: Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.hiddenUnits), [this.hiddenUnits, this.hiddenUnits]),
+        dBh: Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]),
+        dxBuffer: new Float32Array(Math.max(this.units * totalCols, this.bBatchTensors ? this.bBatchTensors.dxBuffer.length * 2 : 1024)),
+        dhNext: new Float32Array(this.hiddenUnits * batchSize),
+        dhBuffer: new Float32Array(this.hiddenUnits * batchSize),
+        dzBuffer: new Float32Array(this.hiddenUnits * batchSize),
+        dhPrevBuffer: new Float32Array(this.hiddenUnits * batchSize),
+      };
+    }
+    const dWxh = this.bBatchTensors.dWxh; dWxh._data.fill(0);
+    const dWhh = this.bBatchTensors.dWhh; dWhh._data.fill(0);
+    const dBh = this.bBatchTensors.dBh; dBh._data.fill(0);
+    const dxData = this.bBatchTensors.dxBuffer; dxData.fill(0, 0, this.units * totalCols);
+    const dx = Matrix.fromFlat(dxData.subarray(0, this.units * totalCols), [this.units, totalCols]);
+    let dhNext = this.bBatchTensors.dhNext; dhNext.fill(0);
     this.ensureBatchBackwardBuffers(batchSize);
-    const dhBuffer = new Float32Array(this.hiddenUnits * batchSize);
-    const dzBuffer = new Float32Array(this.hiddenUnits * batchSize);
-    let dhPrevBuffer = new Float32Array(this.hiddenUnits * batchSize);
+    const dhBuffer = this.bBatchTensors.dhBuffer;
+    const dzBuffer = this.bBatchTensors.dzBuffer;
+    let dhPrevBuffer = this.bBatchTensors.dhPrevBuffer;
 
-    for (let t = seqLen - 1; t >= 0; t--) {
-      const dh = dhBuffer;
-      dh.set(externalError[t]);
-      for (let i = 0; i < dh.length; i++) dh[i] += dhNext[i];
+    if (isNativeAvailable()) {
+      const flatExtError = new Float32Array(this.hiddenUnits * batchSize * seqLen);
+      for (let t = 0; t < seqLen; t++) {
+        flatExtError.set(externalError[t], t * this.hiddenUnits * batchSize);
+      }
 
-      const dz = dzBuffer;
-      for (let i = 0; i < dz.length; i++) dz[i] = dh[i] * this.batchActivationGradients[t][i];
+      rnnBackwardNative(
+        this.batchInputSequenceBuffer,
+        this.Wxh._data,
+        this.Whh._data,
+        this.batchHiddenSequenceBuffer,
+        this.batchActivationGradientBuffer,
+        flatExtError,
+        seqLen,
+        batchSize,
+        this.units,
+        this.hiddenUnits,
+        dWxh._data,
+        dWhh._data,
+        dBh._data,
+        dx._data
+      );
+    } else {
+      for (let t = seqLen - 1; t >= 0; t--) {
+        const dh = dhBuffer;
+        dh.set(externalError[t]);
+        for (let i = 0; i < dh.length; i++) dh[i] += dhNext[i];
 
-      const dzMatrix = Matrix.fromFlat(dz, [this.hiddenUnits, batchSize]);
-      const xMatrix = Matrix.fromFlat(this.batchInputSequence[t], [this.units, batchSize]);
-      const hPrevMatrix = Matrix.fromFlat(this.batchHiddenSequence[t], [this.hiddenUnits, batchSize]);
+        const dz = dzBuffer;
+        for (let i = 0; i < dz.length; i++) dz[i] = dh[i] * this.batchActivationGradients[t][i];
 
-      mj.dotProduct(dzMatrix, xMatrix, this.batchOuterInputBuffer, false, true);
-      dWxh.addInPlace(this.batchOuterInputBuffer);
-      mj.dotProduct(dzMatrix, hPrevMatrix, this.batchOuterHiddenBuffer, false, true);
-      dWhh.addInPlace(this.batchOuterHiddenBuffer);
-      mj.sumAxis(dzMatrix, 1, this.batchBiasGradBuffer);
-      dBh.addInPlace(this.batchBiasGradBuffer);
+        const dzMatrix = Matrix.fromFlat(dz, [this.hiddenUnits, batchSize]);
+        const xMatrix = Matrix.fromFlat(this.batchInputSequence[t], [this.units, batchSize]);
+        const hPrevMatrix = Matrix.fromFlat(this.batchHiddenSequence[t], [this.hiddenUnits, batchSize]);
 
-      mj.dotProduct(this.Wxh, dzMatrix, this.batchDxStepBuffer, true, false);
-      this.writeColumnBlock(dx, t * batchSize, batchSize, this.batchDxStepBuffer._data);
-      mj.dotProduct(this.Whh, dzMatrix, this.batchDhStepBuffer, true, false);
-      dhPrevBuffer.set(this.batchDhStepBuffer._data);
-      const prevDhNext = dhNext;
-      dhNext = dhPrevBuffer;
-      dhPrevBuffer = prevDhNext;
+        mj.dotProduct(dzMatrix, xMatrix, this.batchOuterInputBuffer, false, true);
+        dWxh.addInPlace(this.batchOuterInputBuffer);
+        mj.dotProduct(dzMatrix, hPrevMatrix, this.batchOuterHiddenBuffer, false, true);
+        dWhh.addInPlace(this.batchOuterHiddenBuffer);
+        mj.sumAxis(dzMatrix, 1, this.batchBiasGradBuffer);
+        dBh.addInPlace(this.batchBiasGradBuffer);
+
+        mj.dotProduct(this.Wxh, dzMatrix, this.batchDxStepBuffer, true, false);
+        this.writeColumnBlock(dx, t * batchSize, batchSize, this.batchDxStepBuffer._data);
+        mj.dotProduct(this.Whh, dzMatrix, this.batchDhStepBuffer, true, false);
+        dhPrevBuffer.set(this.batchDhStepBuffer._data);
+        const prevDhNext = dhNext;
+        dhNext = dhPrevBuffer;
+        dhPrevBuffer = prevDhNext;
+      }
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
@@ -573,15 +715,15 @@ export default class RNN {
     if (this.hiddenSequenceBuffer.length < hiddenLen) {
       this.hiddenSequenceBuffer = new Float32Array(Math.max(hiddenLen, Math.max(1, this.hiddenSequenceBuffer.length * 2)));
     }
-    if (this.activationGradientBuffer.length < activationLen) {
-      this.activationGradientBuffer = new Float32Array(
-        Math.max(activationLen, Math.max(1, this.activationGradientBuffer.length * 2))
+    if (this.activationGradientsBuffer.length < activationLen) {
+      this.activationGradientsBuffer = new Float32Array(
+        Math.max(activationLen, Math.max(1, this.activationGradientsBuffer.length * 2))
       );
     }
 
     this.inputSequence = this.buildStepViews(this.inputSequenceBuffer, seqLen, inputWidth);
     this.hiddenSequence = this.buildStepViews(this.hiddenSequenceBuffer, seqLen + 1, hiddenWidth);
-    this.activationGradients = this.buildStepViews(this.activationGradientBuffer, seqLen, hiddenWidth);
+    this.activationGradients = this.buildStepViews(this.activationGradientsBuffer, seqLen, hiddenWidth);
   }
 
   private ensureBatchSequenceStateBuffers(seqLen: number, batchSize: number) {

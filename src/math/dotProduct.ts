@@ -40,6 +40,18 @@ export default function dotProduct(
   // Dispatch adaptif: untuk beban kecil, loop JS sering lebih murah daripada overhead call native.
   if (isNativeAvailable() && shouldUseNativeDotProduct(aRows, aCols, bCols)) {
     const resultOut = out || Matrix.fromFlat(new Float32Array(aRows * bCols), [aRows, bCols]);
+    
+    // Safety check BEFORE native call to prevent SIGSEGV
+    if (a._data.length < aRowsOrig * aColsOrig) {
+        throw new Error(`A data length too small: ${a._data.length} < ${aRowsOrig * aColsOrig}`);
+    }
+    if (b._data.length < bRowsOrig * bColsOrig) {
+        throw new Error(`B data length too small: ${b._data.length} < ${bRowsOrig * bColsOrig}`);
+    }
+    if (resultOut._data.length < aRows * bCols) {
+        throw new Error(`Out data length too small: ${resultOut._data.length} < ${aRows * bCols}`);
+    }
+
     dotProductNative(
       a._data,
       aRowsOrig,

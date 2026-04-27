@@ -108,6 +108,7 @@ Notes:
 | [v2.2.6](#) | 2026-04-25 | `local-docs-trans` | Documentation version: Full English translation of `GUIDE-LINE` modules. No architectural changes. |
 | [v2.2.7](#) | 2026-04-25 | `local-tokenizer-unicode` | Unicode-aware tokenizer architecture and multilingual tests. |
 | [v2.2.8](./v2.2.8.md) | 2026-04-27 | `local-sparse-native` | Native Sparse Embedding and Full Native Optimizer support for all families. |
+| [v2.3.0-alpha.0](./v2.3.0-alpha.0.md) | 2026-04-27 | `develop-mode` | Native Backend and Batching support for RNN, LSTM, and GRU families. |
 
 ## How to Add a New Version
 
@@ -126,7 +127,7 @@ Notes:
 - Old recurrent snapshots before `v1.2.3` are still useful as historical references but are no longer fair for comparing recurrent throughput because the primary benchmark path still processed samples one by one within the effective batch.
 
 ## Versioning
-The current active version of the project is `2.2.8`.
+The current active version of the project is `2.3.0-alpha.0`.
 
 This project uses the `MAJOR.MINOR.PATCH` version format, such as `2.2.7`.
 
@@ -143,3 +144,4 @@ Example:
 - `2.2.6`: documentation patch for full English translation of the core guides.
 - `2.2.7`: tokenizer patch for Unicode-aware pre-tokenizers and multilingual BPE integration tests.
 - `2.2.8`: optimization patch for Full Native Optimizer support and Sparse Embedding native backend.
+- `2.3.0`: minor release (alpha) for Native Backend and Batching support for RNN/LSTM/GRU families.

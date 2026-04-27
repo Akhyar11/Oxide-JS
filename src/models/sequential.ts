@@ -62,18 +62,26 @@ export default class Sequential {
     }
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, batchSize = 1): Matrix {
     let input = x;
     for (let layer of this.layers) {
-      input = layer.forward(input);
+      if (batchSize > 1 && typeof (layer as any).forwardBatch === "function") {
+        input = (layer as any).forwardBatch(input, batchSize);
+      } else {
+        input = layer.forward(input);
+      }
     }
     return input;
   }
 
-  backward(y: Matrix) {
+  backward(y: Matrix, batchSize = 1) {
     let err = mj.matrix([[]]);
     for (let i = this.layers.length - 1; i >= 0; i--) {
-      err = this.layers[i].backward(y, err);
+      if (batchSize > 1 && typeof (this.layers[i] as any).backwardBatch === "function") {
+        err = (this.layers[i] as any).backwardBatch(y, err, batchSize);
+      } else {
+        err = this.layers[i].backward(y, err);
+      }
       if (this.layers[i].status === "output") this.loss = (this.layers[i] as any).loss;
     }
   }
@@ -205,6 +213,8 @@ export default class Sequential {
       let totalEpochLoss = 0;
 
       for (let start = 0; start < trainX.length; start += batchSize) {
+        const batchIdx = start / batchSize;
+        if (verbose) console.log(`Starting batch ${batchIdx}`);
         const end = Math.min(start + batchSize, trainX.length);
         const currentBatchSize = end - start;
 
@@ -233,15 +243,18 @@ export default class Sequential {
             positionOffset = trimResult.positionOffset;
           }
         } else {
+          const isRecurrent = this.layers.some((l) => this.isRecurrentLayer(l));
           const trimWindow = supportsTrimPadding
             ? this.computeBatchTrimWindow(trainX, trainY, trainIndices, start, currentBatchSize, padIdRaw as number, paddingSide)
             : null;
           const batchStartRow = trimWindow?.startRow ?? 0;
-          const [rowsX] = trainX[0]._shape;
+          const [rowsX, seqLenX] = trainX[0]._shape;
           const [rowsY] = trainY[0]._shape;
           const effectiveRowsX = trimWindow?.rowCount ?? rowsX;
           const effectiveRowsY = trimWindow?.rowCount ?? rowsY;
-          currentBatchX = this.createReusableBatchMatrix("x", effectiveRowsX, currentBatchSize);
+
+          const batchColsX = isRecurrent ? seqLenX * currentBatchSize : currentBatchSize;
+          currentBatchX = this.createReusableBatchMatrix("x", effectiveRowsX, batchColsX);
           currentBatchY = this.createReusableBatchMatrix("y", effectiveRowsY, currentBatchSize);
           positionOffset = trimWindow?.positionOffset ?? 0;
 
@@ -249,12 +262,22 @@ export default class Sequential {
             const idx = trainIndices[start + j];
             const sourceX = trainX[idx]._data;
             const sourceY = trainY[idx]._data;
-            if (batchStartRow === 0 && effectiveRowsX === rowsX) {
-              currentBatchX.setCol(j, sourceX);
+            if (isRecurrent) {
+              for (let f = 0; f < effectiveRowsX; f++) {
+                for (let t = 0; t < seqLenX; t++) {
+                  const targetOffset = (f * seqLenX + t) * currentBatchSize;
+                  currentBatchX._data[targetOffset + j] = sourceX[f * seqLenX + t];
+                }
+              }
               currentBatchY.setCol(j, sourceY);
             } else {
-              currentBatchX.setCol(j, sourceX.subarray(batchStartRow, batchStartRow + effectiveRowsX));
-              currentBatchY.setCol(j, sourceY.subarray(batchStartRow, batchStartRow + effectiveRowsY));
+              if (batchStartRow === 0 && effectiveRowsX === rowsX) {
+                currentBatchX.setCol(j, sourceX);
+                currentBatchY.setCol(j, sourceY);
+              } else {
+                currentBatchX.setCol(j, sourceX.subarray(batchStartRow, batchStartRow + effectiveRowsX));
+                currentBatchY.setCol(j, sourceY.subarray(batchStartRow, batchStartRow + effectiveRowsY));
+              }
             }
           }
         }
@@ -263,8 +286,8 @@ export default class Sequential {
           modelAny.setPositionOffset(positionOffset);
         }
 
-        const pred = this.forward(currentBatchX);
-        this.backward(currentBatchY);
+        const pred = this.forward(currentBatchX, currentBatchSize);
+        this.backward(currentBatchY, currentBatchSize);
         const batchLossValue = this.useBackwardLossForTrainingBatch(currentBatchY, pred)
           ? this.loss
           : this.computeSampleLoss(currentBatchY, pred);
@@ -500,9 +523,9 @@ export default class Sequential {
     const firstRecurrentLayer = recurrentLayers[0];
     const statefulRecurrentLayers = recurrentLayers.filter((layer) => (layer as any).stateful === true);
 
-    if (batchSize !== 1) {
+    if (batchSize !== 1 && statefulRecurrentLayers.length > 0) {
       throw new Error(
-        `Sequential.fit: ${firstRecurrentLayer.name} hanya mendukung training per-sample (batchSize=1). ` +
+        `Sequential.fit: ${statefulRecurrentLayers[0].name} dengan stateful=true hanya mendukung training per-sample (batchSize=1). ` +
         "Generic batching saat ini menggabungkan sample menjadi kolom matrix dan tidak valid untuk sequence input recurrent."
       );
     }

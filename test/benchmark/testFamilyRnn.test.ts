@@ -10,6 +10,7 @@ type FamilyBenchmarkConfig = {
   epochs?: number;
   sampleCount?: number;
   seqLen?: number;
+  batchSize?: number;
   units?: number;
   hiddenUnits?: number;
   numClasses?: number;
@@ -32,6 +33,7 @@ const DEFAULT_CONFIG: Required<FamilyBenchmarkConfig> = {
   epochs: 3,
   sampleCount: 128,
   seqLen: 24,
+  batchSize: 8,
   units: 16,
   hiddenUnits: 32,
   numClasses: 6,
@@ -85,25 +87,25 @@ function createModel(
   const recurrentLayer =
     family === "rnn"
       ? new RNN({
+        units,
+        hiddenUnits,
+        activation: "tanh",
+        returnSequences: false,
+        status: "input",
+      })
+      : family === "lstm"
+        ? new LSTM({
           units,
           hiddenUnits,
-          activation: "tanh",
           returnSequences: false,
           status: "input",
         })
-      : family === "lstm"
-        ? new LSTM({
-            units,
-            hiddenUnits,
-            returnSequences: false,
-            status: "input",
-          })
         : new GRU({
-            units,
-            hiddenUnits,
-            returnSequences: false,
-            status: "input",
-          });
+          units,
+          hiddenUnits,
+          returnSequences: false,
+          status: "input",
+        });
 
   const model = new Sequential({
     layers: [
@@ -147,7 +149,7 @@ function benchmarkFamilyTraining(
   const totalStart = performance.now();
 
   model.fit(X, y, config.epochs, {
-    batchSize: 1,
+    batchSize: config.batchSize,
     shuffle: false,
     verbose: false,
     onEpochEnd: (_epoch, loss) => {
@@ -194,7 +196,7 @@ export function runFamilyRnnTrainingBenchmark(
 
   console.log(`=== Family RNN Training Benchmark (${config.epochs} Epoch) ===`);
   console.log(
-    `config: samples=${config.sampleCount}, seqLen=${config.seqLen}, units=${config.units}, hiddenUnits=${config.hiddenUnits}, classes=${config.numClasses}, epochs=${config.epochs}`
+    `config: samples=${config.sampleCount}, seqLen=${config.seqLen}, batchSize=${config.batchSize}, units=${config.units}, hiddenUnits=${config.hiddenUnits}, classes=${config.numClasses}, epochs=${config.epochs}`
   );
   console.table(
     results.map((result) => ({
