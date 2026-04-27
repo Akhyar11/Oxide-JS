@@ -1,10 +1,18 @@
 # Changelog
 
-## 2.3.0-alpha.0
+## [2.3.0-alpha.0] - 2026-04-27
 
-### Minor Changes
+### Added
 
-- feat: implement native GRU forward and backward backend implementation for performance acceleration.
+- **Full Native Recurrent Backend**: Implementasi native backend (Rust) untuk keluarga layer recurrent (**RNN, LSTM, dan GRU**) dengan dukungan penuh untuk pemrosesan sekuens terkompresi (*time-major batching*).
+- **Native GRU Implementation**: Menambahkan fungsi *forward* dan *backward* native untuk layer GRU guna mencapai paritas performa dengan RNN dan LSTM.
+- **Batching Optimization**: Seluruh layer recurrent kini dioptimalkan untuk mengeksekusi iterasi batch secara native di backend Rust.
+
+### Changed
+
+- Update benchmark sintetis dan correctness snapshots untuk versi 2.3.0-alpha.0.
+
+---
 
 Semua perubahan penting pada proyek **ML-V1** akan didokumentasikan di file ini.
 
