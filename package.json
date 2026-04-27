@@ -76,5 +76,8 @@
     "@napi-rs/cli": "^2.18.0",
     "@napi-rs/wasm-runtime": "^0.2.4",
     "ts-node": "^10.9.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
