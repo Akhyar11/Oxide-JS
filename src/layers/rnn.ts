@@ -1,5 +1,6 @@
 import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
 import mj from "../math";
+import { isNativeAvailable, rnnForwardNative, rnnBackwardNative } from "../math/rust_backend";
 import Matrix from "../matrix";
 import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
@@ -277,17 +278,48 @@ export default class RNN {
     this.ensureBatchForwardBuffers(batchSize, totalCols, outCols);
     this.resultBuffer._data.fill(0);
     this.batchInputProjectionBuffer._data.fill(0);
-    mj.dotProduct(this.Wxh, x, this.batchInputProjectionBuffer);
-    mj.addBias(this.batchInputProjectionBuffer, this.bh);
-
     this.inputShape = [this.units, totalCols];
     this.outputShape = [this.hiddenUnits, outCols];
     this.ensureBatchSequenceStateBuffers(seqLen, batchSize);
 
-    const prev = this.batchHiddenSequence[0];
-    prev.fill(0);
-    if (this.stateful && batchSize === 1) {
-      prev.set(this.h_stateful._data);
+    if (!isNativeAvailable()) {
+      this.batchInputProjectionBuffer._data.fill(0);
+      mj.dotProduct(this.Wxh, x, this.batchInputProjectionBuffer);
+      mj.addBias(this.batchInputProjectionBuffer, this.bh);
+    }
+
+    const h0View = this.batchHiddenSequence[0];
+    h0View.fill(0);
+    if (this.stateful && batchSize === 1) h0View.set(this.h_stateful._data);
+
+    if (
+      isNativeAvailable() &&
+      rnnForwardNative(
+        this.Wxh._data,
+        this.Whh._data,
+        this.bh._data,
+        x._data,
+        h0View,
+        this.hiddenUnits,
+        this.units,
+        seqLen,
+        batchSize,
+        this.batchHiddenSequenceBuffer,
+        this.batchActivationGradientBuffer
+      )
+    ) {
+      if (this.returnSequences) {
+        for (let t = 0; t < seqLen; t++) {
+           this.writeColumnBlock(this.resultBuffer, t * batchSize, batchSize, this.batchHiddenSequence[t + 1]);
+        }
+      } else {
+        this.resultBuffer._data.set(this.batchHiddenSequence[seqLen]);
+      }
+
+      if (this.stateful && batchSize === 1) {
+        this.h_stateful._data.set(this.batchHiddenSequence[seqLen]);
+      }
+      return this.resultBuffer;
     }
 
     for (let t = 0; t < seqLen; t++) {
@@ -403,6 +435,25 @@ export default class RNN {
     let dhNext = new Float32Array(this.hiddenUnits * batchSize);
 
     this.ensureBatchBackwardBuffers(batchSize);
+
+    if (
+      isNativeAvailable() &&
+      rnnBackwardNative(
+        this.Wxh._data, this.Whh._data,
+        this.batchInputSequenceBuffer, this.batchHiddenSequenceBuffer, this.batchActivationGradientBuffer,
+        this.batchErrorStepBuffer,
+        this.hiddenUnits, this.units, seqLen, batchSize,
+        dWxh._data, dWhh._data, dBh._data,
+        dx._data
+      )
+    ) {
+        this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
+        this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
+        this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
+        this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
+        return dx;
+    }
+
     const dhBuffer = new Float32Array(this.hiddenUnits * batchSize);
     const dzBuffer = new Float32Array(this.hiddenUnits * batchSize);
     let dhPrevBuffer = new Float32Array(this.hiddenUnits * batchSize);

@@ -1,5 +1,6 @@
 import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
 import mj from "../math";
+import { isNativeAvailable, lstmForwardNative, lstmBackwardNative } from "../math/rust_backend";
 import Matrix from "../matrix";
 import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
@@ -359,26 +360,81 @@ export default class LSTM {
     this.batchGateXFBuffer._data.fill(0);
     this.batchGateXOBuffer._data.fill(0);
     this.batchGateXGBuffer._data.fill(0);
-    mj.dotProduct(this.Wxi, x, this.batchGateXIBuffer);
-    mj.dotProduct(this.Wxf, x, this.batchGateXFBuffer);
-    mj.dotProduct(this.Wxo, x, this.batchGateXOBuffer);
-    mj.dotProduct(this.Wxg, x, this.batchGateXGBuffer);
-    mj.addBias(this.batchGateXIBuffer, this.bi);
-    mj.addBias(this.batchGateXFBuffer, this.bf);
-    mj.addBias(this.batchGateXOBuffer, this.bo);
-    mj.addBias(this.batchGateXGBuffer, this.bg);
+    if (!isNativeAvailable()) {
+      mj.dotProduct(this.Wxi, x, this.batchGateXIBuffer);
+      mj.dotProduct(this.Wxf, x, this.batchGateXFBuffer);
+      mj.dotProduct(this.Wxo, x, this.batchGateXOBuffer);
+      mj.dotProduct(this.Wxg, x, this.batchGateXGBuffer);
+
+      mj.addBias(this.batchGateXIBuffer, this.bi);
+      mj.addBias(this.batchGateXFBuffer, this.bf);
+      mj.addBias(this.batchGateXOBuffer, this.bo);
+      mj.addBias(this.batchGateXGBuffer, this.bg);
+    }
 
     this.inputShape = [this.units, totalCols];
     this.outputShape = [this.hiddenUnits, outCols];
     this.ensureBatchSequenceStateBuffers(seqLen, batchSize);
 
-    const h0 = this.batchHSeq[0];
-    const c0 = this.batchCSeq[0];
-    h0.fill(0);
-    c0.fill(0);
+    const h0View = this.batchHSeq[0];
+    const c0View = this.batchCSeq[0];
+    h0View.fill(0);
+    c0View.fill(0);
     if (this.stateful && batchSize === 1) {
-      h0.set(this.h_stateful._data);
-      c0.set(this.c_stateful._data);
+      h0View.set(this.h_stateful._data);
+      c0View.set(this.c_stateful._data);
+    }
+
+    if (
+      isNativeAvailable() &&
+      lstmForwardNative(
+        this.Wxi._data,
+        this.Wxf._data,
+        this.Wxo._data,
+        this.Wxg._data,
+        this.Whi._data,
+        this.Whf._data,
+        this.Who._data,
+        this.Whg._data,
+        this.bi._data,
+        this.bf._data,
+        this.bo._data,
+        this.bg._data,
+        x._data,
+        h0View,
+        c0View,
+        this.hiddenUnits,
+        this.units,
+        seqLen,
+        batchSize,
+        this.batchHSeqBuffer,
+        this.batchCSeqBuffer,
+        this.batchISeqBuffer,
+        this.batchFSeqBuffer,
+        this.batchOSeqBuffer,
+        this.batchGSeqBuffer
+      )
+    ) {
+      // Sync resultBuffer with the final h values
+      if (this.returnSequences) {
+        // Result buffer was already zeros, we need to copy batchHSeqBuffer[bs*hu .. ] into it
+        // Or better: the native kernel could write to the resultBuffer directly if layout matched.
+        // Actually, LSTM resultBuffer layout is [hiddenUnits, totalCols]
+        // Native h_seq_out layout is [sl+1, bs, hu] -> flattened as (sl+1)*bs*hu
+        // Wait, I need to check the layout mapping.
+        for (let t = 0; t < seqLen; t++) {
+          const h_t = this.batchHSeq[t + 1];
+          this.writeColumnBlock(this.resultBuffer, t * batchSize, batchSize, h_t);
+        }
+      } else {
+        this.resultBuffer._data.set(this.batchHSeq[seqLen]);
+      }
+
+      if (this.stateful && batchSize === 1) {
+        this.h_stateful._data.set(this.batchHSeq[seqLen]);
+        this.c_stateful._data.set(this.batchCSeq[seqLen]);
+      }
+      return this.resultBuffer;
     }
 
     for (let t = 0; t < seqLen; t++) {
@@ -578,6 +634,43 @@ export default class LSTM {
     const dWxg = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.units), [this.hiddenUnits, this.units]);
     const dWhg = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.hiddenUnits), [this.hiddenUnits, this.hiddenUnits]);
     const dBg = Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]);
+
+    if (
+      isNativeAvailable() &&
+      lstmBackwardNative(
+        this.Wxi._data, this.Wxf._data, this.Wxo._data, this.Wxg._data,
+        this.Whi._data, this.Whf._data, this.Who._data, this.Whg._data,
+        this.batchXSeqBuffer,
+        this.batchHSeqBuffer,
+        this.batchCSeqBuffer,
+        this.batchISeqBuffer,
+        this.batchFSeqBuffer,
+        this.batchOSeqBuffer,
+        this.batchGSeqBuffer,
+        this.batchErrorStepBuffer,
+        this.hiddenUnits, this.units, seqLen, batchSize,
+        dWxi._data, dWhi._data, dBi._data,
+        dWxf._data, dWhf._data, dBf._data,
+        dWxo._data, dWho._data, dBo._data,
+        dWxg._data, dWhg._data, dBg._data,
+        dx._data
+      )
+    ) {
+        this.clipGradientsIfNeeded(dWxi, dWhi, dBi, dWxf, dWhf, dBf, dWxo, dWho, dBo, dWxg, dWhg, dBg);
+        this.Wxi.subInPlace(this.optimizerWxi.calculate(dWxi, this.alpha));
+        this.Whi.subInPlace(this.optimizerWhi.calculate(dWhi, this.alpha));
+        this.bi.subInPlace(this.optimizerBi.calculate(dBi, this.alpha));
+        this.Wxf.subInPlace(this.optimizerWxf.calculate(dWxf, this.alpha));
+        this.Whf.subInPlace(this.optimizerWhf.calculate(dWhf, this.alpha));
+        this.bf.subInPlace(this.optimizerBf.calculate(dBf, this.alpha));
+        this.Wxo.subInPlace(this.optimizerWxo.calculate(dWxo, this.alpha));
+        this.Who.subInPlace(this.optimizerWho.calculate(dWho, this.alpha));
+        this.bo.subInPlace(this.optimizerBo.calculate(dBo, this.alpha));
+        this.Wxg.subInPlace(this.optimizerWxg.calculate(dWxg, this.alpha));
+        this.Whg.subInPlace(this.optimizerWhg.calculate(dWhg, this.alpha));
+        this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
+        return dx;
+    }
 
     this.ensureBatchBackwardBuffers(batchSize);
 

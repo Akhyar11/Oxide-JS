@@ -101,7 +101,7 @@ export default class Embedding {
   }
 
   forward(x: Matrix): Matrix {
-    return this.forwardWithLayout(x, "sample-major");
+    return this.forwardWithLayout(x, "time-major");
   }
 
   forwardTimeMajor(x: Matrix): Matrix {
@@ -247,20 +247,24 @@ export default class Embedding {
       this.orderedInputBuffer = new Int32Array(Math.max(totalTokens, Math.max(1, this.orderedInputBuffer.length * 2)));
     }
 
-    if (layout === "sample-major") {
-      // Susun token secara sample-contiguous: semua token sample 0, lalu sample 1, dst.
+    if (layout === "time-major") {
+      // Susun token secara time-major: Step 0 (Batch 0, Batch 1, ...), Step 1 (Batch 0, Batch 1, ...), dst.
+      let writeIdx = 0;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          this.orderedInputBuffer[writeIdx++] = this.validateAndNormalizeTokenIndex(x._data[row * cols + col]);
+        }
+      }
+    } else {
+      // Susun token secara sample-contiguous: Sample 0 (Step 0, Step 1, ...), Sample 1 (Step 0, Step 1, ...), dst.
       let writeIdx = 0;
       for (let col = 0; col < cols; col++) {
         for (let row = 0; row < rows; row++) {
           this.orderedInputBuffer[writeIdx++] = this.validateAndNormalizeTokenIndex(x._data[row * cols + col]);
         }
       }
-    } else {
-      for (let i = 0; i < totalTokens; i++) {
-        this.orderedInputBuffer[i] = this.validateAndNormalizeTokenIndex(x._data[i]);
-      }
     }
-    this.inputIndices = this.orderedInputBuffer;
+    this.inputIndices = this.orderedInputBuffer.subarray(0, totalTokens);
 
     const seqLen = totalTokens;
     this.inputShape = [rows, cols];
@@ -278,7 +282,7 @@ export default class Embedding {
     const outputData = this.outputBuffer._data;
 
     if (isNativeAvailable()) {
-      embeddingForwardNative(this.inputIndices, this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);
+      embeddingForwardNative(this.inputIndices.subarray(0, totalTokens), this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);
       return this.outputBuffer;
     }
     outputData.fill(0);

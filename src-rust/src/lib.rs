@@ -2,6 +2,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use rayon::prelude::*;
 use std::collections::HashMap;
+pub mod rnn;
 
 const ELEMENTWISE_PARALLEL_THRESHOLD: usize = 16 * 1024;
 const ADAM_PARALLEL_THRESHOLD: usize = 8 * 1024;

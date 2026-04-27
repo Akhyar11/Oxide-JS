@@ -63,7 +63,10 @@ export default function SoftmaxCrossEntropy(
     }
   }
 
-  // Rata-ratakan loss berdasarkan batch size
+  // Rata-ratakan loss dan gradient berdasarkan batch size
   const finalGrad = Matrix.fromFlat(gradData, [numClasses, batchSize]);
+  for (let i = 0; i < gradData.length; i++) {
+    gradData[i] /= batchSize;
+  }
   return [totalLoss / batchSize, finalGrad];
 }

@@ -62,18 +62,26 @@ export default class Sequential {
     }
   }
 
-  forward(x: Matrix): Matrix {
+  forward(x: Matrix, batchSize: number = 1): Matrix {
     let input = x;
     for (let layer of this.layers) {
-      input = layer.forward(input);
+      if (batchSize > 1 && typeof (layer as any).forwardBatch === "function") {
+        input = (layer as any).forwardBatch(input, batchSize);
+      } else {
+        input = layer.forward(input);
+      }
     }
     return input;
   }
 
-  backward(y: Matrix) {
+  backward(y: Matrix, batchSize: number = 1) {
     let err = mj.matrix([[]]);
     for (let i = this.layers.length - 1; i >= 0; i--) {
-      err = this.layers[i].backward(y, err);
+      if (batchSize > 1 && typeof (this.layers[i] as any).backwardBatch === "function") {
+        err = (this.layers[i] as any).backwardBatch(y, err, batchSize);
+      } else {
+        err = this.layers[i].backward(y, err);
+      }
       if (this.layers[i].status === "output") this.loss = (this.layers[i] as any).loss;
     }
   }
@@ -263,8 +271,8 @@ export default class Sequential {
           modelAny.setPositionOffset(positionOffset);
         }
 
-        const pred = this.forward(currentBatchX);
-        this.backward(currentBatchY);
+        const pred = this.forward(currentBatchX, currentBatchSize);
+        this.backward(currentBatchY, currentBatchSize);
         const batchLossValue = this.useBackwardLossForTrainingBatch(currentBatchY, pred)
           ? this.loss
           : this.computeSampleLoss(currentBatchY, pred);
@@ -425,7 +433,7 @@ export default class Sequential {
         typeof modelAny.forwardFullSequence === "function";
       const pred = shouldUseFullSequenceForward
         ? modelAny.forwardFullSequence(valBatchX)
-        : this.forward(valBatchX);
+        : this.forward(valBatchX, currentBatchSize);
       totalValLoss += this.computeSampleLoss(valBatchY, pred) * currentBatchSize;
 
       if (supportsTrimPadding && typeof modelAny.resetPositionOffset === "function") {
@@ -500,10 +508,9 @@ export default class Sequential {
     const firstRecurrentLayer = recurrentLayers[0];
     const statefulRecurrentLayers = recurrentLayers.filter((layer) => (layer as any).stateful === true);
 
-    if (batchSize !== 1) {
+    if (statefulRecurrentLayers.length > 0 && batchSize !== 1) {
       throw new Error(
-        `Sequential.fit: ${firstRecurrentLayer.name} hanya mendukung training per-sample (batchSize=1). ` +
-        "Generic batching saat ini menggabungkan sample menjadi kolom matrix dan tidak valid untuk sequence input recurrent."
+        `Sequential.fit: ${statefulRecurrentLayers[0].name} dengan stateful=true hanya mendukung batchSize=1.`
       );
     }
 

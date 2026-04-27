@@ -667,6 +667,180 @@ export const embeddingNagBackwardUpdateNative = (
   return true;
 };
 
+/**
+ * Native LSTM Forward (Fuses the sequence loop).
+ */
+export const lstmForwardNative = (
+  wxi: Float32Array, wxf: Float32Array, wxo: Float32Array, wxg: Float32Array,
+  whi: Float32Array, whf: Float32Array, who: Float32Array, whg: Float32Array,
+  bi: Float32Array, bf: Float32Array, bo: Float32Array, bg: Float32Array,
+  x_seq: Float32Array, h0: Float32Array, c0: Float32Array,
+  hiddenUnits: number, inputUnits: number, seqLen: number, batchSize: number,
+  h_seq_out: Float32Array, c_seq_out: Float32Array,
+  i_seq_out: Float32Array, f_seq_out: Float32Array, o_seq_out: Float32Array, g_seq_out: Float32Array
+): boolean => {
+  if (!native) return false;
+  if (typeof native.lstmForwardNativeInto !== "function") return false;
+  native.lstmForwardNativeInto(
+    wxi, wxf, wxo, wxg,
+    whi, whf, who, whg,
+    bi, bf, bo, bg,
+    x_seq, h0, c0,
+    hiddenUnits, inputUnits, seqLen, batchSize,
+    h_seq_out, c_seq_out,
+    i_seq_out, f_seq_out, o_seq_out, g_seq_out
+  );
+  return true;
+};
+
+/**
+ * Native LSTM Backward (Fuses the BPTT sequence loop).
+ */
+export const lstmBackwardNative = (
+  wx_i: Float32Array, wx_f: Float32Array, wx_o: Float32Array, wx_g: Float32Array,
+  wh_i: Float32Array, wh_f: Float32Array, wh_o: Float32Array, wh_g: Float32Array,
+  x_seq: Float32Array, h_seq: Float32Array, c_seq: Float32Array,
+  i_seq: Float32Array, f_seq: Float32Array, o_seq: Float32Array, g_seq: Float32Array,
+  err_h: Float32Array,
+  hiddenUnits: number, inputUnits: number, seqLen: number, batchSize: number,
+  dwx_i: Float32Array, dwh_i: Float32Array, dbi: Float32Array,
+  dwx_f: Float32Array, dwh_f: Float32Array, dbf: Float32Array,
+  dwx_o: Float32Array, dwho: Float32Array, dbo: Float32Array,
+  dwx_g: Float32Array, dwh_g: Float32Array, dbg: Float32Array,
+  dx_out: Float32Array
+): boolean => {
+  if (!native) return false;
+  if (typeof native.lstmBackwardNativeInto !== "function") return false;
+  native.lstmBackwardNativeInto(
+    wx_i, wx_f, wx_o, wx_g,
+    wh_i, wh_f, wh_o, wh_g,
+    x_seq, h_seq, c_seq,
+    i_seq, f_seq, o_seq, g_seq,
+    err_h,
+    hiddenUnits, inputUnits, seqLen, batchSize,
+    dwx_i, dwh_i, dbi,
+    dwx_f, dwh_f, dbf,
+    dwx_o, dwho, dbo,
+    dwx_g, dwh_g, dbg,
+    dx_out
+  );
+  return true;
+};
+
+/**
+ * Native GRU Forward (Fuses the sequence loop).
+ */
+export const gruForwardNative = (
+  wxr: Float32Array, whr: Float32Array, br: Float32Array,
+  wxz: Float32Array, whz: Float32Array, bz: Float32Array,
+  wxh: Float32Array, whh: Float32Array, bh: Float32Array,
+  x_seq: Float32Array, h0: Float32Array,
+  hiddenUnits: number, inputUnits: number,
+  seqLen: number,
+  batchSize: number,
+  h_seq_out: Float32Array,
+  r_seq_out: Float32Array,
+  z_seq_out: Float32Array,
+  n_seq_out: Float32Array
+): boolean => {
+  if (!native) return false;
+  if (typeof native.gruForwardNativeInto !== "function") return false;
+  native.gruForwardNativeInto(
+    wxr, whr, br,
+    wxz, whz, bz,
+    wxh, whh, bh,
+    x_seq, h0,
+    hiddenUnits, inputUnits, seqLen, batchSize,
+    h_seq_out, r_seq_out, z_seq_out, n_seq_out
+  );
+  return true;
+};
+
+/**
+ * Native GRU Backward (Fuses the BPTT sequence loop).
+ */
+export const gruBackwardNative = (
+  wxr: Float32Array, whr: Float32Array,
+  wxz: Float32Array, whz: Float32Array,
+  wxh: Float32Array, whh: Float32Array,
+  x_seq: Float32Array, h_seq: Float32Array,
+  r_seq: Float32Array, z_seq: Float32Array, n_seq: Float32Array,
+  err_h: Float32Array,
+  hiddenUnits: number, inputUnits: number, seqLen: number, batchSize: number,
+  dwxr: Float32Array, dwhr: Float32Array, dbr: Float32Array,
+  dwxz: Float32Array, dwhz: Float32Array, dbz: Float32Array,
+  dwxh: Float32Array, dwhh: Float32Array, dbh: Float32Array,
+  dx_out: Float32Array
+): boolean => {
+  if (!native) return false;
+  if (typeof native.gruBackwardNativeInto !== "function") return false;
+  native.gruBackwardNativeInto(
+    wxr, whr,
+    wxz, whz,
+    wxh, whh,
+    x_seq, h_seq,
+    r_seq, z_seq, n_seq,
+    err_h,
+    hiddenUnits, inputUnits, seqLen, batchSize,
+    dwxr, dwhr, dbr,
+    dwxz, dwhz, dbz,
+    dwxh, dwhh, dbh,
+    dx_out
+  );
+  return true;
+};
+
+/**
+ * Native Simple RNN Forward
+ */
+export const rnnForwardNative = (
+  wxh: Float32Array,
+  whh: Float32Array,
+  bias: Float32Array,
+  x_seq: Float32Array,
+  h0: Float32Array,
+  hiddenUnits: number,
+  inputUnits: number,
+  seqLen: number,
+  batchSize: number,
+  h_seq_out: Float32Array,
+  d_act_out: Float32Array
+): boolean => {
+  if (!native) return false;
+  if (typeof native.rnnForwardNativeInto !== "function") return false;
+  native.rnnForwardNativeInto(
+    wxh, whh, bias,
+    x_seq, h0,
+    hiddenUnits, inputUnits, seqLen, batchSize,
+    h_seq_out, d_act_out
+  );
+  return true;
+};
+
+/**
+ * Native Simple RNN Backward
+ */
+export const rnnBackwardNative = (
+  wxh: Float32Array, whh: Float32Array,
+  x_seq: Float32Array, h_seq: Float32Array, d_act_seq: Float32Array,
+  err_h: Float32Array,
+  hiddenUnits: number, inputUnits: number, seqLen: number, batchSize: number,
+  dwxh: Float32Array, dwhh: Float32Array, dbh: Float32Array,
+  dx_out: Float32Array
+): boolean => {
+  if (!native) return false;
+  if (typeof native.rnnBackwardNativeInto !== "function") return false;
+  native.rnnBackwardNativeInto(
+    wxh, whh,
+    x_seq, h_seq, d_act_seq,
+    err_h,
+    hiddenUnits, inputUnits, seqLen, batchSize,
+    dwxh, dwhh, dbh,
+    dx_out
+  );
+  return true;
+};
+
 export const convolutionNative = (
   aData: Float32Array,
   aRows: number,
