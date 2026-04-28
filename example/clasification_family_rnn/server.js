@@ -20,8 +20,7 @@ const server = http.createServer((req, res) => {
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(data);
         });
-    } 
-    else if (req.url === '/api/data') {
+    } else if (req.url === '/api/data') {
         fs.readdir(LOG_DIR, (err, files) => {
             if (err) {
                 res.writeHead(500);
@@ -47,7 +46,40 @@ const server = http.createServer((req, res) => {
                     res.end("Failed to read JSON file");
                     return;
                 }
-                res.writeHead(200, { 
+                res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                res.end(data);
+            });
+        });
+    } else if (req.url === '/api/eval_data') {
+        fs.readdir(LOG_DIR, (err, files) => {
+            if (err) {
+                res.writeHead(500);
+                res.end("Failed to read log directory");
+                return;
+            }
+
+            const jsonFiles = files
+                .filter(f => f.startsWith('checkpoint_evaluation_') && f.endsWith('.json'))
+                .sort()
+                .reverse();
+
+            if (jsonFiles.length === 0) {
+                res.writeHead(404);
+                res.end(JSON.stringify({ error: "No evaluation data found" }));
+                return;
+            }
+
+            const latestFile = path.join(LOG_DIR, jsonFiles[0]);
+            fs.readFile(latestFile, (readErr, data) => {
+                if (readErr) {
+                    res.writeHead(500);
+                    res.end("Failed to read JSON file");
+                    return;
+                }
+                res.writeHead(200, {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*'
                 });

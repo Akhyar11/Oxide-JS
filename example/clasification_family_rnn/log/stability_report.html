@@ -306,65 +306,43 @@
         </div>
 
         <!-- Evaluation Results -->
+        <div class="card span-12" style="margin-bottom: -1rem; background: transparent; border: none; box-shadow: none; padding: 0 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-title" style="margin: 0; display:flex; align-items:center; gap: 1rem;">Independent Evaluation <span class="status-pill" style="font-size: 0.7rem; padding: 0.3rem 0.8rem; border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.15); color: #a855f7;"><div class="status-dot" style="background:#a855f7; box-shadow: 0 0 12px #a855f7;"></div><span id="eval-dataset-label">Loading...</span></span></div>
+            <div class="controls">
+                <div class="select-wrapper">
+                    <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700;">MODEL</span>
+                    <select id="eval-model-select" onchange="updateEvalUI()">
+                        <option value="RNN">RNN</option>
+                        <option value="LSTM" selected>LSTM</option>
+                        <option value="GRU">GRU</option>
+                    </select>
+                </div>
+                <div class="select-wrapper">
+                    <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 700;">RUN</span>
+                    <select id="eval-run-select" onchange="updateEvalUI()"></select>
+                </div>
+            </div>
+        </div>
+
         <div class="card span-6">
             <div class="card-title">Final Confusion Matrix <span>Actual vs Predicted</span></div>
-            <table class="matrix-table">
-                <tr>
-                    <td></td>
-                    <td class="matrix-label">Neg</td>
-                    <td class="matrix-label">Pos</td>
-                    <td class="matrix-label">Neu</td>
-                </tr>
-                <tr>
-                    <td class="matrix-label" style="text-align: right">Negative</td>
-                    <td class="matrix-high">298</td>
-                    <td class="matrix-low">80</td>
-                    <td class="matrix-low">16</td>
-                </tr>
-                <tr>
-                    <td class="matrix-label" style="text-align: right">Positive</td>
-                    <td class="matrix-low">42</td>
-                    <td class="matrix-high">673</td>
-                    <td class="matrix-low">20</td>
-                </tr>
-                <tr>
-                    <td class="matrix-label" style="text-align: right">Neutral</td>
-                    <td class="matrix-low">28</td>
-                    <td class="matrix-med">37</td>
-                    <td class="matrix-high">66</td>
-                </tr>
+            <table class="matrix-table" id="confusion-matrix-table">
+                <!-- Dynamically populated -->
             </table>
         </div>
 
         <div class="card span-6">
             <div class="card-title">Class Performance Profile</div>
-            <div class="per-class-grid">
-                <div class="class-card">
-                    <div class="class-name" style="color: var(--rnn-color)">Negative</div>
-                    <div class="class-metric"><span>Precision</span><span>80.98%</span></div>
-                    <div class="class-metric"><span>Recall</span><span>75.63%</span></div>
-                    <div class="class-metric"><span>F1-Score</span><span>78.22%</span></div>
-                </div>
-                <div class="class-card">
-                    <div class="class-name" style="color: var(--accent-tertiary)">Positive</div>
-                    <div class="class-metric"><span>Precision</span><span>85.19%</span></div>
-                    <div class="class-metric"><span>Recall</span><span>91.56%</span></div>
-                    <div class="class-metric"><span>F1-Score</span><span>88.26%</span></div>
-                </div>
-                <div class="class-card">
-                    <div class="class-name" style="color: var(--accent-secondary)">Neutral</div>
-                    <div class="class-metric"><span>Precision</span><span>64.71%</span></div>
-                    <div class="class-metric"><span>Recall</span><span>50.38%</span></div>
-                    <div class="class-metric"><span>F1-Score</span><span>56.65%</span></div>
-                </div>
+            <div class="per-class-grid" id="per-class-grid">
+                <!-- Dynamically populated -->
             </div>
             <div style="margin-top: 2rem; padding: 1.25rem; background: rgba(0,0,0,0.3); border-radius: 18px; border: 1px solid rgba(255,255,255,0.03);">
-                <div class="class-metric"><span>Sample Size (Valid)</span><span>1,260</span></div>
-                <div class="class-metric"><span>Final Accuracy</span><span style="color: #fff; font-weight: 700;">82.30%</span></div>
-                <div class="class-metric"><span>Macro F1 Score</span><span>74.38%</span></div>
-                <div class="class-metric"><span>Weighted F1 Score</span><span>81.83%</span></div>
+                <div class="class-metric"><span>Sample Size (Valid)</span><span id="eval-sample-size">-</span></div>
+                <div class="class-metric"><span>Final Accuracy</span><span style="color: #fff; font-weight: 700;" id="eval-accuracy">-</span></div>
+                <div class="class-metric"><span>Macro F1 Score</span><span id="eval-macro-f1">-</span></div>
+                <div class="class-metric"><span>Weighted F1 Score</span><span id="eval-weighted-f1">-</span></div>
                 <div class="class-metric" style="margin-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem; font-size: 0.75rem;">
-                    <span>System RSS Usage</span><span>486.3MB</span>
+                    <span>System RSS Usage</span><span>~486 MB</span>
                 </div>
             </div>
         </div>
@@ -372,6 +350,7 @@
 
     <script>
         let experimentData = null;
+        let evalData = null;
         let charts = {};
         const colors = { RNN: '#f43f5e', LSTM: '#6366f1', GRU: '#10b981', grid: 'rgba(255, 255, 255, 0.05)', text: '#94a3b8' };
 
@@ -384,6 +363,11 @@
                 experimentData = await response.json();
 
                 if (experimentData.error) throw new Error(experimentData.error);
+                
+                try {
+                    const evalResponse = await fetch('/api/eval_data');
+                    evalData = await evalResponse.json();
+                } catch(e) { console.warn("Eval data not found", e); }
 
                 document.getElementById('loading-overlay').style.display = 'none';
                 initUI();
@@ -410,6 +394,21 @@
             renderParams();
             renderLoss();
             renderTable();
+
+            if (evalData && !evalData.error && evalData.models) {
+                document.getElementById('eval-dataset-label').innerText = evalData.evaluationDataset || 'valid_preprocess.tsv';
+                const runSelect = document.getElementById('eval-run-select');
+                const runs = Object.keys(evalData.models.RNN).sort((a, b) => {
+                    return parseInt(a.replace('run_', '')) - parseInt(b.replace('run_', ''));
+                });
+                runs.forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r; opt.innerText = r.toUpperCase().replace('_', ' #');
+                    runSelect.appendChild(opt);
+                });
+                runSelect.value = 'run_10';
+                updateEvalUI();
+            }
         }
 
         function renderConfig() {
@@ -559,6 +558,77 @@
                 tbody.appendChild(tr);
             });
         }
+
+        window.updateEvalUI = function() {
+            if (!evalData || !evalData.models) return;
+            const model = document.getElementById('eval-model-select').value;
+            const run = document.getElementById('eval-run-select').value;
+            if (!evalData.models[model] || !evalData.models[model][run]) return;
+            
+            const data = evalData.models[model][run];
+            const cm = data.confusionMatrix;
+            
+            const getCMClass = (i, j, val) => {
+                if (i === j) return 'matrix-high';
+                if (val > 50) return 'matrix-low';
+                return 'matrix-med';
+            };
+
+            const cmHTML = `<tr>
+                <td></td>
+                <td class="matrix-label">Neg</td>
+                <td class="matrix-label">Pos</td>
+                <td class="matrix-label">Neu</td>
+            </tr>
+            <tr>
+                <td class="matrix-label" style="text-align: right">Negative</td>
+                <td class="${getCMClass(0, 0, cm[0][0])}">${cm[0][0]}</td>
+                <td class="${getCMClass(0, 1, cm[0][1])}">${cm[0][1]}</td>
+                <td class="${getCMClass(0, 2, cm[0][2])}">${cm[0][2]}</td>
+            </tr>
+            <tr>
+                <td class="matrix-label" style="text-align: right">Positive</td>
+                <td class="${getCMClass(1, 0, cm[1][0])}">${cm[1][0]}</td>
+                <td class="${getCMClass(1, 1, cm[1][1])}">${cm[1][1]}</td>
+                <td class="${getCMClass(1, 2, cm[1][2])}">${cm[1][2]}</td>
+            </tr>
+            <tr>
+                <td class="matrix-label" style="text-align: right">Neutral</td>
+                <td class="${getCMClass(2, 0, cm[2][0])}">${cm[2][0]}</td>
+                <td class="${getCMClass(2, 1, cm[2][1])}">${cm[2][1]}</td>
+                <td class="${getCMClass(2, 2, cm[2][2])}">${cm[2][2]}</td>
+            </tr>`;
+            document.getElementById('confusion-matrix-table').innerHTML = cmHTML;
+            
+            let classes = ['Negative', 'Positive', 'Neutral'];
+            let classColors = ['var(--rnn-color)', 'var(--accent-tertiary)', 'var(--accent-secondary)'];
+            let perClassHTML = '';
+            let totalActual = 0;
+            
+            for (let c=0; c<3; c++) {
+                let tp = cm[c][c];
+                let actual = cm[c][0] + cm[c][1] + cm[c][2];
+                let predicted = cm[0][c] + cm[1][c] + cm[2][c];
+                totalActual += actual;
+                
+                let p = predicted === 0 ? 0 : tp / predicted;
+                let r = actual === 0 ? 0 : tp / actual;
+                let f1 = (p+r) === 0 ? 0 : 2 * p * r / (p + r);
+                
+                perClassHTML += `<div class="class-card">
+                    <div class="class-name" style="color: ${classColors[c]}">${classes[c]}</div>
+                    <div class="class-metric"><span>Precision</span><span>${(p*100).toFixed(2)}%</span></div>
+                    <div class="class-metric"><span>Recall</span><span>${(r*100).toFixed(2)}%</span></div>
+                    <div class="class-metric" style="margin-top: 8px;"><span>F1-Score</span><span style="color: var(--accent-primary)">${(f1*100).toFixed(2)}%</span></div>
+                </div>`;
+            }
+            document.getElementById('per-class-grid').innerHTML = perClassHTML;
+            
+            document.getElementById('eval-sample-size').innerText = totalActual.toLocaleString();
+            document.getElementById('eval-accuracy').innerText = (data.accuracy * 100).toFixed(2) + '%';
+            document.getElementById('eval-macro-f1').innerText = (data.macroF1 * 100).toFixed(2) + '%';
+            document.getElementById('eval-weighted-f1').innerText = (data.weightedF1 * 100).toFixed(2) + '%';
+        };
 
         loadData();
     </script>
