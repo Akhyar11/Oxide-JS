@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software in your research or project, please cite it using the metadata below."
+
+title: "@akhyar11/ml-v1: A Native TypeScript Machine Learning Library"
+type: software
+
+authors:
+  - family-names: "Muhammad"
+    given-names: "Akhyar"
+
+abstract: >
+  @akhyar11/ml-v1 is a native TypeScript machine learning library designed
+  to support educational, experimental, and reproducible machine learning
+  workflows. It includes neural network components and experimental examples
+  such as recurrent neural network stability evaluation for Indonesian
+  sentiment classification.
+
+version: "2.3.0"
+date-released: "2026-04-28"
+
+repository-code: "https://github.com/Akhyar11/ML-V1"
+url: "https://www.npmjs.com/package/@akhyar11/ml-v1"
+
+license: "MIT"
+
+keywords:
+  - machine-learning
+  - typescript
+  - neural-networks
+  - recurrent-neural-networks
+  - natural-language-processing
+  - sentiment-analysis
+  - reproducibility
