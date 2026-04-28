@@ -18,7 +18,7 @@ All models in this study were strictly synthesized and evaluated using the `@akh
 
 ## 🔬 2. Methodology & Experimental Design
 
-To conduct a robust comparative analysis, this experiment executes a rigorous **Repeated-Measures Design**. Each architectural variant was subjected to **10 independent training repetitions** (epochs = 10, total runs = 30). Before each stochastic manifestation, the embedding and recurrent weight matrices were completely reset to ensure isolated initialization states.
+To conduct a robust comparative analysis, this experiment executes a rigorous **Repeated-Measures Design**. Each architectural variant was subjected to **10 independent training repetitions** (epochs = 30). Before each stochastic manifestation, the embedding and recurrent weight matrices were completely reset to ensure isolated initialization states.
 
 ### 2.1. Network Topology Pipeline
 
@@ -123,7 +123,7 @@ To further diagnose inter-class differentiation logic across the algorithms, the
 
 ## 📈 5. Analytical Discoveries & Conclusions
 
-Based on the controlled multi-run trials facilitated via the `@akhyar11/ml-v1` framework, our findings objectively quantify the behavioral tendencies of sequence modeling frameworks. The LSTM architecture emerged as the objectively superior model. Below are the theoretical and mathematical justifications supported by the compiled data:
+Based on the controlled multi-run trials facilitated via the `@akhyar11/ml-v1` framework, our findings objectively quantify the behavioral tendencies of sequence modeling frameworks. The LSTM architecture achieved the best overall performance under the evaluated library version, dataset split, and experimental configuration. Below are the theoretical and mathematical justifications supported by the compiled data:
 
 1. **Superiority in Minority Class Differentiation**: The **Long Short-Term Memory (LSTM)** architecture consistently performed better than both GRU and Vanilla RNN, particularly in differentiating subtle classes. While GRU achieved high overall accuracy (84.55%) by aggressively predicting the majority "Positive" sentiment class, LSTM successfully modeled the minority "Neutral" sentiment (identifying 89 Neutral samples compared to GRU's 79 and RNN's 59). This allowed LSTM to achieve a much higher mean F1-Score of **85.16%** compared to GRU's **72.66%**.
 
@@ -159,7 +159,6 @@ If you extract statistical configurations or telemetry artifacts from this open-
   author       = {Alvin Hanafie},
   title        = {Dataset for Indonesian Sentiment Analysis},
   howpublished = {Kaggle Repository: \url{https://www.kaggle.com/datasets/alvinhanafie/dataset-for-indonesian-sentiment-analysis}},
-  year         = {2026}
 }
 ```
 
