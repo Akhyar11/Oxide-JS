@@ -6,6 +6,7 @@
 !/dataset/dataset_matematika_1000.json
 !/dataset/math_vocab.json
 !/dataset/data.ts
+/experiments/log/
 
 # Rust build artifacts
 /src-rust/target

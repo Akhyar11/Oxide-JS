@@ -11,6 +11,7 @@ import MultiHeadAttention from "./multiHeadAttention";
 import RNN from "./rnn";
 import LSTM from "./lstm";
 import GRU from "./gru";
+import AdaptiveMemoryRNN from "./adaptiveMemoryRNN";
 import { CompileDenseLayers } from "./dense";
 
 export {
@@ -28,4 +29,5 @@ export {
   RNN,
   LSTM,
   GRU,
+  AdaptiveMemoryRNN,
 };

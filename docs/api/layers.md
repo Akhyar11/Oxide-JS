@@ -19,7 +19,8 @@ import {
   Dropout,
   RNN,
   LSTM,
-  GRU
+  GRU,
+  AdaptiveMemoryRNN
 } from "@akhyar11/ml-v1"
 ```
 
@@ -354,8 +355,60 @@ const out = layer.forward(
 
 ---
 
+#### `AdaptiveMemoryRNN`
+
+Vanilla RNN core with an external memory bank. This layer is not GRU or LSTM: the recurrent cell remains a simple RNN, then the cell reads from and writes to memory slots with a learned vector gate.
+
+At each time step it builds a query from `[x_t; h_{t-1}]`, retrieves a memory read vector using softmax over memory slots, feeds `concat(x_t, memory_read_t)` into the RNN core, then updates the selected memory slot with gated retention:
+
+```ts
+k_i <- (1 - g_t) * k_i + g_t * q_t
+v_i <- (1 - g_t) * v_i + g_t * c_t
+```
+
+The retrieval is attention-like, but it attends over the layer's memory slots rather than over all input tokens. In the current MVP, backward training updates only the RNN core weights (`Wxh`, `Whh`, `bh`). Memory retrieval and write parameters (`Wq`, `Wm`, `Wg`, `bg`, `memoryKeys`, `memoryValues`) are forward-state / stop-gradient until full differentiable memory training is added.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `units` | `number` | — | Input features per time step |
+| `hiddenUnits` | `number` | — | Vanilla RNN hidden state size |
+| `activation` | `"tanh" \| "relu"` | `"tanh"` | RNN core activation |
+| `memorySlots` | `number` | `32` | Number of external memory slots |
+| `memoryDim` | `number` | `hiddenUnits` | Key/value dimension for each memory slot |
+| `returnSequences` | `boolean` | `false` | Return all time steps or only the last hidden state |
+| `stateful` | `boolean` | `false` | Carry hidden state and memory bank across calls |
+| `optimizer` | `Optimzier` | `"adam"` | Optimizer for MVP RNN-core training |
+| `clipGradient` | `number \| boolean` | `5.0` | Gradient clipping limit |
+
+```ts
+import { AdaptiveMemoryRNN, Dense, Embedding, Sequential } from "@akhyar11/ml-v1"
+
+const model = new Sequential({
+  layers: [
+    new Embedding({ vocabSize: 5000, embeddingDim: 128, padTokenId: 0 }),
+    new AdaptiveMemoryRNN({
+      units: 128,
+      hiddenUnits: 256,
+      memorySlots: 32,
+      memoryDim: 256,
+      returnSequences: false,
+    }),
+    new Dense({
+      units: 256,
+      outputUnits: 10,
+      activation: "softmax",
+      status: "output",
+      loss: "crossEntropy",
+    }),
+  ],
+});
+```
+
+---
+
 ## Notes
 
 - For sequence modeling in `Sequential`, recurrent layers are typically followed by a `Dense` output layer.
 - `RNN.getState()` returns a `Matrix`, `LSTM.getState()` returns `{ h, c }`, `GRU.getState()` returns `{ forward, backward? }`.
+- `AdaptiveMemoryRNN.getState()` returns `{ h, memoryKeys, memoryValues, memoryUsage }`.
 - `save()` / `load()` preserve recurrent weights and stateful hidden states.

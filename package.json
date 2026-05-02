@@ -69,11 +69,11 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.11.20"
+    "@types/node": "^20.19.39"
   },
   "dependencies": {
     "@napi-rs/cli": "^2.18.0",
-    "ts-node": "^10.9.2",
-    "@napi-rs/wasm-runtime": "^0.2.4"
+    "@napi-rs/wasm-runtime": "^0.2.4",
+    "ts-node": "^10.9.2"
   }
 }

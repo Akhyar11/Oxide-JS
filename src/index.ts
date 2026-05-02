@@ -27,6 +27,7 @@ export {
   RNN,
   LSTM,
   GRU,
+  AdaptiveMemoryRNN,
 } from "./layers";
 
 // === Models ===

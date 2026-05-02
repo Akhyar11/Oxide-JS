@@ -877,6 +877,88 @@ export const addBiasNative = (data: Float32Array, bias: Float32Array, rows: numb
   native.addBiasNative(data, bias, rows, cols);
 };
 
+/**
+ * Native AdaptiveMemoryRNN Forward (fused sequence loop + memory module).
+ *
+ * combined_out layout: [seq_len * (input_units+memory_dim) * batch_size]
+ * h_seq_out layout   : [(seq_len+1) * batch_size * hidden_units]
+ * act_grad layout    : [seq_len * batch_size * hidden_units]
+ * mem_keys/values    : [batch_size * memory_dim * memory_slots]  (mutated in-place)
+ * mem_usage          : [batch_size * memory_slots]               (mutated in-place)
+ *
+ * Returns false when the native binary does not export this symbol.
+ */
+export const adaptiveMemoryRnnForwardNative = (
+  wq: Float32Array, wm: Float32Array,
+  wxh: Float32Array, whh: Float32Array, bh: Float32Array,
+  wg: Float32Array, bg: Float32Array,
+  xSeq: Float32Array, h0: Float32Array,
+  hiddenUnits: number, inputUnits: number, memoryDim: number, memorySlots: number,
+  seqLen: number, batchSize: number,
+  useRelu: boolean,
+  hSeqOut: Float32Array,
+  actGrad: Float32Array,
+  memKeys: Float32Array,
+  memValues: Float32Array,
+  memUsage: Float32Array,
+  combinedOut: Float32Array,
+): boolean => {
+  if (!native) return false;
+  if (typeof native.adaptiveMemoryRnnForwardNativeInto !== "function") return false;
+  native.adaptiveMemoryRnnForwardNativeInto(
+    wq, wm,
+    wxh, whh, bh,
+    wg, bg,
+    xSeq, h0,
+    hiddenUnits, inputUnits, memoryDim, memorySlots,
+    seqLen, batchSize,
+    useRelu,
+    hSeqOut,
+    actGrad,
+    memKeys,
+    memValues,
+    memUsage,
+    combinedOut,
+  );
+  return true;
+};
+
+/**
+ * Native AdaptiveMemoryRNN Backward (BPTT through Wxh/Whh/bh; dx propagated
+ * through the combined input — only the raw-input portion is written to dx_out).
+ *
+ * combined layout : [seq_len * (input_units+memory_dim) * batch_size]
+ * h_seq layout    : [(seq_len+1) * batch_size * hidden_units]
+ * act_grad layout : [seq_len * batch_size * hidden_units]
+ * err_h layout    : [seq_len * batch_size * hidden_units]  (pre-built per-step errors)
+ * dx_out layout   : [input_units, total_cols]
+ *
+ * Returns false when the native binary does not export this symbol.
+ */
+export const adaptiveMemoryRnnBackwardNative = (
+  wxh: Float32Array, whh: Float32Array,
+  combined: Float32Array, hSeq: Float32Array,
+  actGrad: Float32Array, errH: Float32Array,
+  hiddenUnits: number, inputUnits: number, memoryDim: number,
+  seqLen: number, batchSize: number,
+  dwxh: Float32Array, dwhh: Float32Array, dbh: Float32Array,
+  dxOut: Float32Array,
+): boolean => {
+  if (!native) return false;
+  if (typeof native.adaptiveMemoryRnnBackwardNativeInto !== "function") return false;
+  native.adaptiveMemoryRnnBackwardNativeInto(
+    wxh, whh,
+    combined, hSeq,
+    actGrad, errH,
+    hiddenUnits, inputUnits, memoryDim,
+    seqLen, batchSize,
+    dwxh, dwhh, dbh,
+    dxOut,
+  );
+  return true;
+};
+
+
 export const sumAxisNative = (data: Float32Array, rows: number, cols: number, axis: number, out: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.sumAxisNative(data, rows, cols, axis, out);

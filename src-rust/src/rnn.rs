@@ -6,6 +6,30 @@ struct SyncPtr(usize);
 unsafe impl Send for SyncPtr {}
 unsafe impl Sync for SyncPtr {}
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers shared by AdaptiveMemoryRNN
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[inline(always)]
+fn stable_softmax(scores: &[f32], attention: &mut [f32]) {
+    let n = scores.len();
+    let mut max_v = f32::NEG_INFINITY;
+    for &s in scores.iter() { if s > max_v { max_v = s; } }
+    let mut denom = 0.0f32;
+    for i in 0..n { let v = (scores[i] - max_v).exp(); attention[i] = v; denom += v; }
+    if denom == 0.0 || !denom.is_finite() {
+        let u = 1.0 / n as f32;
+        for i in 0..n { attention[i] = u; }
+    } else {
+        for i in 0..n { attention[i] /= denom; }
+    }
+}
+
+#[inline(always)]
+fn sigmoid(x: f32) -> f32 {
+    if x >= 0.0 { 1.0 / (1.0 + (-x).exp()) } else { let z = x.exp(); z / (1.0 + z) }
+}
+
 #[napi]
 pub fn lstm_forward_native_into(
     wxi: Float32Array, wxf: Float32Array, wxo: Float32Array, wxg: Float32Array,
@@ -346,4 +370,330 @@ pub fn gru_backward_native_into(
             }
         }
     });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AdaptiveMemoryRNN – forward pass (fused sequence loop, batched)
+//
+// Memory layout (time-major, batch-interleaved):
+//   x_seq      : [input_units, total_cols]  total_cols = seq_len * batch_size
+//   h_seq_out  : [(seq_len+1) * batch_size * hidden_units]  h[0..bs] = h0
+//   act_grad   : [seq_len * batch_size * hidden_units]
+//   mem_keys   : [batch_size * memory_dim * memory_slots]  (in/out)
+//   mem_values : [batch_size * memory_dim * memory_slots]  (in/out)
+//   mem_usage  : [batch_size * memory_slots]               (in/out)
+//   combined   : [seq_len * (input_units+memory_dim) * batch_size]  (out)
+//
+// Weights:
+//   wq  : [memory_dim, input_units + hidden_units]
+//   wm  : [memory_dim, hidden_units]
+//   wxh : [hidden_units, input_units + memory_dim]
+//   whh : [hidden_units, hidden_units]
+//   bh  : [hidden_units]
+//   wg  : [memory_dim, input_units + hidden_units + memory_dim]
+//   bg  : [memory_dim]
+// ─────────────────────────────────────────────────────────────────────────────
+#[napi]
+#[allow(clippy::too_many_arguments)]
+pub fn adaptive_memory_rnn_forward_native_into(
+    wq: Float32Array, wm: Float32Array,
+    wxh: Float32Array, whh: Float32Array, bh: Float32Array,
+    wg: Float32Array, bg: Float32Array,
+    x_seq: Float32Array, h0: Float32Array,
+    hidden_units: u32, input_units: u32, memory_dim: u32, memory_slots: u32,
+    seq_len: u32, batch_size: u32,
+    use_relu: bool,
+    mut h_seq_out: Float32Array,
+    mut act_grad: Float32Array,
+    mut mem_keys: Float32Array,
+    mut mem_values: Float32Array,
+    mut mem_usage: Float32Array,
+    mut combined_out: Float32Array,
+) {
+    let hu = hidden_units as usize;
+    let iu = input_units as usize;
+    let md = memory_dim as usize;
+    let ms = memory_slots as usize;
+    let sl = seq_len as usize;
+    let bs = batch_size as usize;
+    let total_cols = sl * bs;
+    let combined_width = iu + md; // width of a single combined vector
+
+    // Initialise h_seq from h0  (h0: [hu * bs])
+    for i in 0..(hu * bs) { h_seq_out[i] = h0[i]; }
+
+    // Per-batch sequential recurrence (batches can be parallelised)
+    let h_ptr     = SyncPtr(h_seq_out.as_mut_ptr() as usize);
+    let da_ptr    = SyncPtr(act_grad.as_mut_ptr() as usize);
+    let mk_ptr    = SyncPtr(mem_keys.as_mut_ptr() as usize);
+    let mv_ptr    = SyncPtr(mem_values.as_mut_ptr() as usize);
+    let mu_ptr    = SyncPtr(mem_usage.as_mut_ptr() as usize);
+    let co_ptr    = SyncPtr(combined_out.as_mut_ptr() as usize);
+    let x_ptr     = SyncPtr(x_seq.as_ptr() as usize);
+    let wq_ptr    = SyncPtr(wq.as_ptr() as usize);
+    let wm_ptr    = SyncPtr(wm.as_ptr() as usize);
+    let wxh_ptr   = SyncPtr(wxh.as_ptr() as usize);
+    let whh_ptr   = SyncPtr(whh.as_ptr() as usize);
+    let bh_ptr    = SyncPtr(bh.as_ptr() as usize);
+    let wg_ptr    = SyncPtr(wg.as_ptr() as usize);
+    let bg_ptr    = SyncPtr(bg.as_ptr() as usize);
+
+    (0..bs).into_par_iter().for_each(|b| {
+        unsafe {
+            let x     = std::slice::from_raw_parts(x_ptr.0 as *const f32,  iu * total_cols);
+            let wq    = std::slice::from_raw_parts(wq_ptr.0 as *const f32,  md * (iu + hu));
+            let wm    = std::slice::from_raw_parts(wm_ptr.0 as *const f32,  md * hu);
+            let wxh   = std::slice::from_raw_parts(wxh_ptr.0 as *const f32, hu * combined_width);
+            let whh   = std::slice::from_raw_parts(whh_ptr.0 as *const f32, hu * hu);
+            let bh    = std::slice::from_raw_parts(bh_ptr.0 as *const f32,  hu);
+            let wg    = std::slice::from_raw_parts(wg_ptr.0 as *const f32,  md * (iu + hu + md));
+            let bg    = std::slice::from_raw_parts(bg_ptr.0 as *const f32,  md);
+
+            let hb    = h_ptr.0 as *mut f32;
+            let dab   = da_ptr.0 as *mut f32;
+            let mkb   = mk_ptr.0 as *mut f32;
+            let mvb   = mv_ptr.0 as *mut f32;
+            let mub   = mu_ptr.0 as *mut f32;
+            let cob   = co_ptr.0 as *mut f32;
+
+            let mem_off   = b * md * ms;   // offset into keys/values for this sample
+            let usage_off = b * ms;        // offset into usage for this sample
+            let score_scale = 1.0 / (md as f32).sqrt();
+
+            let mut query  = vec![0.0f32; md];
+            let mut scores = vec![0.0f32; ms];
+            let mut attn   = vec![0.0f32; ms];
+            let mut read   = vec![0.0f32; md];
+            let mut gate   = vec![0.0f32; md];
+            let mut cand   = vec![0.0f32; md];
+            let mut x_t    = vec![0.0f32; iu];
+            let mut h_t    = vec![0.0f32; hu];
+
+            for t in 0..sl {
+                let t_bs = t * bs + b;
+
+                // Extract x_t  (column-major, time-major)
+                for i in 0..iu { x_t[i] = x[i * total_cols + t_bs]; }
+
+                // h_prev: layout  h_seq[(t * bs + b) + r * bs]  →  h[(t*bs*hu) + r*bs + b]
+                let h_prev_base = t * bs * hu + b;
+
+                // ── 1. Query projection: query = Wq * [x_t ; h_prev] ──────────
+                let qi_len = iu + hu;
+                for i in 0..md {
+                    let mut s = 0.0f32;
+                    let row = i * qi_len;
+                    for j in 0..iu  { s += wq[row + j]       * x_t[j]; }
+                    for j in 0..hu  { s += wq[row + iu + j]  * *hb.add(h_prev_base + j * bs); }
+                    query[i] = s;
+                }
+
+                // ── 2. Attention retrieval ─────────────────────────────────────
+                let mut best_slot = 0usize;
+                let mut best_score = f32::NEG_INFINITY;
+                for slot in 0..ms {
+                    let mut sc = 0.0f32;
+                    for i in 0..md { sc += query[i] * *mkb.add(mem_off + i * ms + slot); }
+                    sc *= score_scale;
+                    scores[slot] = sc;
+                    if sc > best_score { best_score = sc; best_slot = slot; }
+                }
+                stable_softmax(&scores, &mut attn);
+                for i in 0..md {
+                    let mut s = 0.0f32;
+                    let base = mem_off + i * ms;
+                    for slot in 0..ms { s += *mvb.add(base + slot) * attn[slot]; }
+                    read[i] = s;
+                }
+
+                // ── 3. Combined = [x_t ; read] ────────────────────────────────
+                // combined_out layout: [t * combined_width * bs + j * bs + b]
+                let co_t_base = t * combined_width * bs;
+                for j in 0..iu  { *cob.add(co_t_base + j * bs + b)        = x_t[j]; }
+                for j in 0..md  { *cob.add(co_t_base + (iu + j) * bs + b) = read[j]; }
+
+                // ── 4. RNN cell ───────────────────────────────────────────────
+                let h_curr_base = (t + 1) * bs * hu + b;
+                let da_base     = t * bs * hu + b;
+                for i in 0..hu {
+                    let mut s = bh[i];
+                    let wx_row = i * combined_width;
+                    for j in 0..iu { s += wxh[wx_row + j]      * x_t[j]; }
+                    for j in 0..md { s += wxh[wx_row + iu + j]  * read[j]; }
+                    let wh_row = i * hu;
+                    for j in 0..hu { s += whh[wh_row + j] * *hb.add(h_prev_base + j * bs); }
+                    if use_relu {
+                        if s > 0.0 { h_t[i] = s; *dab.add(da_base + i * bs) = 1.0; }
+                        else        { h_t[i] = 0.0; *dab.add(da_base + i * bs) = 0.0; }
+                    } else {
+                        let tv = s.tanh(); h_t[i] = tv;
+                        *dab.add(da_base + i * bs) = 1.0 - tv * tv;
+                    }
+                    *hb.add(h_curr_base + i * bs) = h_t[i];
+                }
+
+                // ── 5. Write gate: gate = sigmoid(Wg * [x_t ; h_t ; read]) ───
+                let gi_len = iu + hu + md;
+                for i in 0..md {
+                    let mut s = bg[i];
+                    let row = i * gi_len;
+                    for j in 0..iu { s += wg[row + j]           * x_t[j]; }
+                    for j in 0..hu { s += wg[row + iu + j]       * h_t[j]; }
+                    for j in 0..md { s += wg[row + iu + hu + j]  * read[j]; }
+                    gate[i] = sigmoid(s);
+                }
+
+                // ── 6. Candidate memory: cand = Wm * h_t ──────────────────────
+                for i in 0..md {
+                    let mut s = 0.0f32;
+                    let row = i * hu;
+                    for j in 0..hu { s += wm[row + j] * h_t[j]; }
+                    cand[i] = s;
+                }
+
+                // ── 7. Select write slot ───────────────────────────────────────
+                let mut write_slot = ms; // sentinel: no free slot yet
+                for slot in 0..ms {
+                    if *mub.add(usage_off + slot) == 0.0 { write_slot = slot; break; }
+                }
+                if write_slot == ms {
+                    // fall back to least-used (favour retrieved slot on tie)
+                    write_slot = best_slot;
+                    let mut min_u = *mub.add(usage_off + best_slot);
+                    for slot in 0..ms {
+                        let u = *mub.add(usage_off + slot);
+                        if u < min_u { min_u = u; write_slot = slot; }
+                    }
+                }
+
+                // ── 8. Gated memory update ─────────────────────────────────────
+                for i in 0..md {
+                    let idx = mem_off + i * ms + write_slot;
+                    let g = gate[i];
+                    *mkb.add(idx) = (1.0 - g) * *mkb.add(idx) + g * query[i];
+                    *mvb.add(idx) = (1.0 - g) * *mvb.add(idx) + g * cand[i];
+                }
+                *mub.add(usage_off + write_slot) += 1.0;
+            }
+        }
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AdaptiveMemoryRNN – backward pass (BPTT through Wxh/Whh/bh only)
+//
+// Input buffers (from forward):
+//   combined  : [seq_len * combined_width * batch_size]
+//   h_seq     : [(seq_len+1) * batch_size * hidden_units]
+//   act_grad  : [seq_len * batch_size * hidden_units]
+//   err_h     : [seq_len * batch_size * hidden_units]  (per-step errors, pre-built)
+//
+// Output gradient buffers (accumulated, must be zeroed by caller):
+//   dwxh, dwhh, dbh, dx_out
+//
+// dx_out layout: [input_units, total_cols]  (only the first `input_units` rows
+//                                             of the combined gradient are emitted)
+// ─────────────────────────────────────────────────────────────────────────────
+#[napi]
+#[allow(clippy::too_many_arguments)]
+pub fn adaptive_memory_rnn_backward_native_into(
+    wxh: Float32Array, whh: Float32Array,
+    combined: Float32Array, h_seq: Float32Array,
+    act_grad: Float32Array, err_h: Float32Array,
+    hidden_units: u32, input_units: u32, memory_dim: u32,
+    seq_len: u32, batch_size: u32,
+    mut dwxh: Float32Array, mut dwhh: Float32Array, mut dbh: Float32Array,
+    mut dx_out: Float32Array,
+) {
+    let hu = hidden_units as usize;
+    let iu = input_units as usize;
+    let md = memory_dim as usize;
+    let sl = seq_len as usize;
+    let bs = batch_size as usize;
+    let total_cols = sl * bs;
+    let combined_width = iu + md;
+
+    // ── Pass 1: compute dz per (t, b) and propagate dx, accumulate dh_prev ──
+    let mut dz_all = vec![0.0f32; sl * bs * hu];
+    let dz_ptr  = SyncPtr(dz_all.as_mut_ptr() as usize);
+    let wx_ptr  = SyncPtr(wxh.as_ptr() as usize);
+    let wh_ptr  = SyncPtr(whh.as_ptr() as usize);
+    let co_ptr  = SyncPtr(combined.as_ptr() as usize);
+    let hs_ptr  = SyncPtr(h_seq.as_ptr() as usize);
+    let da_ptr  = SyncPtr(act_grad.as_ptr() as usize);
+    let eh_ptr  = SyncPtr(err_h.as_ptr() as usize);
+    let dx_ptr  = SyncPtr(dx_out.as_mut_ptr() as usize);
+
+    (0..bs).into_par_iter().for_each(|b| {
+        unsafe {
+            let wx  = std::slice::from_raw_parts(wx_ptr.0 as *const f32, hu * combined_width);
+            let wh  = std::slice::from_raw_parts(wh_ptr.0 as *const f32, hu * hu);
+            let da  = std::slice::from_raw_parts(da_ptr.0 as *const f32, sl * bs * hu);
+            let eh  = std::slice::from_raw_parts(eh_ptr.0 as *const f32, sl * bs * hu);
+            let dzb = dz_ptr.0 as *mut f32;
+            let dxb = dx_ptr.0 as *mut f32;
+
+            let mut dhn = vec![0.0f32; hu];
+            for ti in 0..sl {
+                let t      = sl - 1 - ti;
+                let gate   = t * bs * hu + b;
+                // dz[i] = (err_h[gate+i*bs] + dh_next[i]) * act_grad[gate+i*bs]
+                for i in 0..hu {
+                    let dz = (eh[gate + i * bs] + dhn[i]) * da[gate + i * bs];
+                    *dzb.add(gate + i * bs) = dz;
+                }
+                // dh_prev: W_hh^T * dz
+                let mut ndh = vec![0.0f32; hu];
+                for j in 0..hu {
+                    let mut s = 0.0f32;
+                    for k in 0..hu { s += wh[k * hu + j] * *dzb.add(gate + k * bs); }
+                    ndh[j] = s;
+                }
+                dhn = ndh;
+                // dx: Wxh[:, 0..iu]^T * dz  (only the input portion of combined)
+                for j in 0..iu {
+                    let mut s = 0.0f32;
+                    for k in 0..hu { s += wx[k * combined_width + j] * *dzb.add(gate + k * bs); }
+                    *dxb.add(j * total_cols + t * bs + b) = s;
+                }
+            }
+        }
+    });
+
+    // ── Pass 2: weight gradients (parallel over hidden rows) ──────────────────
+    let dwx_ptr = SyncPtr(dwxh.as_mut_ptr() as usize);
+    let dwh_ptr = SyncPtr(dwhh.as_mut_ptr() as usize);
+
+    (0..hu).into_par_iter().for_each(|r| {
+        unsafe {
+            let dz = std::slice::from_raw_parts(dz_ptr.0 as *const f32, sl * bs * hu);
+            let co = std::slice::from_raw_parts(co_ptr.0 as *const f32, sl * bs * combined_width);
+            let hs = std::slice::from_raw_parts(hs_ptr.0 as *const f32, (sl + 1) * bs * hu);
+            let dwx = dwx_ptr.0 as *mut f32;
+            let dwh = dwh_ptr.0 as *mut f32;
+            for t in 0..sl {
+                let dz_off  = t * bs * hu;
+                let co_off  = t * combined_width * bs;
+                let hs_off  = t * bs * hu;
+                for b in 0..bs {
+                    let dv = dz[dz_off + r * bs + b];
+                    for c in 0..combined_width {
+                        *dwx.add(r * combined_width + c) += dv * co[co_off + c * bs + b];
+                    }
+                    for c in 0..hu {
+                        *dwh.add(r * hu + c) += dv * hs[hs_off + c * bs + b];
+                    }
+                }
+            }
+        }
+    });
+
+    // ── Pass 3: bias gradients ─────────────────────────────────────────────────
+    let dbh_s = &mut *dbh;
+    for t in 0..sl {
+        let off = t * bs * hu;
+        for b in 0..bs {
+            for r in 0..hu { dbh_s[r] += dz_all[off + r * bs + b]; }
+        }
+    }
 }

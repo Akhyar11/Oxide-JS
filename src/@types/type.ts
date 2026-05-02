@@ -10,6 +10,7 @@ import MultiHeadAttention from "../layers/multiHeadAttention";
 import RNN from "../layers/rnn";
 import LSTM from "../layers/lstm";
 import GRU from "../layers/gru";
+import AdaptiveMemoryRNN from "../layers/adaptiveMemoryRNN";
 import Dropout from "../layers/dropout";
 import Matrix from "../matrix";
 import AdaGrad from "../optimizer/adaGrad";
@@ -51,7 +52,8 @@ export type Layers =
     | Dropout
     | RNN
     | LSTM
-    | GRU;
+    | GRU
+    | AdaptiveMemoryRNN;
 
 export type WorkerData = {
   value: number;

@@ -1,6 +1,7 @@
 import { Layers } from "../@types/type";
 import {
   Activation,
+  AdaptiveMemoryRNN,
   Convolution,
   Dense,
   Dropout,
@@ -177,6 +178,26 @@ registerLayer("gru layer", (data) => {
   });
   gru.load(data);
   return gru;
+});
+
+registerLayer("adaptive memory rnn layer", (data) => {
+  const layer = new AdaptiveMemoryRNN({
+    units: data.units,
+    hiddenUnits: data.hiddenUnits,
+    activation: data.activation,
+    memorySlots: data.memorySlots,
+    memoryDim: data.memoryDim,
+    returnSequences: data.returnSequences,
+    returnState: data.returnState,
+    stateful: data.stateful,
+    alpha: data.alpha,
+    optimizer: data.optimizer,
+    status: data.status,
+    clipGradient: data.clipGradient,
+    loss: data.loss,
+  });
+  layer.load(data);
+  return layer;
 });
 
 registerLayer("flatten", (data) => new Flatten(data.status));
