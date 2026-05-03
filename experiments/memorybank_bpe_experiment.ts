@@ -298,6 +298,38 @@ function getMemoryBankLayer(model: Sequential): MemoryBank {
   return layer as MemoryBank;
 }
 
+/**
+ * Mean-pool tokenized text into a [embeddingDim, 1] Matrix.
+ * Used to compute canonical target keys for trainLastWriteKey().
+ */
+function pooledTextForTargetKey(
+  tokenizer: any,
+  embeddingLayer: any,
+  text: string,
+  maxLen = MAX_TURN_TOKENS,
+  embeddingDim = EMBEDDING_DIM
+): Matrix {
+  const ids = tokenizer.encode(text);
+  const validLen = Math.max(1, Math.min(ids.length, maxLen));
+  const padded = tokenizer.padSequence(ids, maxLen);
+  const x = Matrix.fromFlat(Float32Array.from(padded), [maxLen, 1]);
+  const emb: Matrix = embeddingLayer.forward(x);
+  const pooled = mj.zeros([embeddingDim, 1]);
+  for (let d = 0; d < embeddingDim; d++) {
+    let sum = 0;
+    const rowOffset = d * maxLen;
+    for (let t = 0; t < validLen; t++) sum += emb._data[rowOffset + t];
+    pooled._data[d] = sum / validLen;
+  }
+  return pooled;
+}
+
+function getEmbeddingLayer(model: Sequential): any {
+  const layer = (model.layers as any[]).find((l) => l.name === "embedding layer");
+  if (!layer) throw new Error("Embedding layer not found in model.");
+  return layer;
+}
+
 function configureMemoryWrites(model: Sequential, op: string, freezeAllWrites = false): void {
   if (freezeAllWrites) {
     model.freezeMemoryWrites();
@@ -669,15 +701,27 @@ function trainOneEpoch(
           // This bypasses the BPTT gap: query loss does NOT flow back to past STORE writes.
           if (USE_WRITE_PROBE && writeProbe) {
             const mb = getMemoryBankLayer(model);
+
+            // Train writeValueKernel: stored value should encode target value class.
             const probeLoss = mb.trainLastWriteValue(target, writeProbe);
             if (probeLoss !== null) {
               totalProbe++;
-              // Compute probe accuracy by checking probe prediction
               const probeValMat = mb.getLastWriteValueMatrix();
               if (probeValMat) {
                 const probePred = writeProbe.forward(probeValMat);
                 if (argmax(probePred) === target) correctProbe++;
               }
+            }
+
+            // Train writeKeyKernel: stored key should match future canonical query projection.
+            // Target key = normalize(queryKernel * pooled("query key_xx"))
+            // This aligns the write key-space with the read query key-space.
+            if (turn.key_text) {
+              const embeddingLayer = getEmbeddingLayer(model);
+              const canonicalQueryText = `query ${turn.key_text}`;
+              const canonicalQueryPooled = pooledTextForTargetKey(tokenizer, embeddingLayer, canonicalQueryText);
+              const targetKey = mb.getQueryVectorForInput(canonicalQueryPooled, true);
+              mb.trainLastWriteKey(targetKey);
             }
           }
         }

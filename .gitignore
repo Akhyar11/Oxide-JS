@@ -13,3 +13,4 @@
 # Compiled Node.js binary modules
 *.node
 .agents
+test.txt

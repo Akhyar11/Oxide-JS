@@ -1,27 +1,24 @@
 /**
- * PART 6 — MemoryBank Episodic Retrieval Diagnostic
+ * MemoryBank Episodic Retrieval Diagnostic
  *
- * Three modes that progressively isolate where the retrieval pipeline breaks.
- *
+ * Modes:
  * 1. manual-read
- *    Memory set manually. Query must read correct slot.
- *    If this fails: fix similarity / query / output head.
+ *    Proves raw MemoryBank read path works with known keys.
  *
  * 2. deterministic-write
- *    STORE writes key/value manually (bypasses learned write path).
- *    QUERY reads via normal MemoryBank read path.
- *    If this passes but learned-write fails: fix write training path.
+ *    Writes memory manually using canonical query-space keys:
+ *      memoryKey = normalize(queryKernel * pooled("query key_xx"))
+ *    Then QUERY should retrieve the correct slot.
+ *    This is the critical fix: key-space must match between STORE and QUERY.
  *
  * 3. learned-write
- *    Current normal MemoryBank flow (no manual intervention).
- *    Expected to fail before write supervision is added.
- *    After write probe fix, this should start improving.
+ *    Uses normal MemoryBank write path. Expected to need writeKey/writeValue supervision.
  *
  * Usage:
+ *   npx ts-node experiments/memorybank_diagnostic.ts
  *   npx ts-node experiments/memorybank_diagnostic.ts --mode manual-read
  *   npx ts-node experiments/memorybank_diagnostic.ts --mode deterministic-write
  *   npx ts-node experiments/memorybank_diagnostic.ts --mode learned-write
- *   npx ts-node experiments/memorybank_diagnostic.ts          # runs all three
  */
 
 import path from "path";
@@ -29,14 +26,12 @@ import path from "path";
 import { MemoryBank, Dense, Embedding } from "../src/layers";
 import mj from "../src/math";
 import Matrix from "../src/matrix";
-import { Sequential } from "../src/models";
 
 import {
   loadBpeMemoryEpisodes,
   trainMemoryBpeTokenizer,
   getQueryForTurn,
   BpeMemoryEpisode,
-  BpeMemoryTurn,
 } from "./memorybank_bpe_dataset/bpe_memory_dataset_loader";
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -52,8 +47,6 @@ const MAX_TURN_TOKENS = 12;
 const ALPHA = 0.001;
 const DIAGNOSTIC_EPISODES = 100;
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
 function formatPct(v: number): string {
   return `${(v * 100).toFixed(2)}%`;
 }
@@ -62,7 +55,10 @@ function argmax(m: Matrix): number {
   let maxIdx = 0;
   let maxVal = m._data[0];
   for (let i = 1; i < m._data.length; i++) {
-    if (m._data[i] > maxVal) { maxVal = m._data[i]; maxIdx = i; }
+    if (m._data[i] > maxVal) {
+      maxVal = m._data[i];
+      maxIdx = i;
+    }
   }
   return maxIdx;
 }
@@ -75,28 +71,34 @@ function parseValueClass(text?: string): number | null {
   return Number.isInteger(v) && v >= 0 && v < OUTPUT_CLASSES ? v : null;
 }
 
-// Simple pooling layer (local, no pooling layer from repo needed here)
-function meanPool(tokenIds: number[], maxLen: number, embeddingDim: number, embedding: any): Matrix {
-  const padded = tokenIds.slice(0, maxLen);
-  while (padded.length < maxLen) padded.push(0);
+function matrixToArray(m: Matrix): number[] {
+  return Array.from(m._data);
+}
+
+/**
+ * Mean-pool tokenized text into a [embeddingDim, 1] Matrix.
+ */
+function pooledText(
+  tokenizer: any,
+  embedding: Embedding,
+  text: string,
+  maxLen = MAX_TURN_TOKENS,
+  embeddingDim = EMBEDDING_DIM
+): Matrix {
+  const ids = tokenizer.encode(text);
+  const validLen = Math.max(1, Math.min(ids.length, maxLen));
+  const padded = tokenizer.padSequence(ids, maxLen);
   const x = Matrix.fromFlat(Float32Array.from(padded), [maxLen, 1]);
-  const emb: Matrix = (embedding as any).forward(x); // [embeddingDim, maxLen]
-  // mean across columns
-  const out = mj.zeros([embeddingDim, 1]);
-  const validLen = Math.min(tokenIds.length, maxLen);
+  const emb: Matrix = (embedding as any).forward(x);
+  const pooled = mj.zeros([embeddingDim, 1]);
   for (let d = 0; d < embeddingDim; d++) {
-    let s = 0;
-    for (let t = 0; t < validLen; t++) s += emb._data[d * maxLen + t];
-    out._data[d] = s / Math.max(1, validLen);
+    let sum = 0;
+    const rowOffset = d * maxLen;
+    for (let t = 0; t < validLen; t++) sum += emb._data[rowOffset + t];
+    pooled._data[d] = sum / validLen;
   }
-  return out;
+  return pooled;
 }
-
-function getMemoryBankLayer(mb: MemoryBank): MemoryBank {
-  return mb;
-}
-
-// ─── Result types ────────────────────────────────────────────────────────────
 
 interface DiagResult {
   mode: string;
@@ -113,17 +115,16 @@ interface DiagResult {
   memoryGain: number;
 }
 
-// ─── mode 1: manual-read ─────────────────────────────────────────────────────
+// ─── Mode 1: manual-read ────────────────────────────────────────────────────
 
 function diagManualRead(): DiagResult {
   console.log("\n" + "=".repeat(72));
   console.log("MODE: manual-read");
-  console.log("Proves: MemoryBank read path (similarity + slot selection) is correct");
-  console.log("Expected: topSlotAcc=100%, predAcc meaningful");
+  console.log("Proves: raw MemoryBank read path works with known keys");
+  console.log("Expected: topSlotAcc=100%");
   console.log("=".repeat(72));
 
-  const N = 4; // small
-
+  const N = 4;
   const mb = new MemoryBank({
     units: N,
     memorySlots: N,
@@ -132,67 +133,57 @@ function diagManualRead(): DiagResult {
     mode: "project",
     similarity: "cosine",
     readTopK: N,
-    writeThreshold: 99.0, // disable real writes
+    writeThreshold: 99.0,
     trainablePolicy: false,
   });
 
-  // Init
   mb.forward(mj.zeros([N, 1]));
   mb.resetMemory();
 
-  // Set queryKernel = identity
+  // queryKernel = identity so q = x directly
   (mb as any).queryKernel = mj.zeros([N, N]);
   for (let i = 0; i < N; i++) (mb as any).queryKernel._data[i * N + i] = 1;
 
-  // Slot 0: key=[1,0,0,0]  slot 1: key=[0,1,0,0]  slot 2: key=[0,0,1,0]
   const keyVectors = [
     [1, 0, 0, 0],
     [0, 1, 0, 0],
     [0, 0, 1, 0],
   ];
-  const valVectors = [
+  const valueVectors = [
     [0.1, 0.2, 0.3, 0.4],
     [0.5, 0.6, 0.7, 0.8],
     [0.9, 0.8, 0.7, 0.6],
   ];
+
   for (let s = 0; s < 3; s++) {
-    mb.writeMemoryForDebug(keyVectors[s], valVectors[s], s);
+    mb.writeMemoryForDebug(keyVectors[s], valueVectors[s], s);
   }
 
-  // Queries: each standard basis vector should retrieve the corresponding slot
-  let topSlotCorrect = 0;
   let queries = 0;
+  let topSlotCorrect = 0;
 
   for (let s = 0; s < 3; s++) {
-    const qVec = keyVectors[s];
     const input = mj.zeros([N, 1]);
-    for (let d = 0; d < N; d++) input._data[d] = qVec[d];
-
+    for (let d = 0; d < N; d++) input._data[d] = keyVectors[s][d];
     mb.forward(input);
     const trace = mb.getDebugTrace();
     const topSlot = trace[0]?.readSlots[0]?.slot ?? -1;
-    const correct = topSlot === s;
-    topSlotCorrect += correct ? 1 : 0;
+    const ok = topSlot === s;
+    if (ok) topSlotCorrect++;
     queries++;
-
-    if (!correct) {
+    if (!ok) {
       console.log(
-        `  [manual-read] FAIL: query slot=${s} expected topSlot=${s}, got topSlot=${topSlot}. ` +
-          `readSlots=${JSON.stringify(trace[0]?.readSlots)}`
+        `[manual-read] FAIL querySlot=${s} expected=${s} got=${topSlot} readSlots=${JSON.stringify(trace[0]?.readSlots)}`
       );
     }
   }
 
-  const topSlotAcc = queries > 0 ? topSlotCorrect / queries : 0;
+  const topSlotAcc = queries ? topSlotCorrect / queries : 0;
   console.log(`[manual-read] topSlotAcc=${formatPct(topSlotAcc)} (${topSlotCorrect}/${queries})`);
-
-  if (topSlotAcc < 1.0) {
-    console.error(
-      "FAIL: manual-read topSlotAcc < 100%. The read path (cosine similarity + slot selection) is broken. " +
-        "Fix similarity/query/output path before proceeding."
-    );
+  if (topSlotAcc === 1) {
+    console.log("PASS: manual-read.");
   } else {
-    console.log("PASS: manual-read. Read path selects slots correctly.");
+    console.error("FAIL: manual-read. Fix similarity/query/slot selection first.");
   }
 
   return {
@@ -211,17 +202,23 @@ function diagManualRead(): DiagResult {
   };
 }
 
-// ─── mode 2: deterministic-write ────────────────────────────────────────────
+// ─── Mode 2: deterministic-write (canonical key-space) ──────────────────────
 
 function diagDeterministicWrite(tokenizer: any, episodes: BpeMemoryEpisode[]): DiagResult {
   console.log("\n" + "=".repeat(72));
   console.log("MODE: deterministic-write");
-  console.log("Proves: When write state is correct, can query path + output head solve it?");
-  console.log("Expected: topSlotAcc high, predAcc above random if output head is reasonable");
+  console.log("Proves: if memory written with canonical query-space keys, QUERY retrieves correct slot.");
+  console.log('Key fix: memoryKey = normalize(queryKernel * pooled("query key_xx"))');
+  console.log("Expected: topSlotAcc > 80%");
   console.log("=".repeat(72));
 
-  const embedding = new (require("../src/layers").Embedding)({
-    vocabSize: tokenizer.getVocabSize(),
+  const vocabCapacity =
+    typeof tokenizer.getVocabularyCapacity === "function"
+      ? tokenizer.getVocabularyCapacity()
+      : tokenizer.getVocabSize();
+
+  const embedding = new Embedding({
+    vocabSize: vocabCapacity,
     embeddingDim: EMBEDDING_DIM,
     alpha: ALPHA,
     trainable: false,
@@ -235,11 +232,12 @@ function diagDeterministicWrite(tokenizer: any, episodes: BpeMemoryEpisode[]): D
     mode: "project",
     similarity: "cosine",
     readTopK: Math.min(4, MEMORY_SLOTS),
-    writeThreshold: 99.0, // prevent learned writes
+    writeThreshold: 99.0,
     trainablePolicy: false,
   });
 
-  // Create a simple output head
+  // Output head is intentionally untrained — predAcc is not the main metric here.
+  // Main metrics: topSlotAcc and topValueAcc.
   const outputHead = new Dense({
     units: EMBEDDING_DIM,
     outputUnits: OUTPUT_CLASSES,
@@ -249,150 +247,132 @@ function diagDeterministicWrite(tokenizer: any, episodes: BpeMemoryEpisode[]): D
     alpha: ALPHA,
   });
 
-  // Force mb init
-  const dummyIn = mj.zeros([EMBEDDING_DIM, 1]);
-  mb.forward(dummyIn);
+  mb.forward(mj.zeros([EMBEDDING_DIM, 1]));
+  mb.resetMemory();
 
   let totalQueries = 0;
   let topSlotCorrect = 0;
   let topValueCorrect = 0;
   let predCorrect = 0;
+  let printCount = 0;
 
   const maxEp = Math.min(episodes.length, DIAGNOSTIC_EPISODES);
-  let printCount = 0;
 
   for (let i = 0; i < maxEp; i++) {
     const episode = episodes[i];
     mb.resetMemory();
 
-    // Shadow tracker
     const slotFacts = new Map<number, { keyText: string; valueText: string; valueClass: number }>();
     const keyToSlot = new Map<string, number>();
 
     for (let t = 0; t < episode.turns.length; t++) {
       const turn = episode.turns[t];
 
-      // Encode turn text
-      const ids = tokenizer.encode(turn.text);
-      const validLen = Math.min(ids.length, MAX_TURN_TOKENS);
-      const paddedIds = tokenizer.padSequence(ids, MAX_TURN_TOKENS);
-      const xTokens = Matrix.fromFlat(Float32Array.from(paddedIds), [MAX_TURN_TOKENS, 1]);
-      const embOut: Matrix = (embedding as any).forward(xTokens);
-
-      // Mean pool
-      const pooled = mj.zeros([EMBEDDING_DIM, 1]);
-      for (let d = 0; d < EMBEDDING_DIM; d++) {
-        let s = 0;
-        for (let c = 0; c < validLen; c++) s += embOut._data[d * MAX_TURN_TOKENS + c];
-        pooled._data[d] = s / Math.max(1, validLen);
-      }
-
       if (turn.op === "STORE" || turn.op === "UPDATE") {
-        // Deterministic write: encode key and value text and write manually
         const valueClass = parseValueClass(turn.value_text);
         if (turn.key_text && turn.value_text && valueClass !== null) {
-          // Use embedding of key_text as key vector (mean pooled)
-          const kIds = tokenizer.encode(turn.key_text);
-          const kPadded = tokenizer.padSequence(kIds, MAX_TURN_TOKENS);
-          const kX = Matrix.fromFlat(Float32Array.from(kPadded), [MAX_TURN_TOKENS, 1]);
-          const kEmb: Matrix = (embedding as any).forward(kX);
-          const keyVec: number[] = [];
-          const kValidLen = Math.min(kIds.length, MAX_TURN_TOKENS);
-          for (let d = 0; d < EMBEDDING_DIM; d++) {
-            let s = 0;
-            for (let c = 0; c < kValidLen; c++) s += kEmb._data[d * MAX_TURN_TOKENS + c];
-            keyVec.push(s / Math.max(1, kValidLen));
-          }
+          // CRITICAL FIX: key must live in query-kernel space.
+          // A future QUERY will project "query key_xx" via queryKernel.
+          // So write key = normalize(queryKernel * pooled("query key_xx")).
+          const canonicalQueryText = `query ${turn.key_text}`;
+          const canonicalQueryPooled = pooledText(tokenizer, embedding, canonicalQueryText);
+          const keyMatrix = mb.getQueryVectorForInput(canonicalQueryPooled, true);
+          const keyVec = matrixToArray(keyMatrix);
 
-          // Value vector: one-hot for valueClass, padded to MEMORY_DIM
-          const valVec = new Array<number>(MEMORY_DIM).fill(0);
-          if (valueClass < MEMORY_DIM) valVec[valueClass] = 1.0;
+          // Store value as one-hot of valueClass in memoryDim space (deterministic diagnosis).
+          const valueVec = new Array<number>(MEMORY_DIM).fill(0);
+          if (valueClass < MEMORY_DIM) valueVec[valueClass] = 1;
 
-          // Find an empty or least-used slot
           const state = mb.getMemoryState();
           let writeSlot = -1;
-          for (let s = 0; s < MEMORY_SLOTS; s++) {
-            if (!state.memoryFilled[s]) { writeSlot = s; break; }
-          }
-          if (writeSlot === -1) {
-            let minUsage = Infinity;
+
+          // UPDATE: reuse same slot if key already written
+          if (turn.op === "UPDATE" && keyToSlot.has(turn.key_text)) {
+            writeSlot = keyToSlot.get(turn.key_text)!;
+          } else {
             for (let s = 0; s < MEMORY_SLOTS; s++) {
-              if (state.memoryUsage[s] < minUsage) { minUsage = state.memoryUsage[s]; writeSlot = s; }
+              if (!state.memoryFilled[s]) { writeSlot = s; break; }
+            }
+            if (writeSlot === -1) {
+              let minUsage = Infinity;
+              for (let s = 0; s < MEMORY_SLOTS; s++) {
+                if (state.memoryUsage[s] < minUsage) { minUsage = state.memoryUsage[s]; writeSlot = s; }
+              }
             }
           }
 
-          mb.writeMemoryForDebug(keyVec, valVec, writeSlot);
+          mb.writeMemoryForDebug(keyVec, valueVec, writeSlot);
           slotFacts.set(writeSlot, { keyText: turn.key_text, valueText: turn.value_text, valueClass });
           keyToSlot.set(turn.key_text, writeSlot);
         }
+        continue;
+      }
 
-        // Also forward through MB (for read side) with frozen writes
-        mb.forward(pooled); // reads are computed but writes disabled
-      } else if (turn.op === "QUERY") {
-        // Forward through mb (writes frozen)
-        const mbOut = mb.forward(pooled); // [EMBEDDING_DIM, 1]
-        const trace = mb.getDebugTrace();
-        const pred = outputHead.forward(mbOut);
-
+      if (turn.op === "QUERY") {
         const q = getQueryForTurn(episode, t);
         if (!q) continue;
 
-        totalQueries++;
+        const pooled = pooledText(tokenizer, embedding, turn.text);
+        const mbOut = mb.forward(pooled);
+        const trace = mb.getDebugTrace();
+        const pred = outputHead.forward(mbOut);
+        const predClass = argmax(pred);
+
         const topReadSlot = trace[0]?.readSlots[0]?.slot ?? -1;
         const expectedSlot = keyToSlot.get(q.key_text) ?? -1;
         const topFact = topReadSlot >= 0 ? slotFacts.get(topReadSlot) : undefined;
-        const predClass = argmax(pred);
 
         const slotOk = topReadSlot === expectedSlot && expectedSlot >= 0;
         const valueOk = topFact?.valueClass === q.target_class;
         const predOk = predClass === q.target_class;
 
-        topSlotCorrect += slotOk ? 1 : 0;
-        topValueCorrect += valueOk ? 1 : 0;
-        predCorrect += predOk ? 1 : 0;
+        if (slotOk) topSlotCorrect++;
+        if (valueOk) topValueCorrect++;
+        if (predOk) predCorrect++;
+        totalQueries++;
 
-        if (printCount < 3) {
+        if (printCount < 5) {
           console.log(
-            `  [det-write] ep=${i} t=${t}: key="${q.key_text}" ` +
-              `expectedSlot=${expectedSlot} topSlot=${topReadSlot} ` +
-              `topFact=${JSON.stringify(topFact)} ` +
-              `pred=${predClass} target=${q.target_class} ` +
-              `slotOk=${slotOk} valueOk=${valueOk} predOk=${predOk}`
+            [
+              `[det-write] ep=${i} t=${t}`,
+              `key="${q.key_text}"`,
+              `expectedSlot=${expectedSlot}`,
+              `topSlot=${topReadSlot}`,
+              `topAttn=${(trace[0]?.readSlots[0]?.attn ?? 0).toFixed(3)}`,
+              `topFact=${JSON.stringify(topFact)}`,
+              `pred=${predClass}`,
+              `target=${q.target_class}`,
+              `slotOk=${slotOk}`,
+              `valueOk=${valueOk}`,
+              `predOk=${predOk}`,
+            ].join(" | ")
           );
           printCount++;
         }
-      } else {
-        // NOOP: just forward but ignore
-        mb.forward(pooled);
       }
     }
   }
 
-  const topSlotAcc = totalQueries > 0 ? topSlotCorrect / totalQueries : 0;
-  const topValueAcc = totalQueries > 0 ? topValueCorrect / totalQueries : 0;
-  const predAcc = totalQueries > 0 ? predCorrect / totalQueries : 0;
-  const random = 1 / OUTPUT_CLASSES;
+  const topSlotAcc = totalQueries ? topSlotCorrect / totalQueries : 0;
+  const topValueAcc = totalQueries ? topValueCorrect / totalQueries : 0;
+  const predAcc = totalQueries ? predCorrect / totalQueries : 0;
 
   console.log(`[deterministic-write] queries=${totalQueries}`);
-  console.log(`  topSlotAcc  = ${formatPct(topSlotAcc)}`);
-  console.log(`  topValueAcc = ${formatPct(topValueAcc)}`);
-  console.log(`  predAcc     = ${formatPct(predAcc)}  (random baseline=${formatPct(random)})`);
+  console.log(`  topSlotAcc  = ${formatPct(topSlotAcc)} (${topSlotCorrect}/${totalQueries})`);
+  console.log(`  topValueAcc = ${formatPct(topValueAcc)} (${topValueCorrect}/${totalQueries})`);
+  console.log(`  predAcc     = ${formatPct(predAcc)} (${predCorrect}/${totalQueries})`);
+  console.log(`  random      = ${formatPct(1 / OUTPUT_CLASSES)}`);
 
-  if (topSlotAcc < 0.5) {
+  if (topSlotAcc >= 0.8) {
+    console.log("PASS: deterministic-write. Canonical key-space retrieval is healthy.");
+    if (topValueAcc < 0.8) {
+      console.error("WARNING: topSlotAcc OK but topValueAcc low. Check slot shadow tracking in diagnostic.");
+    }
+  } else {
     console.error(
-      "WARNING: deterministic-write topSlotAcc < 50%. Even with manually correct writes, " +
-        "query cannot find the right slot. Read path or embedding similarity is misaligned."
-    );
-  }
-  if (topSlotAcc >= 0.5 && predAcc <= random + 0.02) {
-    console.error(
-      "WARNING: deterministic-write topSlotAcc OK but predAcc near random. " +
-        "Output head is not using memory values. Check outputKernel or memory read integration."
-    );
-  }
-  if (topSlotAcc >= 0.5 && predAcc > random + 0.05) {
-    console.log(
-      "PASS: deterministic-write. When writes are correct, model can read and produce above-random predictions."
+      "WARNING: deterministic-write topSlotAcc < 80%. " +
+        "Even with canonical query-space keys, retrieval is failing. " +
+        "Check pooledText encoding consistency between STORE and QUERY."
     );
   }
 
@@ -412,141 +392,126 @@ function diagDeterministicWrite(tokenizer: any, episodes: BpeMemoryEpisode[]): D
   };
 }
 
-// ─── mode 3: learned-write ───────────────────────────────────────────────────
+// ─── Mode 3: learned-write ───────────────────────────────────────────────────
 
 function diagLearnedWrite(tokenizer: any, episodes: BpeMemoryEpisode[]): DiagResult {
   console.log("\n" + "=".repeat(72));
   console.log("MODE: learned-write");
-  console.log("Current normal MemoryBank flow. Expected to show memoryGain ≈ 0 before write-supervision fix.");
+  console.log("Proves: normal learned writes contribute beyond no-write baseline");
+  console.log("Expected before write-key/value supervision: memoryGain near 0");
   console.log("=".repeat(72));
 
-  // Build a tiny model similar to the main experiment (no training — just single-pass diagnostic)
   const vocabCapacity =
     typeof tokenizer.getVocabularyCapacity === "function"
       ? tokenizer.getVocabularyCapacity()
       : tokenizer.getVocabSize();
 
-  const embedding = new (require("../src/layers").Embedding)({
-    vocabSize: vocabCapacity,
-    embeddingDim: EMBEDDING_DIM,
-    alpha: ALPHA,
-    trainable: false,
-  });
-
-  const mb = new MemoryBank({
-    units: EMBEDDING_DIM,
-    memorySlots: MEMORY_SLOTS,
-    memoryDim: MEMORY_DIM,
-    outputUnits: EMBEDDING_DIM,
-    mode: "project",
-    similarity: "cosine",
-    readTopK: Math.min(4, MEMORY_SLOTS),
-    writeThreshold: 0.0,
-    updateMode: "gated-merge",
-    writePolicy: "empty-first",
-    trainablePolicy: true,
-    alpha: ALPHA,
-    optimizer: "adam",
-  });
-
-  const outputHead = new Dense({
-    units: EMBEDDING_DIM,
-    outputUnits: OUTPUT_CLASSES,
-    activation: "linear",
-    status: "output",
-    loss: "softmaxCrossEntropy",
-    alpha: ALPHA,
-  });
-
-  // Init
-  mb.forward(mj.zeros([EMBEDDING_DIM, 1]));
-
-  let totalQueries = 0;
-  let activeCorrect = 0;
-  let frozenCorrect = 0;
-
-  const maxEp = Math.min(episodes.length, DIAGNOSTIC_EPISODES);
-
-  for (let i = 0; i < maxEp; i++) {
-    const episode = episodes[i];
+  function buildStack() {
+    const embedding = new Embedding({
+      vocabSize: vocabCapacity,
+      embeddingDim: EMBEDDING_DIM,
+      alpha: ALPHA,
+      trainable: false,
+    });
+    const mb = new MemoryBank({
+      units: EMBEDDING_DIM,
+      memorySlots: MEMORY_SLOTS,
+      memoryDim: MEMORY_DIM,
+      outputUnits: EMBEDDING_DIM,
+      mode: "project",
+      similarity: "cosine",
+      readTopK: Math.min(4, MEMORY_SLOTS),
+      writeThreshold: 0.0,
+      updateMode: "gated-merge",
+      writePolicy: "empty-first",
+      trainablePolicy: true,
+      alpha: ALPHA,
+      optimizer: "adam",
+    });
+    const outputHead = new Dense({
+      units: EMBEDDING_DIM,
+      outputUnits: OUTPUT_CLASSES,
+      activation: "linear",
+      status: "output",
+      loss: "softmaxCrossEntropy",
+      alpha: ALPHA,
+    });
+    mb.forward(mj.zeros([EMBEDDING_DIM, 1]));
     mb.resetMemory();
+    return { embedding, mb, outputHead };
+  }
 
-    for (let t = 0; t < episode.turns.length; t++) {
-      const turn = episode.turns[t];
+  function runPass(freezeWritesFromStart: boolean): { correct: number; total: number } {
+    const { embedding, mb, outputHead } = buildStack();
+    let correct = 0;
+    let total = 0;
+    const maxEp = Math.min(episodes.length, DIAGNOSTIC_EPISODES);
 
-      const ids = tokenizer.encode(turn.text);
-      const validLen = Math.min(ids.length, MAX_TURN_TOKENS);
-      const paddedIds = tokenizer.padSequence(ids, MAX_TURN_TOKENS);
-      const xTokens = Matrix.fromFlat(Float32Array.from(paddedIds), [MAX_TURN_TOKENS, 1]);
-      const embOut: Matrix = (embedding as any).forward(xTokens);
-      const pooled = mj.zeros([EMBEDDING_DIM, 1]);
-      for (let d = 0; d < EMBEDDING_DIM; d++) {
-        let s = 0;
-        for (let c = 0; c < validLen; c++) s += embOut._data[d * MAX_TURN_TOKENS + c];
-        pooled._data[d] = s / Math.max(1, validLen);
-      }
+    for (let i = 0; i < maxEp; i++) {
+      const episode = episodes[i];
+      mb.resetMemory();
 
-      if (turn.op === "STORE" || turn.op === "UPDATE") {
-        (mb as any).writeFrozen = false;
-        mb.forward(pooled);
-      } else if (turn.op === "QUERY") {
-        const q = getQueryForTurn(episode, t);
-        if (!q) continue;
+      for (let t = 0; t < episode.turns.length; t++) {
+        const turn = episode.turns[t];
+        const pooled = pooledText(tokenizer, embedding, turn.text);
 
-        // Active pass
-        (mb as any).writeFrozen = true;
-        const activeOut = mb.forward(pooled);
-        const activePred = outputHead.forward(activeOut);
-        const activePredClass = argmax(activePred);
-        if (activePredClass === q.target_class) activeCorrect++;
+        if (turn.op === "STORE" || turn.op === "UPDATE") {
+          if (freezeWritesFromStart) mb.freezeWrites();
+          else mb.enableWrites();
+          mb.forward(pooled);
+          continue;
+        }
 
-        // Frozen pass (same memory state since we didn't write during active)
-        const frozenOut = mb.forward(pooled);
-        const frozenPred = outputHead.forward(frozenOut);
-        const frozenPredClass = argmax(frozenPred);
-        if (frozenPredClass === q.target_class) frozenCorrect++;
+        if (turn.op === "QUERY") {
+          const q = getQueryForTurn(episode, t);
+          if (!q) continue;
+          mb.freezeWrites();
+          const out = mb.forward(pooled);
+          const pred = outputHead.forward(out);
+          if (argmax(pred) === q.target_class) correct++;
+          total++;
+          continue;
+        }
 
-        totalQueries++;
-      } else {
-        (mb as any).writeFrozen = true;
+        mb.freezeWrites();
         mb.forward(pooled);
       }
     }
+    return { correct, total };
   }
 
-  const activeAcc = totalQueries > 0 ? activeCorrect / totalQueries : 0;
-  const frozenAcc = totalQueries > 0 ? frozenCorrect / totalQueries : 0;
-  const memoryGain = activeAcc - frozenAcc;
-  const random = 1 / OUTPUT_CLASSES;
+  const active = runPass(false);
+  const frozen = runPass(true);
 
-  console.log(`[learned-write] queries=${totalQueries}`);
-  console.log(`  activeAcc   = ${formatPct(activeAcc)}`);
-  console.log(`  frozenAcc   = ${formatPct(frozenAcc)}`);
+  const activeAcc = active.total ? active.correct / active.total : 0;
+  const frozenAcc = frozen.total ? frozen.correct / frozen.total : 0;
+  const memoryGain = activeAcc - frozenAcc;
+
+  console.log(`[learned-write] queries=${active.total}`);
+  console.log(`  activeAcc   = ${formatPct(activeAcc)} (${active.correct}/${active.total})`);
+  console.log(`  frozenAcc   = ${formatPct(frozenAcc)} (${frozen.correct}/${frozen.total})`);
   console.log(`  memoryGain  = ${formatPct(memoryGain)}`);
-  console.log(`  random      = ${formatPct(random)}`);
+  console.log(`  random      = ${formatPct(1 / OUTPUT_CLASSES)}`);
 
   if (Math.abs(memoryGain) < 0.01) {
     console.log(
-      "WARNING: MemoryBank active == freezeWrites. Memory is not contributing to query accuracy. " +
-        "Write path needs direct supervision (trainLastWriteValue probe). Run with write supervision next."
+      "WARNING: MemoryBank active == no-write baseline. " +
+        "Learned writes are not contributing yet. " +
+        "Run experiment with --smoke to train writeKeyKernel + writeValueKernel supervision."
     );
-  }
-  if (activeAcc <= random + 0.02) {
-    console.log(
-      "INFO: activeAcc near random. This is expected before write-path training is fixed. " +
-        "Ensure deterministic-write mode passes first."
-    );
+  } else if (memoryGain > 0.01) {
+    console.log(`INFO: memoryGain=${formatPct(memoryGain)}. Memory is starting to contribute.`);
   }
 
   return {
     mode: "learned-write",
-    episodes: maxEp,
-    queries: totalQueries,
+    episodes: Math.min(episodes.length, DIAGNOSTIC_EPISODES),
+    queries: active.total,
     topSlotCorrect: 0,
     topSlotAcc: 0,
     topValueCorrect: 0,
     topValueAcc: 0,
-    predCorrect: activeCorrect,
+    predCorrect: active.correct,
     predAcc: activeAcc,
     activeAcc,
     frozenAcc,
@@ -558,18 +523,16 @@ function diagLearnedWrite(tokenizer: any, episodes: BpeMemoryEpisode[]): DiagRes
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const modeArg = args.find((a) => a.startsWith("--mode="))?.split("=")[1] ??
+  const modeArg =
+    args.find((a) => a.startsWith("--mode="))?.split("=")[1] ??
     (args.includes("--mode") ? args[args.indexOf("--mode") + 1] : null);
-  const modes = modeArg
-    ? [modeArg]
-    : ["manual-read", "deterministic-write", "learned-write"];
+  const modes = modeArg ? [modeArg] : ["manual-read", "deterministic-write", "learned-write"];
 
   console.log("=".repeat(72));
   console.log("MemoryBank Episodic Retrieval Diagnostic");
   console.log("=".repeat(72));
   console.log(`Modes to run: ${modes.join(", ")}`);
 
-  // Always train tokenizer and load episodes for modes 2/3
   let tokenizer: any = null;
   let episodes: BpeMemoryEpisode[] = [];
   const needsData = modes.some((m) => m !== "manual-read");
@@ -582,81 +545,56 @@ async function main(): Promise<void> {
   }
 
   const results: DiagResult[] = [];
-  let manualReadFailed = false;
 
   if (modes.includes("manual-read")) {
-    const r = diagManualRead();
-    results.push(r);
-    if (r.topSlotAcc < 1.0) {
-      manualReadFailed = true;
-      console.error(
-        "\n[DIAGNOSTIC GATE] manual-read FAILED. Read path is broken. " +
-          "Do NOT proceed to training. Fix cosine similarity / slot selection first."
-      );
-    }
+    results.push(diagManualRead());
   }
 
+  const manual = results.find((r) => r.mode === "manual-read");
+  const manualFailed = manual ? manual.topSlotAcc < 1.0 : false;
+
   if (modes.includes("deterministic-write")) {
-    if (manualReadFailed && !modeArg) {
+    if (manualFailed && !modeArg) {
       console.log("\nSkipping deterministic-write because manual-read failed.");
     } else {
-      const r = diagDeterministicWrite(tokenizer, episodes);
-      results.push(r);
+      results.push(diagDeterministicWrite(tokenizer, episodes));
     }
   }
 
   if (modes.includes("learned-write")) {
-    const r = diagLearnedWrite(tokenizer, episodes);
-    results.push(r);
-    if (Math.abs(r.memoryGain) < 0.01) {
-      console.log(
-        "\nINFO: learned-write memoryGain ≈ 0. " +
-          "Before full training, add write supervision (trainLastWriteValue probe). " +
-          "Run full experiment only after diagnostic passes."
-      );
-    }
+    results.push(diagLearnedWrite(tokenizer, episodes));
   }
 
   // ─── Summary ──────────────────────────────────────────────────────────────
   console.log("\n" + "=".repeat(72));
   console.log("DIAGNOSTIC SUMMARY");
   console.log("=".repeat(72));
+
   for (const r of results) {
     if (r.mode === "manual-read") {
-      console.log(
-        `  manual-read       topSlotAcc=${formatPct(r.topSlotAcc)} ` +
-          `[${r.topSlotAcc >= 1.0 ? "PASS" : "FAIL"}]`
-      );
+      console.log(`  manual-read          topSlotAcc=${formatPct(r.topSlotAcc)} [${r.topSlotAcc >= 1.0 ? "PASS" : "FAIL"}]`);
     } else if (r.mode === "deterministic-write") {
       console.log(
-        `  deterministic-write  topSlotAcc=${formatPct(r.topSlotAcc)} ` +
-          `topValueAcc=${formatPct(r.topValueAcc)} ` +
-          `predAcc=${formatPct(r.predAcc)}`
+        `  deterministic-write  topSlotAcc=${formatPct(r.topSlotAcc)} topValueAcc=${formatPct(r.topValueAcc)} predAcc=${formatPct(r.predAcc)}`
       );
     } else if (r.mode === "learned-write") {
       console.log(
-        `  learned-write     activeAcc=${formatPct(r.activeAcc)} ` +
-          `frozenAcc=${formatPct(r.frozenAcc)} ` +
-          `memGain=${formatPct(r.memoryGain)}`
+        `  learned-write        activeAcc=${formatPct(r.activeAcc)} frozenAcc=${formatPct(r.frozenAcc)} memGain=${formatPct(r.memoryGain)}`
       );
     }
   }
 
-  // PART 8: Gate check — throw if manual-read failed
-  const manualResult = results.find((r) => r.mode === "manual-read");
-  if (manualResult && manualResult.topSlotAcc < 1.0) {
-    throw new Error(
-      "DIAGNOSTIC GATE FAILED: manual-read topSlotAcc < 100%. " +
-        "MemoryBank read path is broken. Full training aborted."
-    );
+  // Gate checks
+  if (manual && manual.topSlotAcc < 1.0) {
+    throw new Error("DIAGNOSTIC GATE FAILED: manual-read failed. Fix read path before training.");
   }
 
-  const learnedResult = results.find((r) => r.mode === "learned-write");
-  if (learnedResult && Math.abs(learnedResult.memoryGain) < 0.01) {
+  const det = results.find((r) => r.mode === "deterministic-write");
+  if (det && det.topSlotAcc < 0.8) {
     console.log(
-      "\nWARNING: MemoryBank active == freezeWrites in learned-write mode. " +
-        "Memory is not contributing to query accuracy. " +
-        "Add trainLastWriteValue probe before running full training."
+      "\nWARNING: deterministic-write topSlotAcc < 80%." +
+        "\nThe canonical key-space fix is not yet achieving reliable retrieval." +
+        "\nDo not trust learned-write training results until this passes."
     );
   }
 }

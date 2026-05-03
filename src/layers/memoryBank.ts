@@ -160,8 +160,9 @@ export default class MemoryBank {
     committed: boolean;
     slot: number;
     writeGate: number;
-    newKey: number[];
-    newValue: number[];
+    newKeyRaw: Float32Array;
+    newKey: Float32Array;
+    newValue: Float32Array;
     xCol: Float32Array;
   } | null = null;
 
@@ -556,6 +557,96 @@ export default class MemoryBank {
   }
 
   /**
+   * Returns queryKernel * x as a [memoryDim, 1] Matrix.
+   * If normalize=true, the vector is L2-normalized — matching the cosine key space.
+   *
+   * Use this to generate canonical target keys for trainLastWriteKey():
+   *   targetKey = mb.getQueryVectorForInput(pooled("query key_xx"), true)
+   */
+  getQueryVectorForInput(x: Matrix, normalize = true): Matrix {
+    if (!this.initialized) {
+      this.ensureInitializedFromInput(x._shape[0]);
+    }
+    if (x._shape[0] !== this.units || x._shape[1] !== 1) {
+      throw new Error(
+        `MemoryBank.getQueryVectorForInput: expected [${this.units}, 1], got [${x._shape[0]}, ${x._shape[1]}]`
+      );
+    }
+    const q = this.matVecMul(this.queryKernel, x.getCol(0));
+    const outVec = normalize ? this.normalizeSafe(q) : q;
+    const out = mj.zeros([this.memoryDim, 1]);
+    for (let i = 0; i < this.memoryDim; i++) out._data[i] = outVec[i];
+    return out;
+  }
+
+  /**
+   * Directly train writeKeyKernel so the last written key aligns with a target key.
+   *
+   * The target key should be: normalize(queryKernel * pooled("query key_xx"))
+   * i.e., how a future QUERY turn would project the same key text.
+   *
+   * This closes the key-space gap between writeKeyKernel and queryKernel projections.
+   *
+   * Loss: 0.5 * mean((currentKey - targetKey)^2)
+   * Gradient: backprop through normalizeBackward -> writeKeyKernel
+   *
+   * Acceptance: topSlotAcc in memory audit should rise.
+   * If topSlotAcc rises but predAcc stays low, check output head / outputKernel.
+   */
+  trainLastWriteKey(targetKey: Matrix | number[]): number | null {
+    if (!this.lastWriteInfo || !this.lastWriteInfo.committed) return null;
+
+    let target: Float32Array;
+
+    if (targetKey instanceof Matrix) {
+      if (targetKey._shape[0] !== this.memoryDim || targetKey._shape[1] !== 1) {
+        throw new Error(
+          `MemoryBank.trainLastWriteKey: target Matrix must be [${this.memoryDim}, 1], got [${targetKey._shape[0]}, ${targetKey._shape[1]}]`
+        );
+      }
+      target = targetKey.getCol(0);
+    } else {
+      if ((targetKey as number[]).length !== this.memoryDim) {
+        throw new Error(
+          `MemoryBank.trainLastWriteKey: target array length ${(targetKey as number[]).length} !== memoryDim ${this.memoryDim}`
+        );
+      }
+      target = Float32Array.from(targetKey as number[]);
+    }
+
+    // Normalize target so it's in the same cosine key space
+    target = this.normalizeSafe(target);
+
+    const current = this.lastWriteInfo.newKey; // already normalized in forward()
+    const gradNewKey = new Float32Array(this.memoryDim);
+
+    let loss = 0;
+    for (let i = 0; i < this.memoryDim; i++) {
+      const diff = current[i] - target[i];
+      loss += 0.5 * diff * diff;
+      gradNewKey[i] = diff / this.memoryDim;
+    }
+    loss /= this.memoryDim;
+
+    // Backprop through L2-normalization of newKeyRaw
+    const gradRaw = this.normalizeBackward(this.lastWriteInfo.newKeyRaw, gradNewKey);
+
+    // Accumulate gradient for writeKeyKernel: dWK += gradRaw outer xCol
+    const gWK = mj.zeros(this.writeKeyKernel._shape);
+    this.addOuter(gWK, gradRaw, this.lastWriteInfo.xCol);
+
+    if (this.clipGradient !== false) {
+      const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
+      mj.clipGradients(gWK, limit);
+    }
+
+    const upWK = this.optimizerWriteKey.calculate(gWK, this.alpha);
+    this.writeKeyKernel.subInPlace(upWK);
+
+    return loss;
+  }
+
+  /**
    * PART 4A – Returns the last written value vector as a [memoryDim, 1] Matrix copy.
    * Returns null if no write was committed in the last forward() call.
    */
@@ -762,9 +853,10 @@ export default class MemoryBank {
             committed: true,
             slot: writeSlot,
             writeGate,
-            newKey: Array.from(newKey),
-            newValue: Array.from(newValue),
-            xCol: xCol.slice() as Float32Array,
+            newKeyRaw: new Float32Array(newKeyRaw),
+            newKey: new Float32Array(newKey),
+            newValue: new Float32Array(newValue),
+            xCol: new Float32Array(xCol),
           };
         }
       }
