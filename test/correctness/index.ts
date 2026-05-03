@@ -9,6 +9,7 @@ import { runTokenizerMultilingualCorrectnessSuite } from "./tokenizer.multilingu
 import { runTransformerApiCorrectnessSuite } from "./transformers.api.test";
 import { runTransformerLearningCorrectnessSuite } from "./transformers.learning.test";
 import { runMemoryBankCorrectnessSuite } from "./memoryBank.test";
+import { runMemoryBankRetrievalSuite } from "./memoryBank.retrieval.test";
 
 export function runCorrectnessSuite(): void {
   runAdaptiveMemoryRNNCorrectnessSuite();
@@ -22,6 +23,7 @@ export function runCorrectnessSuite(): void {
   runTransformerApiCorrectnessSuite();
   runTransformerLearningCorrectnessSuite();
   runMemoryBankCorrectnessSuite();
+  runMemoryBankRetrievalSuite();
 }
 
 if (require.main === module) {

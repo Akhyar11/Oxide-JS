@@ -11,6 +11,26 @@ export type MemoryUpdateMode = "replace" | "merge" | "gated-merge";
 export type MemoryWritePolicy = "empty-first" | "least-used" | "oldest" | "least-relevant";
 export type MemoryPersistence = "session" | "manual";
 
+export interface MemoryBankDebugReadSlot {
+  slot: number;
+  score: number;
+  attn: number;
+}
+
+export interface MemoryBankDebugTrace {
+  column: number;
+
+  readSlots: MemoryBankDebugReadSlot[];
+
+  writeCommitted: boolean;
+  writeSlot: number;
+  writeGate: number;
+
+  memoryFilled: number[];
+  memoryUsage: number[];
+  memoryAge: number[];
+}
+
 export interface MemoryBankConfig {
   units?: number;
   memorySlots: number;
@@ -134,6 +154,16 @@ export default class MemoryBank {
   private initialized = false;
   private writeFrozen = false;
   private cache: ForwardCacheItem[] = [];
+
+  private debugTrace: MemoryBankDebugTrace[] = [];
+  private lastWriteInfo: {
+    committed: boolean;
+    slot: number;
+    writeGate: number;
+    newKey: number[];
+    newValue: number[];
+    xCol: Float32Array;
+  } | null = null;
 
   private configuredMemoryDim?: number;
   private configuredOutputUnits?: number;
@@ -488,6 +518,135 @@ export default class MemoryBank {
     this.init(rows, md, ou);
   }
 
+  /**
+   * PART 1 – Returns a deep-copy of the debug trace collected during the last forward() call.
+   * Each entry corresponds to one input column processed.
+   */
+  getDebugTrace(): MemoryBankDebugTrace[] {
+    return JSON.parse(JSON.stringify(this.debugTrace));
+  }
+
+  /**
+   * PART 1 – Clears the debug trace accumulated so far.
+   * Safe to call manually at any time.
+   */
+  clearDebugTrace(): void {
+    this.debugTrace = [];
+  }
+
+  /**
+   * PART 4A – Returns info about the last committed write during the last forward() call.
+   * Returns null if no write was committed.
+   */
+  getLastWriteInfo(): {
+    committed: boolean;
+    slot: number;
+    writeGate: number;
+    newKey: number[];
+    newValue: number[];
+  } | null {
+    if (!this.lastWriteInfo || !this.lastWriteInfo.committed) return null;
+    return {
+      committed: this.lastWriteInfo.committed,
+      slot: this.lastWriteInfo.slot,
+      writeGate: this.lastWriteInfo.writeGate,
+      newKey: Array.from(this.lastWriteInfo.newKey),
+      newValue: Array.from(this.lastWriteInfo.newValue),
+    };
+  }
+
+  /**
+   * PART 4A – Returns the last written value vector as a [memoryDim, 1] Matrix copy.
+   * Returns null if no write was committed in the last forward() call.
+   */
+  getLastWriteValueMatrix(): Matrix | null {
+    if (!this.lastWriteInfo || !this.lastWriteInfo.committed) return null;
+    const v = this.lastWriteInfo.newValue;
+    const m = mj.zeros([v.length, 1]);
+    for (let i = 0; i < v.length; i++) m._data[i] = v[i];
+    return m;
+  }
+
+  /**
+   * PART 6 (Opsi B) – Manually write a key/value pair into a specific slot.
+   * Useful for deterministic-write diagnostic: bypasses learned write path entirely.
+   * @param keyVector - memoryDim-length array for the key.
+   * @param valueVector - memoryDim-length array for the value.
+   * @param slot - slot index to write to (0-indexed). Defaults to first empty slot.
+   */
+  writeMemoryForDebug(keyVector: number[], valueVector: number[], slot?: number): void {
+    if (!this.initialized) throw new Error("MemoryBank.writeMemoryForDebug: layer not initialized");
+    if (keyVector.length !== this.memoryDim || valueVector.length !== this.memoryDim) {
+      throw new Error(`MemoryBank.writeMemoryForDebug: vectors must be length ${this.memoryDim}`);
+    }
+    let targetSlot = slot;
+    if (targetSlot === undefined) {
+      targetSlot = -1;
+      for (let s = 0; s < this.memorySlots; s++) {
+        if (!this.memoryFilled[s]) { targetSlot = s; break; }
+      }
+      if (targetSlot === -1) targetSlot = 0;
+    }
+    if (targetSlot < 0 || targetSlot >= this.memorySlots) {
+      throw new Error(`MemoryBank.writeMemoryForDebug: slot ${targetSlot} out of range`);
+    }
+    this.setMemoryColumn(this.memoryKeys, targetSlot, Float32Array.from(keyVector));
+    this.setMemoryColumn(this.memoryValues, targetSlot, Float32Array.from(valueVector));
+    this.memoryFilled[targetSlot] = 1;
+    this.memoryUsage[targetSlot] += 1;
+    this.memoryAge[targetSlot] = this.memoryStep;
+  }
+
+  /**
+   * PART 4A – Train writeValueKernel using a direct classification probe on the last written value.
+   *
+   * This provides direct gradient signal to writeValueKernel so that stored memoryValues
+   * encode the target class — bypassing the need for full BPTT through future QUERY turns.
+   *
+   * @param targetClass - Integer class index that the stored value should represent.
+   * @param classifier - A Dense layer (outputUnits=OUTPUT_CLASSES, units=memoryDim, activation=linear,
+   *                     loss=softmaxCrossEntropy). Must have already been forward-passed externally.
+   * @returns Loss value from classifier, or null if no write was committed.
+   *
+   * Flow:
+   *   1. classifier.forward(lastWriteValueMatrix)
+   *   2. classifier.backward(y=[targetClass])
+   *   3. Backprop the input gradient from classifier through writeValueKernel
+   *
+   * Acceptance: writeProbeAcc should rise; if it does but queryAcc stays random, issue is in read/query path.
+   */
+  trainLastWriteValue(
+    targetClass: number,
+    classifier: { forward(x: Matrix): Matrix; backward(y: Matrix, err: Matrix): Matrix; loss: number }
+  ): number | null {
+    if (!this.lastWriteInfo || !this.lastWriteInfo.committed) return null;
+
+    const valMatrix = this.getLastWriteValueMatrix()!;
+
+    // Forward through the probe classifier
+    classifier.forward(valMatrix);
+
+    // Backward through the probe classifier with sparse target
+    const y = mj.matrix([[targetClass]]);
+    const dVal = classifier.backward(y, mj.matrix([[]])); // [memoryDim, 1]
+
+    // dVal is [memoryDim, 1]; update writeValueKernel
+    // dWriteValueKernel += dVal outer xCol
+    const gWV = mj.zeros(this.writeValueKernel._shape);
+    const dv = dVal.getCol(0);
+    this.addOuter(gWV, dv, this.lastWriteInfo.xCol);
+
+    if (this.clipGradient !== false) {
+      const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
+      mj.clipGradients(gWV, limit);
+    }
+
+    const upWV = this.optimizerWriteValue.calculate(gWV, this.alpha);
+    this.writeValueKernel.subInPlace(upWV);
+
+    return (classifier as any).loss as number;
+  }
+
   forward(x: Matrix): Matrix {
     const [rows, cols] = x._shape;
     this.ensureInitializedFromInput(rows);
@@ -502,6 +661,8 @@ export default class MemoryBank {
     else out = mj.zeros([this.units, cols]);
 
     this.cache = [];
+    this.debugTrace = [];
+    this.lastWriteInfo = null;
 
     for (let c = 0; c < cols; c++) {
       const xCol = x.getCol(c);
@@ -595,11 +756,37 @@ export default class MemoryBank {
           writeSlot = this.pickWriteSlot(q);
           this.updateMemorySlot(writeSlot, newKey, newValue, writeGate);
           writeCommitted = true;
+
+          // PART 4A: track last committed write for probe training
+          this.lastWriteInfo = {
+            committed: true,
+            slot: writeSlot,
+            writeGate,
+            newKey: Array.from(newKey),
+            newValue: Array.from(newValue),
+            xCol: xCol.slice() as Float32Array,
+          };
         }
       }
 
       // memoryStep policy: increment once per processed column.
       this.memoryStep += 1;
+
+      // PART 1: push debug trace for this column
+      this.debugTrace.push({
+        column: c,
+        readSlots: readSlots.map((r) => ({
+          slot: r.slot,
+          score: r.score,
+          attn: r.attn,
+        })),
+        writeCommitted,
+        writeSlot,
+        writeGate,
+        memoryFilled: Array.from(this.memoryFilled),
+        memoryUsage: Array.from(this.memoryUsage),
+        memoryAge: Array.from(this.memoryAge),
+      });
 
       this.cache.push({
         xCol,
@@ -812,6 +999,19 @@ export default class MemoryBank {
       // Note: write-policy gradients above are local surrogate updates.
       // They intentionally do not differentiate through discrete slot selection
       // and cross-column memory mutation history.
+      //
+      // PART 9 — TODO: Full BPTT Design
+      // To make MemoryBank fully differentiable for write path:
+      // 1. Cache (xCol, writeValueKernel, newValue) for each STORE/UPDATE turn.
+      // 2. When a QUERY loss backward happens, propagate dRead through the weighted
+      //    attn sum back to selected slot's memoryValues.
+      // 3. From dMemoryValues[slot], backprop through updateMemorySlot (gated-merge)
+      //    to dNewValue, then to dWriteValueKernel += dNewValue outer xCol (STORE turn).
+      // 4. Slot selection (pickWriteSlot) remains hard/non-differentiable — that is OK.
+      // 5. Key path: similarly propagate dAttn -> dScore -> dQ -> dQueryKernel (exists),
+      //    and dNewKey -> dWriteKeyKernel (cross-turn, not yet implemented).
+      // DO NOT claim MemoryBank is fully differentiable until this is implemented.
+      // Current write probe (trainLastWriteValue) is a local approximation only.
     }
 
     return dx;
