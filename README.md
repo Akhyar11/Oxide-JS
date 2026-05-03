@@ -195,6 +195,7 @@ BPE alone is not enough for every writing system. Pre-tokenization is important 
 import { mj, Transformers } from "@akhyar11/ml-v1";
 
 const model = new Transformers({ units: 64, seqLen: 8, vocabSize: 500, heads: 8, alpha: 0.001, padTokenId: 0 });
+model.fillEmbeddingWeight("./pretrained-embedding.json");
 model.compile({ alpha: 0.001, optimizer: "adam", error: "softmaxCrossEntropy" });
 model.train();
 
@@ -233,6 +234,7 @@ const model = new RecurrentModel({
   kind: "lstm",
   vocabSize: 1000,
   embeddingDim: 32,
+  embeddingTrainable: false,
   hiddenSizes: [64, 64],
   outputSize: 5,
   seqLen: 20,
@@ -262,7 +264,7 @@ const fullSequenceLogits = model.predict(x); // shape [vocabSize, seqLen * batch
 | Layer | Description |
 |---|---|
 | `Dense` | Fully-connected layer with activation, optimizer, and loss handling. |
-| `Embedding` | Token-ID-to-vector lookup with `resize()` support. |
+| `Embedding` | Token-ID-to-vector lookup with `resize()`, `trainable`, and pretrained `fillWeight()` support. |
 | `LayerNormalization` | Per-column/token normalization. |
 | `Dropout` | Active only during training mode. |
 | `PositionalEncoding` | Fixed sinusoidal positional encoding. |

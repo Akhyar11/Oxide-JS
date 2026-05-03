@@ -71,8 +71,9 @@ registerLayer("embedding layer", (data) => {
     optimizer: data.optimizer,
     status: data.status,
     padTokenId: data.padTokenId ?? null,
+    trainable: data.trainable ?? true,
   });
-  embedding.load(data.weight);
+  embedding.load(data);
   return embedding;
 });
 

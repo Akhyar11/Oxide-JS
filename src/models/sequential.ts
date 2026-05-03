@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { Cost, Layers, Matrix } from "../@types/type";
 import { setLayers, setLoss, splitTrainValidation, shuffleInPlace, formatLoss, formatProgressBar, formatTime } from "../utils";
-import { CompileDenseLayers } from "../layers";
+import { CompileDenseLayers, Embedding } from "../layers";
 import mj from "../math";
 import { FitConfig, FitResult } from "../@types/fitConfig";
 
@@ -35,6 +35,22 @@ export default class Sequential {
 
   add(layer: Layers) {
     this.layers.push(layer);
+  }
+
+  fillEmbeddingWeight(source: string | Matrix | number[][] | Float32Array | {
+    weight?: number[][];
+    layers?: any[];
+    name?: string;
+    vocabSize?: number;
+    embeddingDim?: number;
+    trainable?: boolean;
+  }): this {
+    const embeddingLayer = this.layers.find((layer): layer is Embedding => layer instanceof Embedding);
+    if (!embeddingLayer) {
+      throw new Error("Sequential.fillEmbeddingWeight: model ini tidak memiliki Embedding layer.");
+    }
+    embeddingLayer.fillWeight(source);
+    return this;
   }
 
   save(path: string) {

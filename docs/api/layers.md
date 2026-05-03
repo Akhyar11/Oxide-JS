@@ -71,23 +71,33 @@ Transforms integer token IDs into dense vectors. Required for NLP tasks.
 
 #### `constructor(config)`
 
-| Parameter | Type | Description |
-|---|---|---|
-| `vocabSize` | `number` | Total vocabulary size |
-| `embeddingDim` | `number` | Vector dimension per token |
-| `alpha` | `number` | Layer-specific learning rate |
-| `status` | `StatusLayer` | Layer role in the model graph |
-| `optimizer` | `Optimzier` | Optimizer for the embedding table |
-| `padTokenId` | `number` | PAD token ID to skip during backward pass |
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `vocabSize` | `number` | — | Total vocabulary size |
+| `embeddingDim` | `number` | — | Vector dimension per token |
+| `alpha` | `number` | `0.01` | Layer-specific learning rate |
+| `status` | `StatusLayer` | `"input"` | Layer role in the model graph |
+| `optimizer` | `Optimzier` | `"adam"` | Optimizer for the embedding table |
+| `padTokenId` | `number \| null` | `null` | PAD token ID to skip during backward pass |
+| `trainable` | `boolean` | `true` | Freeze weight updates when set to `false` |
 
 ```ts
 import { Embedding } from "@akhyar11/ml-v1"
 
 const embed = new Embedding({
   vocabSize: 5000,
-  embeddingDim: 128
+  embeddingDim: 128,
+  trainable: false,
 });
+
+embed.fillWeight("./pretrained-embedding.json");
 ```
+
+Notes:
+- `trainable: false` keeps `forward()` active but prevents `backward()` from updating the embedding table.
+- `fillWeight()` only replaces the weight matrix. It does not change `trainable`, `alpha`, `optimizer`, `status`, `padTokenId`, `vocabSize`, or `embeddingDim`.
+- The incoming weight shape must exactly match `[embeddingDim, vocabSize]`.
+- JSON sources for `fillWeight()` must be either an Embedding-layer artifact or a model artifact whose first layer is the Embedding layer.
 
 ---
 

@@ -20,6 +20,7 @@ interface TransformersConfig {
   dropoutRate?: number;   // dropout rate (default 0.1)
   alpha?: number;         // learning rate
   padTokenId?: number;
+  embeddingTrainable?: boolean;
   clipGradient?: number | boolean;
   predictMode?: TransformersPredictMode;
 }
@@ -89,6 +90,7 @@ export default class Transformers extends Sequential {
     dropoutRate = 0.1,
     alpha = 0.01,
     padTokenId,
+    embeddingTrainable = true,
     clipGradient = 5.0,
     predictMode = "next-token",
   }: TransformersConfig) {
@@ -99,7 +101,7 @@ export default class Transformers extends Sequential {
       throw new Error(`Transformers: predictMode harus "next-token" atau "full-sequence", got ${predictMode}`);
     }
 
-    const embedding = new Embedding({ vocabSize, embeddingDim: units, alpha, padTokenId });
+    const embedding = new Embedding({ vocabSize, embeddingDim: units, alpha, padTokenId, trainable: embeddingTrainable });
     const pe = new PositionalEncoding({ dModel: units, maxSeqLen: seqLen });
     const blocks: TransformerBlock[] = [];
     const flatLayers: Array<Embedding | PositionalEncoding | LayerNormalization | MultiHeadAttention | Dropout | Dense> = [embedding, pe];
@@ -650,10 +652,7 @@ export default class Transformers extends Sequential {
     const dense = data[data.length - 1];
 
     if (embedding?.weight) {
-      this.embedding.load(embedding.weight);
-      if ("padTokenId" in embedding) {
-        this.embedding.padTokenId = embedding.padTokenId;
-      }
+      this.embedding.load(embedding);
     }
 
     let offset = 2;

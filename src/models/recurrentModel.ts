@@ -13,6 +13,7 @@ export interface RecurrentModelConfig {
   inputSize?: number;
   vocabSize?: number;
   embeddingDim?: number;
+  embeddingTrainable?: boolean;
   hiddenSize?: number;
   hiddenSizes?: number[];
   numLayers?: number;
@@ -46,6 +47,7 @@ export default class RecurrentModel extends Sequential {
     inputSize,
     vocabSize,
     embeddingDim,
+    embeddingTrainable = true,
     hiddenSize,
     hiddenSizes,
     numLayers = 1,
@@ -88,6 +90,7 @@ export default class RecurrentModel extends Sequential {
         embeddingDim: embeddingDim as number,
         alpha,
         optimizer,
+        trainable: embeddingTrainable,
       });
       layers.push(embeddingLayer);
     }

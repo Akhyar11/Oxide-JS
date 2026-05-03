@@ -3,6 +3,7 @@ import Matrix from "../matrix";
 import { Optimzier, OptimzierType, StatusLayer, matrix2d } from "../@types/type";
 import setOptimizer from "../utils/setOptimizer";
 import { isNativeAvailable, embeddingForwardNative, embeddingBackwardSparseNative } from "../math/rust_backend";
+import { readFileSync } from "fs";
 
 export interface EmbeddingLayerParams {
   vocabSize: number;
@@ -11,6 +12,7 @@ export interface EmbeddingLayerParams {
   status?: StatusLayer;
   optimizer?: Optimzier;
   padTokenId?: number | null;
+  trainable?: boolean;
 }
 
 /**
@@ -25,6 +27,7 @@ export default class Embedding {
   alpha: number;
   optimizerName: Optimzier;
   padTokenId: number | null;
+  trainable: boolean;
   private optimizerWeight: OptimzierType;
   params: number;
   inputShape: [number, number] = [0, 0];
@@ -47,6 +50,7 @@ export default class Embedding {
     status = "input",
     optimizer = "adam",
     padTokenId = null,
+    trainable = true,
   }: EmbeddingLayerParams) {
     this.vocabSize = vocabSize;
     this.embeddingDim = embeddingDim;
@@ -54,6 +58,7 @@ export default class Embedding {
     this.alpha = alpha;
     this.optimizerName = optimizer;
     this.padTokenId = padTokenId;
+    this.trainable = trainable;
 
     // Weight shape: [embeddingDim, vocabSize]
     // Setiap kolom (vertikal) merepresentasikan satu kata/vektor
@@ -73,17 +78,62 @@ export default class Embedding {
       alpha: this.alpha,
       optimizer: this.optimizerName,
       padTokenId: this.padTokenId,
+      trainable: this.trainable,
       weight: this.weight._value,
     };
   }
 
-  load(weight: matrix2d): void {
-    this.weight._value = weight;
-    this.weight._shape = [weight.length, weight[0]?.length ?? 0];
+  load(data: matrix2d | {
+    vocabSize?: number;
+    embeddingDim?: number;
+    alpha?: number;
+    optimizer?: Optimzier;
+    status?: StatusLayer;
+    padTokenId?: number | null;
+    trainable?: boolean;
+    weight: matrix2d;
+  }): void {
+    const resolved = this.resolveLoadPayload(data);
+    this.weight = this.normalizeToMatrix(resolved.weight);
+    this.weight._shape = [resolved.weight.length, resolved.weight[0]?.length ?? 0];
     this.embeddingDim = this.weight._shape[0];
     this.vocabSize = this.weight._shape[1];
+    this.alpha = resolved.alpha ?? this.alpha;
+    this.optimizerName = resolved.optimizer ?? this.optimizerName;
+    this.status = resolved.status ?? this.status;
+    this.padTokenId = resolved.padTokenId !== undefined ? resolved.padTokenId : this.padTokenId;
+    this.trainable = resolved.trainable !== undefined ? resolved.trainable : this.trainable;
     this.params = this.vocabSize * this.embeddingDim;
-    this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, 1e-5);
+    this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, this.alpha);
+  }
+
+  fillWeight(source: string | Matrix | number[][] | Float32Array | {
+    weight?: number[][];
+    layers?: any[];
+    name?: string;
+    vocabSize?: number;
+    embeddingDim?: number;
+    trainable?: boolean;
+  }): void {
+    const previousTrainable = this.trainable;
+    const previousAlpha = this.alpha;
+    const previousOptimizer = this.optimizerName;
+    const previousStatus = this.status;
+    const previousPadTokenId = this.padTokenId;
+    const previousVocabSize = this.vocabSize;
+    const previousEmbeddingDim = this.embeddingDim;
+
+    const normalizedWeight = this.extractWeightFromFillSource(source);
+    this.assignWeightPreservingConfig(normalizedWeight);
+
+    this.trainable = previousTrainable;
+    this.alpha = previousAlpha;
+    this.optimizerName = previousOptimizer;
+    this.status = previousStatus;
+    this.padTokenId = previousPadTokenId;
+    this.vocabSize = previousVocabSize;
+    this.embeddingDim = previousEmbeddingDim;
+    this.params = this.vocabSize * this.embeddingDim;
   }
 
   compile({
@@ -109,6 +159,10 @@ export default class Embedding {
   }
 
   backward(y: Matrix, err: Matrix): Matrix {
+    if (!this.trainable) {
+      return this.getOrCreateZeroInputGradient();
+    }
+
     // ── Fast path: fused Rust backward+Adam update (zero JS allocations) ────
     const maybeAdam = this.optimizerWeight as any;
     if (
@@ -237,6 +291,162 @@ export default class Embedding {
 
   resetLoss(): void {
     this.loss = 0;
+  }
+
+  private resolveLoadPayload(data: matrix2d | {
+    vocabSize?: number;
+    embeddingDim?: number;
+    alpha?: number;
+    optimizer?: Optimzier;
+    status?: StatusLayer;
+    padTokenId?: number | null;
+    trainable?: boolean;
+    weight: matrix2d;
+  }): {
+    vocabSize?: number;
+    embeddingDim?: number;
+    alpha?: number;
+    optimizer?: Optimzier;
+    status?: StatusLayer;
+    padTokenId?: number | null;
+    trainable?: boolean;
+    weight: matrix2d;
+  } {
+    if (Array.isArray(data)) {
+      return { weight: data };
+    }
+
+    return {
+      vocabSize: data.vocabSize,
+      embeddingDim: data.embeddingDim,
+      alpha: data.alpha,
+      optimizer: data.optimizer,
+      status: data.status,
+      padTokenId: data.padTokenId,
+      trainable: data.trainable ?? true,
+      weight: data.weight,
+    };
+  }
+
+  private extractWeightFromFillSource(source: string | Matrix | number[][] | Float32Array | {
+    weight?: number[][];
+    layers?: any[];
+    name?: string;
+    vocabSize?: number;
+    embeddingDim?: number;
+    trainable?: boolean;
+  }): Matrix {
+    if (typeof source === "string") {
+      const parsed = JSON.parse(readFileSync(source, "utf-8"));
+      return this.extractWeightFromJson(parsed);
+    }
+
+    if (source instanceof Matrix) {
+      this.assertWeightShape(source._shape[0], source._shape[1]);
+      return Matrix.fromFlat(new Float32Array(source._data), [...source._shape] as [number, number]);
+    }
+
+    if (source instanceof Float32Array) {
+      return this.matrixFromFlatWeight(source);
+    }
+
+    if (Array.isArray(source)) {
+      return this.matrixFromWeightArray(source);
+    }
+
+    return this.extractWeightFromJson(source);
+  }
+
+  private extractWeightFromJson(source: any): Matrix {
+    if (Array.isArray(source)) {
+      if (!source[0] || source[0].name !== this.name) {
+        throw new Error("Embedding.fillWeight: JSON pretrained weight harus berasal dari Embedding layer atau model dengan layer pertama Embedding.");
+      }
+      return this.matrixFromWeightArray(source[0].weight);
+    }
+
+    if (source && Array.isArray(source.layers)) {
+      if (!source.layers[0] || source.layers[0].name !== this.name) {
+        throw new Error("Embedding.fillWeight: JSON pretrained weight harus berasal dari Embedding layer atau model dengan layer pertama Embedding.");
+      }
+      return this.matrixFromWeightArray(source.layers[0].weight);
+    }
+
+    if (source && typeof source === "object" && "weight" in source) {
+      if (source.name !== undefined && source.name !== this.name) {
+        throw new Error("Embedding.fillWeight: JSON pretrained weight harus berasal dari Embedding layer atau model dengan layer pertama Embedding.");
+      }
+      return this.matrixFromWeightArray(source.weight);
+    }
+
+    throw new Error("Embedding.fillWeight: JSON pretrained weight harus berasal dari Embedding layer atau model dengan layer pertama Embedding.");
+  }
+
+  private matrixFromFlatWeight(weight: Float32Array): Matrix {
+    const expectedLength = this.embeddingDim * this.vocabSize;
+    if (weight.length !== expectedLength) {
+      throw new Error(`Embedding.fillWeight: dimensi weight tidak cocok. Expected [${this.embeddingDim}, ${this.vocabSize}], got [${this.embeddingDim}, ${weight.length / Math.max(1, this.embeddingDim)}].`);
+    }
+    for (let i = 0; i < weight.length; i++) {
+      if (!Number.isFinite(weight[i])) {
+        throw new Error(`Embedding.fillWeight: weight harus berisi finite number. Invalid value pada flat index ${i}.`);
+      }
+    }
+    return Matrix.fromFlat(new Float32Array(weight), [this.embeddingDim, this.vocabSize]);
+  }
+
+  private matrixFromWeightArray(weight: number[][]): Matrix {
+    const normalizedWeight = this.normalizeNumericMatrix(weight);
+    this.assertWeightShape(normalizedWeight.length, normalizedWeight[0]?.length ?? 0);
+    return new Matrix({ array: normalizedWeight });
+  }
+
+  private normalizeNumericMatrix(weight: unknown): number[][] {
+    if (!Array.isArray(weight)) {
+      throw new Error("Embedding.fillWeight: weight harus berupa 2D array numerik.");
+    }
+
+    const rows = weight.length;
+    const normalized: number[][] = new Array(rows);
+    let cols = -1;
+
+    for (let i = 0; i < rows; i++) {
+      const row = weight[i];
+      if (!Array.isArray(row)) {
+        throw new Error("Embedding.fillWeight: weight harus berupa 2D array numerik.");
+      }
+      if (cols === -1) cols = row.length;
+      if (row.length !== cols) {
+        throw new Error("Embedding.fillWeight: setiap row weight harus memiliki panjang yang sama.");
+      }
+      normalized[i] = new Array(row.length);
+      for (let j = 0; j < row.length; j++) {
+        const value = row[j];
+        if (typeof value !== "number" || !Number.isFinite(value)) {
+          throw new Error(`Embedding.fillWeight: weight harus berisi finite number. Invalid value pada [${i}, ${j}].`);
+        }
+        normalized[i][j] = value;
+      }
+    }
+
+    return normalized;
+  }
+
+  private assertWeightShape(incomingRows: number, incomingCols: number): void {
+    if (incomingRows !== this.embeddingDim || incomingCols !== this.vocabSize) {
+      throw new Error(`Embedding.fillWeight: dimensi weight tidak cocok. Expected [${this.embeddingDim}, ${this.vocabSize}], got [${incomingRows}, ${incomingCols}].`);
+    }
+  }
+
+  private assignWeightPreservingConfig(weight: Matrix): void {
+    this.assertWeightShape(weight._shape[0], weight._shape[1]);
+    this.weight = Matrix.fromFlat(new Float32Array(weight._data), [...weight._shape] as [number, number]);
+    this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, this.alpha);
+    this.params = this.vocabSize * this.embeddingDim;
+  }
+
+  private normalizeToMatrix(weight: matrix2d): Matrix {
+    return new Matrix({ array: this.normalizeNumericMatrix(weight) });
   }
 
   private forwardWithLayout(x: Matrix, layout: "sample-major" | "time-major"): Matrix {

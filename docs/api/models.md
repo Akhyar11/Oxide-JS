@@ -66,6 +66,16 @@ Passes data through all layers in training mode.
 
 Passes data through all layers with training mode disabled (e.g. Dropout is inactive).
 
+#### `fillEmbeddingWeight(source): this`
+
+Loads pretrained embedding weight into the first `Embedding` layer in the model without changing that layer's configuration.
+
+```ts
+model.fillEmbeddingWeight("./pretrained-embedding.json");
+```
+
+Use this when the model contains an `Embedding` layer and you want model-level access instead of calling `layer.fillWeight(...)` manually.
+
 #### `compile({ alpha, optimizer, error, clipGradient }): void`
 
 Configures learning parameters for all layers.
@@ -222,6 +232,7 @@ const model = new RecurrentModel({
   kind: "lstm",
   vocabSize: 1000,
   embeddingDim: 32,
+  embeddingTrainable: false,
   hiddenSizes: [64, 64],
   outputSize: 5,
   seqLen: 20,
@@ -233,6 +244,7 @@ const model = new RecurrentModel({
 Key rules:
 - `hiddenSizes` takes priority over `hiddenSize` + `numLayers`.
 - If `Embedding` is not used, provide `inputSize`.
+- Set `embeddingTrainable: false` to freeze the internal `Embedding` layer.
 - `many-to-one` is supported.
 - aligned `many-to-many` is supported with target shape `[1, seqLen]` (sparse) or `[outputSize, seqLen]` (dense/one-hot or regression).
 
@@ -264,6 +276,7 @@ Full Transformer architecture model for causal language modeling. Built on top o
 | `dropoutRate` | `number` | `0.1` | Dropout rate |
 | `alpha` | `number` | `0.01` | Learning rate |
 | `padTokenId` | `number` | — | PAD token ID (ignored in embedding, attention, and loss) |
+| `embeddingTrainable` | `boolean` | `true` | Freeze the internal embedding table when set to `false` |
 | `clipGradient` | `number` | `5.0` | Global gradient clipping limit |
 | `predictMode` | `"next-token" \| "full-sequence"` | `"next-token"` | Default mode for `predict()` |
 
@@ -277,6 +290,7 @@ const model = new Transformers({
   heads: 8,
   numBlocks: 4,
   padTokenId: 0,
+  embeddingTrainable: false,
   clipGradient: 1.5,
   predictMode: "next-token",
 });
@@ -343,11 +357,14 @@ Switch between training and evaluation modes.
 
 Persist and restore model weights. The instance calling `load()` must be created with the same `numBlocks` as the saved artifact.
 
+Embedding metadata such as `trainable` is also restored.
+
 #### Advanced API Methods
 
 | Method | Description |
 |---|---|
 | `getPadTokenId(): number \| null` | Returns the `padTokenId` from the embedding layer. |
+| `fillEmbeddingWeight(source)` | Fills the model's embedding weight from matrix data or supported JSON files without changing embedding config. |
 | `setPositionOffset(n): this` | Sets the PE position offset (used for left-padding trim). |
 | `resetPositionOffset(): this` | Resets position offset to 0. Called automatically by `fit()`. |
 | `resizeVocab(newVocabSize)` | Expands embedding vocabulary and output projector. |
