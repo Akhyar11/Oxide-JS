@@ -1,10 +1,6 @@
 import { Cost, Optimzier, OptimzierType, StatusLayer } from "../@types/type";
 import mj from "../math";
-import {
-  isNativeAvailable,
-  adaptiveMemoryRnnForwardNative,
-  adaptiveMemoryRnnBackwardNative,
-} from "../math/rust_backend";
+import { adaptiveMemoryRnnBackwardNative, isNativeAvailable } from "../math/rust_backend";
 import Matrix from "../matrix";
 import setLoss from "../utils/setLoss";
 import setOptimizer from "../utils/setOptimizer";
@@ -24,6 +20,24 @@ export interface AdaptiveMemoryRNNConfig {
   clipGradient?: number | boolean;
   loss?: Cost;
 }
+
+type AdaptiveMemoryStepCache = {
+  x: Float32Array;
+  hPrev: Float32Array;
+  h: Float32Array;
+  dAct: Float32Array;
+  combined: Float32Array;
+  read: Float32Array;
+  queryInput: Float32Array;
+  query: Float32Array;
+  attention: Float32Array;
+  gateInput: Float32Array;
+  gate: Float32Array;
+  candidate: Float32Array;
+  memoryKeysBefore: Float32Array;
+  memoryValuesBefore: Float32Array;
+  writeSlot: number;
+};
 
 export default class AdaptiveMemoryRNN {
   name = "adaptive memory rnn layer";
@@ -73,6 +87,8 @@ export default class AdaptiveMemoryRNN {
   private memoryReadSequence: Float32Array<ArrayBufferLike>[] = [];
   private hiddenSequence: Float32Array<ArrayBufferLike>[] = [];
   private activationGradients: Float32Array<ArrayBufferLike>[] = [];
+  private stepCaches: AdaptiveMemoryStepCache[] = [];
+  private batchStepCaches: AdaptiveMemoryStepCache[][] = [];
   private batchCombinedInputSequence: Float32Array<ArrayBufferLike>[] = [];
   private batchRawInputSequence: Float32Array<ArrayBufferLike>[] = [];
   private batchHiddenSequence: Float32Array<ArrayBufferLike>[] = [];
@@ -330,6 +346,7 @@ export default class AdaptiveMemoryRNN {
     this.inputShape = [this.units, seqLen];
     this.outputShape = [this.hiddenUnits, outCols];
     this.ensureSequenceStateBuffers(seqLen);
+    this.stepCaches = new Array<AdaptiveMemoryStepCache>(seqLen);
 
     const h0 = this.hiddenSequence[0];
     h0.fill(0);
@@ -339,6 +356,8 @@ export default class AdaptiveMemoryRNN {
       const x_t = this.rawInputSequence[t];
       this.copyColumnToArray(x, t, x_t);
       const hPrev = this.hiddenSequence[t];
+      const memoryKeysBefore = this.memoryKeys._data.slice();
+      const memoryValuesBefore = this.memoryValues._data.slice();
       const query = this.computeQueryInto(x_t, hPrev);
       const bestSlot = this.retrieveMemoryInto(query);
       const h_t = this.hiddenSequence[t + 1];
@@ -352,6 +371,23 @@ export default class AdaptiveMemoryRNN {
       const gate = this.computeWriteGateInto(x_t, h_t, this.readScratch);
       const candidate = this.projectCandidateMemoryInto(h_t);
       const writeSlot = this.selectWriteSlot(bestSlot);
+      this.stepCaches[t] = {
+        x: x_t.slice(),
+        hPrev: hPrev.slice(),
+        h: h_t.slice(),
+        dAct: dAct.slice(),
+        combined: combined.slice(),
+        read: this.readScratch.slice(),
+        queryInput: this.queryInputScratch.slice(),
+        query: query.slice(),
+        attention: this.attentionScratch.slice(),
+        gateInput: this.gateInputScratch.slice(),
+        gate: gate.slice(),
+        candidate: candidate.slice(),
+        memoryKeysBefore,
+        memoryValuesBefore,
+        writeSlot,
+      };
       this.updateMemory(writeSlot, query, candidate, gate);
 
       if (this.returnSequences) {
@@ -382,6 +418,7 @@ export default class AdaptiveMemoryRNN {
     this.ensureBatchSequenceStateBuffers(seqLen, batchSize);
     this.ensureBatchMemoryBuffers(batchSize);
     this.ensureScratchBuffers();
+    this.batchStepCaches = Array.from({ length: batchSize }, () => new Array<AdaptiveMemoryStepCache>(seqLen));
 
     if (!this.stateful || batchSize > 1) {
       this.batchMemoryKeysBuffer.fill(0, 0, batchSize * this.memoryDim * this.memorySlots);
@@ -396,49 +433,6 @@ export default class AdaptiveMemoryRNN {
     const h0 = this.batchHiddenSequence[0];
     h0.fill(0);
     if (this.stateful && batchSize === 1) h0.set(this.hStateful._data);
-
-    // ── Native path ──────────────────────────────────────────────────────────
-    const combinedFlatSize = seqLen * (this.units + this.memoryDim) * batchSize;
-    if (this.batchCombinedFlatBuffer.length < combinedFlatSize) {
-      this.batchCombinedFlatBuffer = new Float32Array(combinedFlatSize);
-    } else {
-      this.batchCombinedFlatBuffer.fill(0, 0, combinedFlatSize);
-    }
-
-    const nativeOk = isNativeAvailable() && adaptiveMemoryRnnForwardNative(
-      this.Wq._data, this.Wm._data,
-      this.Wxh._data, this.Whh._data, this.bh._data,
-      this.Wg._data, this.bg._data,
-      x._data, h0,
-      this.hiddenUnits, this.units, this.memoryDim, this.memorySlots,
-      seqLen, batchSize,
-      this.activation === "relu",
-      this.batchHiddenSequenceBuffer,
-      this.batchActivationGradientBuffer,
-      this.batchMemoryKeysBuffer,
-      this.batchMemoryValuesBuffer,
-      this.batchMemoryUsageBuffer,
-      this.batchCombinedFlatBuffer,
-    );
-
-    if (nativeOk) {
-      if (this.returnSequences) {
-        for (let t = 0; t < seqLen; t++) {
-          this.writeColumnBlock(this.resultBuffer, t * batchSize, batchSize, this.batchHiddenSequence[t + 1]);
-        }
-      } else {
-        this.resultBuffer._data.set(this.batchHiddenSequence[seqLen]);
-      }
-      if (this.stateful && batchSize === 1) {
-        this.hStateful._data.set(this.batchHiddenSequence[seqLen]);
-        this.memoryKeys._data.set(this.batchMemoryKeysBuffer.subarray(0, this.memoryDim * this.memorySlots));
-        this.memoryValues._data.set(this.batchMemoryValuesBuffer.subarray(0, this.memoryDim * this.memorySlots));
-        this.memoryUsage.set(this.batchMemoryUsageBuffer.subarray(0, this.memorySlots));
-      }
-      return this.resultBuffer;
-    }
-
-    // ── JS fallback ───────────────────────────────────────────────────────────
     for (let t = 0; t < seqLen; t++) {
       const rawBlock = this.batchRawInputSequence[t];
       this.copyColumnBlockToArray(x, t * batchSize, batchSize, rawBlock);
@@ -453,6 +447,8 @@ export default class AdaptiveMemoryRNN {
         const query = this.computeQueryInto(x_t, hPrev);
         const memoryOffset = b * this.memoryDim * this.memorySlots;
         const usageOffset = b * this.memorySlots;
+        const memoryKeysBefore = this.batchMemoryKeysBuffer.slice(memoryOffset, memoryOffset + this.memoryDim * this.memorySlots);
+        const memoryValuesBefore = this.batchMemoryValuesBuffer.slice(memoryOffset, memoryOffset + this.memoryDim * this.memorySlots);
         const bestSlot = this.retrieveMemoryFromBuffersInto(
           query,
           this.batchMemoryKeysBuffer,
@@ -478,6 +474,23 @@ export default class AdaptiveMemoryRNN {
         const gate = this.computeWriteGateInto(x_t, h_t, this.readScratch);
         const candidate = this.projectCandidateMemoryInto(h_t);
         const writeSlot = this.selectWriteSlotFromUsage(bestSlot, this.batchMemoryUsageBuffer, usageOffset);
+        this.batchStepCaches[b][t] = {
+          x: x_t.slice(),
+          hPrev: hPrev.slice(),
+          h: h_t.slice(),
+          dAct: dAct.slice(),
+          combined: this.batchCombinedSampleScratch.slice(),
+          read: this.readScratch.slice(),
+          queryInput: this.queryInputScratch.slice(),
+          query: query.slice(),
+          attention: this.attentionScratch.slice(),
+          gateInput: this.gateInputScratch.slice(),
+          gate: gate.slice(),
+          candidate: candidate.slice(),
+          memoryKeysBefore,
+          memoryValuesBefore,
+          writeSlot,
+        };
         this.updateMemoryBuffers(
           writeSlot, query, candidate, gate,
           this.batchMemoryKeysBuffer, this.batchMemoryValuesBuffer, this.batchMemoryUsageBuffer,
@@ -503,61 +516,64 @@ export default class AdaptiveMemoryRNN {
 
   backward(y: Matrix, err: Matrix): Matrix {
     const seqLen = this.inputShape[1];
-    if (seqLen <= 0 || this.hiddenSequence.length !== seqLen + 1) {
+    if (seqLen <= 0 || this.stepCaches.length !== seqLen) {
       throw new Error("AdaptiveMemoryRNN.backward: forward must be called before backward.");
     }
 
     const externalError = this.resolveError(y, err, seqLen);
-    const combinedUnits = this.units + this.memoryDim;
     this.ensureBackwardBuffers(seqLen);
     const dWxh = this.dWxhBuffer;
     const dWhh = this.dWhhBuffer;
     const dBh = this.dBhBuffer;
-    const dxData = this.dxBuffer._data;
+    const dWq = Matrix.fromFlat(new Float32Array(this.memoryDim * (this.units + this.hiddenUnits)), [this.memoryDim, this.units + this.hiddenUnits]);
+    const dWm = Matrix.fromFlat(new Float32Array(this.memoryDim * this.hiddenUnits), [this.memoryDim, this.hiddenUnits]);
+    const dWg = Matrix.fromFlat(new Float32Array(this.memoryDim * (this.units + this.hiddenUnits + this.memoryDim)), [this.memoryDim, this.units + this.hiddenUnits + this.memoryDim]);
+    const dBg = Matrix.fromFlat(new Float32Array(this.memoryDim), [this.memoryDim, 1]);
     dWxh._data.fill(0);
     dWhh._data.fill(0);
     dBh._data.fill(0);
-    dxData.fill(0);
-    let dhNext = this.dhNextBuffer;
-    dhNext.fill(0);
-    const dhBuffer = this.dhBuffer;
-    const dzBuffer = this.dzBuffer;
-    let dhPrevBuffer = this.dhPrevBuffer;
-    dhPrevBuffer.fill(0);
+    this.dxBuffer._data.fill(0);
 
-    for (let t = seqLen - 1; t >= 0; t--) {
-      const dh = dhBuffer;
-      dh.set(externalError[t]);
-      for (let i = 0; i < this.hiddenUnits; i++) dh[i] += dhNext[i];
-
-      const dz = dzBuffer;
-      for (let i = 0; i < this.hiddenUnits; i++) dz[i] = dh[i] * this.activationGradients[t][i];
-
-      this.outerAccumulate(dWxh._data, this.hiddenUnits, combinedUnits, dz, this.combinedInputSequence[t]);
-      this.outerAccumulate(dWhh._data, this.hiddenUnits, this.hiddenUnits, dz, this.hiddenSequence[t]);
-      for (let i = 0; i < this.hiddenUnits; i++) dBh._data[i] += dz[i];
-
-      for (let j = 0; j < this.units; j++) {
-        let sum = 0;
-        for (let i = 0; i < this.hiddenUnits; i++) sum += this.Wxh._data[i * combinedUnits + j] * dz[i];
-        dxData[j * seqLen + t] = sum;
-      }
-
-      const dhPrev = dhPrevBuffer;
-      for (let j = 0; j < this.hiddenUnits; j++) {
-        let sum = 0;
-        for (let i = 0; i < this.hiddenUnits; i++) sum += this.Whh._data[i * this.hiddenUnits + j] * dz[i];
-        dhPrev[j] = sum;
-      }
-      const prevDhNext = dhNext;
-      dhNext = dhPrev;
-      dhPrevBuffer = prevDhNext;
+    const nativeOk = this.runNativeBackward(
+      [this.stepCaches],
+      [externalError],
+      dWxh,
+      dWhh,
+      dBh,
+      dWq,
+      dWm,
+      dWg,
+      dBg,
+      this.dxBuffer._data,
+      seqLen,
+      1
+    );
+    if (!nativeOk) {
+      this.backwardThroughStepCaches(
+        this.stepCaches,
+        externalError,
+        dWxh,
+        dWhh,
+        dBh,
+        dWq,
+        dWm,
+        dWg,
+        dBg,
+        this.dxBuffer._data,
+        seqLen,
+        0,
+        1
+      );
     }
 
-    this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
+    this.clipGradientsIfNeeded(dWxh, dWhh, dBh, dWq, dWm, dWg, dBg);
     this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
     this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
     this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
+    this.Wq.subInPlace(this.optimizerWq.calculate(dWq, this.alpha));
+    this.Wm.subInPlace(this.optimizerWm.calculate(dWm, this.alpha));
+    this.Wg.subInPlace(this.optimizerWg.calculate(dWg, this.alpha));
+    this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
 
     return this.dxBuffer;
   }
@@ -566,7 +582,7 @@ export default class AdaptiveMemoryRNN {
     const totalCols = this.inputShape[1];
     this.assertBatchInputSupportedShape(batchSize, totalCols);
     const seqLen = totalCols / batchSize;
-    if (this.batchHiddenSequence.length !== seqLen + 1) {
+    if (this.batchStepCaches.length !== batchSize || this.batchStepCaches[0]?.length !== seqLen) {
       throw new Error("AdaptiveMemoryRNN.backwardBatch: forwardBatch must be called before backwardBatch.");
     }
 
@@ -576,94 +592,67 @@ export default class AdaptiveMemoryRNN {
     const dWhh = this.dWhhBuffer;
     const dBh = this.dBhBuffer;
     const dx = this.batchDxBuffer;
+    const dWq = Matrix.fromFlat(new Float32Array(this.memoryDim * (this.units + this.hiddenUnits)), [this.memoryDim, this.units + this.hiddenUnits]);
+    const dWm = Matrix.fromFlat(new Float32Array(this.memoryDim * this.hiddenUnits), [this.memoryDim, this.hiddenUnits]);
+    const dWg = Matrix.fromFlat(new Float32Array(this.memoryDim * (this.units + this.hiddenUnits + this.memoryDim)), [this.memoryDim, this.units + this.hiddenUnits + this.memoryDim]);
+    const dBg = Matrix.fromFlat(new Float32Array(this.memoryDim), [this.memoryDim, 1]);
     dWxh._data.fill(0);
     dWhh._data.fill(0);
     dBh._data.fill(0);
     dx._data.fill(0);
 
-    // ── Native path ──────────────────────────────────────────────────────────
-    // Build flat err_h buffer [seqLen * batchSize * hiddenUnits] from externalError views.
-    const errHFlat = new Float32Array(seqLen * batchSize * this.hiddenUnits);
-    for (let t = 0; t < seqLen; t++) {
-      errHFlat.set(externalError[t], t * batchSize * this.hiddenUnits);
-    }
-
-    const nativeOk = isNativeAvailable() &&
-      this.batchCombinedFlatBuffer.length >= seqLen * (this.units + this.memoryDim) * batchSize &&
-      adaptiveMemoryRnnBackwardNative(
-        this.Wxh._data, this.Whh._data,
-        this.batchCombinedFlatBuffer, this.batchHiddenSequenceBuffer,
-        this.batchActivationGradientBuffer, errHFlat,
-        this.hiddenUnits, this.units, this.memoryDim,
-        seqLen, batchSize,
-        dWxh._data, dWhh._data, dBh._data,
-        dx._data,
-      );
+    const nativeOk = this.runNativeBackward(
+      this.batchStepCaches,
+      this.buildPerSampleExternalErrors(externalError, seqLen, batchSize),
+      dWxh,
+      dWhh,
+      dBh,
+      dWq,
+      dWm,
+      dWg,
+      dBg,
+      dx._data,
+      totalCols,
+      batchSize
+    );
 
     if (!nativeOk) {
-      // ── JS fallback ───────────────────────────────────────────────────────
-      const combinedUnits = this.units + this.memoryDim;
-      let dhNext = this.batchDhNextBuffer;
-      dhNext.fill(0);
-      const dh = this.batchDhBuffer;
-      const dz = this.batchDzBuffer;
-      let dhPrev = this.batchDhPrevBuffer;
-      dhPrev.fill(0);
-
-      for (let t = seqLen - 1; t >= 0; t--) {
-        dh.set(externalError[t]);
-        for (let i = 0; i < dh.length; i++) dh[i] += dhNext[i];
-
-        const dAct = this.batchActivationGradients[t];
-        for (let i = 0; i < dz.length; i++) dz[i] = dh[i] * dAct[i];
-
-        const combinedBlock = this.batchCombinedInputSequence[t];
-        const hPrevBlock = this.batchHiddenSequence[t];
-        for (let b = 0; b < batchSize; b++) {
+      for (let sample = 0; sample < batchSize; sample++) {
+        const sampleError = new Array<Float32Array>(seqLen);
+        for (let t = 0; t < seqLen; t++) {
+          const stepError = new Float32Array(this.hiddenUnits);
+          const source = externalError[t];
           for (let i = 0; i < this.hiddenUnits; i++) {
-            const dzi = dz[i * batchSize + b];
-            const wxhOffset = i * combinedUnits;
-            const whhOffset = i * this.hiddenUnits;
-            dBh._data[i] += dzi;
-            for (let j = 0; j < combinedUnits; j++) {
-              dWxh._data[wxhOffset + j] += dzi * combinedBlock[j * batchSize + b];
-            }
-            for (let j = 0; j < this.hiddenUnits; j++) {
-              dWhh._data[whhOffset + j] += dzi * hPrevBlock[j * batchSize + b];
-            }
+            stepError[i] = source[i * batchSize + sample];
           }
+          sampleError[t] = stepError;
         }
-
-        for (let b = 0; b < batchSize; b++) {
-          const outCol = t * batchSize + b;
-          for (let j = 0; j < this.units; j++) {
-            let sum = 0;
-            for (let i = 0; i < this.hiddenUnits; i++) {
-              sum += this.Wxh._data[i * combinedUnits + j] * dz[i * batchSize + b];
-            }
-            dx._data[j * totalCols + outCol] = sum;
-          }
-        }
-
-        for (let b = 0; b < batchSize; b++) {
-          for (let j = 0; j < this.hiddenUnits; j++) {
-            let sum = 0;
-            for (let i = 0; i < this.hiddenUnits; i++) {
-              sum += this.Whh._data[i * this.hiddenUnits + j] * dz[i * batchSize + b];
-            }
-            dhPrev[j * batchSize + b] = sum;
-          }
-        }
-        const oldDhNext = dhNext;
-        dhNext = dhPrev;
-        dhPrev = oldDhNext;
+        this.backwardThroughStepCaches(
+          this.batchStepCaches[sample],
+          sampleError,
+          dWxh,
+          dWhh,
+          dBh,
+          dWq,
+          dWm,
+          dWg,
+          dBg,
+          dx._data,
+          totalCols,
+          sample,
+          batchSize
+        );
       }
     }
 
-    this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
+    this.clipGradientsIfNeeded(dWxh, dWhh, dBh, dWq, dWm, dWg, dBg);
     this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
     this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
     this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
+    this.Wq.subInPlace(this.optimizerWq.calculate(dWq, this.alpha));
+    this.Wm.subInPlace(this.optimizerWm.calculate(dWm, this.alpha));
+    this.Wg.subInPlace(this.optimizerWg.calculate(dWg, this.alpha));
+    this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
     return dx;
   }
 
@@ -679,6 +668,8 @@ export default class AdaptiveMemoryRNN {
     this.memoryReadSequence = [];
     this.hiddenSequence = [];
     this.activationGradients = [];
+    this.stepCaches = [];
+    this.batchStepCaches = [];
     this.batchCombinedInputSequence = [];
     this.batchRawInputSequence = [];
     this.batchHiddenSequence = [];
@@ -1046,12 +1037,322 @@ export default class AdaptiveMemoryRNN {
     return z / (1 + z);
   }
 
-  private clipGradientsIfNeeded(dWxh: Matrix, dWhh: Matrix, dBh: Matrix): void {
+  private backwardThroughStepCaches(
+    stepCaches: AdaptiveMemoryStepCache[],
+    externalError: Float32Array[],
+    dWxh: Matrix,
+    dWhh: Matrix,
+    dBh: Matrix,
+    dWq: Matrix,
+    dWm: Matrix,
+    dWg: Matrix,
+    dBg: Matrix,
+    dxData: Float32Array,
+    dxCols: number,
+    batchIndex: number,
+    batchSize: number
+  ): void {
+    const combinedUnits = this.units + this.memoryDim;
+    const memoryStateSize = this.memoryDim * this.memorySlots;
+    const scoreScale = 1 / Math.sqrt(this.memoryDim);
+    let dhNext = new Float32Array(this.hiddenUnits);
+    let dMemoryKeysNext = new Float32Array(memoryStateSize);
+    let dMemoryValuesNext = new Float32Array(memoryStateSize);
+
+    for (let t = stepCaches.length - 1; t >= 0; t--) {
+      const step = stepCaches[t];
+      const dQuery = new Float32Array(this.memoryDim);
+      const dCandidate = new Float32Array(this.memoryDim);
+      const dGate = new Float32Array(this.memoryDim);
+      const dRead = new Float32Array(this.memoryDim);
+      const dMemoryKeysBefore = dMemoryKeysNext.slice();
+      const dMemoryValuesBefore = dMemoryValuesNext.slice();
+      const writeSlot = step.writeSlot;
+
+      for (let i = 0; i < this.memoryDim; i++) {
+        const idx = i * this.memorySlots + writeSlot;
+        const gate = step.gate[i];
+        const oldKey = step.memoryKeysBefore[idx];
+        const oldValue = step.memoryValuesBefore[idx];
+        const dKeyAfter = dMemoryKeysNext[idx];
+        const dValueAfter = dMemoryValuesNext[idx];
+        dMemoryKeysBefore[idx] = dKeyAfter * (1 - gate);
+        dMemoryValuesBefore[idx] = dValueAfter * (1 - gate);
+        dQuery[i] += dKeyAfter * gate;
+        dCandidate[i] += dValueAfter * gate;
+        dGate[i] += dKeyAfter * (step.query[i] - oldKey) + dValueAfter * (step.candidate[i] - oldValue);
+      }
+
+      const dh = externalError[t].slice();
+      for (let i = 0; i < this.hiddenUnits; i++) dh[i] += dhNext[i];
+
+      this.outerAccumulate(dWm._data, this.memoryDim, this.hiddenUnits, dCandidate, step.h);
+      for (let j = 0; j < this.hiddenUnits; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.memoryDim; i++) sum += this.Wm._data[i * this.hiddenUnits + j] * dCandidate[i];
+        dh[j] += sum;
+      }
+
+      const dGatePre = new Float32Array(this.memoryDim);
+      for (let i = 0; i < this.memoryDim; i++) {
+        dGatePre[i] = dGate[i] * step.gate[i] * (1 - step.gate[i]);
+        dBg._data[i] += dGatePre[i];
+      }
+      this.outerAccumulate(dWg._data, this.memoryDim, this.units + this.hiddenUnits + this.memoryDim, dGatePre, step.gateInput);
+      for (let j = 0; j < this.units; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.memoryDim; i++) sum += this.Wg._data[i * (this.units + this.hiddenUnits + this.memoryDim) + j] * dGatePre[i];
+        const col = t * batchSize + batchIndex;
+        dxData[j * dxCols + col] += sum;
+      }
+      for (let j = 0; j < this.hiddenUnits; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.memoryDim; i++) sum += this.Wg._data[i * (this.units + this.hiddenUnits + this.memoryDim) + this.units + j] * dGatePre[i];
+        dh[j] += sum;
+      }
+      for (let j = 0; j < this.memoryDim; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.memoryDim; i++) sum += this.Wg._data[i * (this.units + this.hiddenUnits + this.memoryDim) + this.units + this.hiddenUnits + j] * dGatePre[i];
+        dRead[j] += sum;
+      }
+
+      const dz = new Float32Array(this.hiddenUnits);
+      for (let i = 0; i < this.hiddenUnits; i++) {
+        dz[i] = dh[i] * step.dAct[i];
+        dBh._data[i] += dz[i];
+      }
+      this.outerAccumulate(dWxh._data, this.hiddenUnits, combinedUnits, dz, step.combined);
+      this.outerAccumulate(dWhh._data, this.hiddenUnits, this.hiddenUnits, dz, step.hPrev);
+
+      for (let j = 0; j < this.units; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.hiddenUnits; i++) sum += this.Wxh._data[i * combinedUnits + j] * dz[i];
+        const col = t * batchSize + batchIndex;
+        dxData[j * dxCols + col] += sum;
+      }
+      for (let j = 0; j < this.memoryDim; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.hiddenUnits; i++) sum += this.Wxh._data[i * combinedUnits + this.units + j] * dz[i];
+        dRead[j] += sum;
+      }
+
+      const dhPrev = new Float32Array(this.hiddenUnits);
+      for (let j = 0; j < this.hiddenUnits; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.hiddenUnits; i++) sum += this.Whh._data[i * this.hiddenUnits + j] * dz[i];
+        dhPrev[j] = sum;
+      }
+
+      const dAttention = new Float32Array(this.memorySlots);
+      for (let slot = 0; slot < this.memorySlots; slot++) {
+        let attnGrad = 0;
+        for (let i = 0; i < this.memoryDim; i++) {
+          const idx = i * this.memorySlots + slot;
+          dMemoryValuesBefore[idx] += dRead[i] * step.attention[slot];
+          attnGrad += step.memoryValuesBefore[idx] * dRead[i];
+        }
+        dAttention[slot] = attnGrad;
+      }
+
+      let softmaxInner = 0;
+      for (let slot = 0; slot < this.memorySlots; slot++) {
+        softmaxInner += dAttention[slot] * step.attention[slot];
+      }
+      const dScores = new Float32Array(this.memorySlots);
+      for (let slot = 0; slot < this.memorySlots; slot++) {
+        dScores[slot] = step.attention[slot] * (dAttention[slot] - softmaxInner);
+      }
+      for (let slot = 0; slot < this.memorySlots; slot++) {
+        const scoreGrad = dScores[slot] * scoreScale;
+        for (let i = 0; i < this.memoryDim; i++) {
+          const idx = i * this.memorySlots + slot;
+          dMemoryKeysBefore[idx] += step.query[i] * scoreGrad;
+          dQuery[i] += step.memoryKeysBefore[idx] * scoreGrad;
+        }
+      }
+
+      this.outerAccumulate(dWq._data, this.memoryDim, this.units + this.hiddenUnits, dQuery, step.queryInput);
+      for (let j = 0; j < this.units; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.memoryDim; i++) sum += this.Wq._data[i * (this.units + this.hiddenUnits) + j] * dQuery[i];
+        const col = t * batchSize + batchIndex;
+        dxData[j * dxCols + col] += sum;
+      }
+      for (let j = 0; j < this.hiddenUnits; j++) {
+        let sum = 0;
+        for (let i = 0; i < this.memoryDim; i++) sum += this.Wq._data[i * (this.units + this.hiddenUnits) + this.units + j] * dQuery[i];
+        dhPrev[j] += sum;
+      }
+
+      dhNext = dhPrev;
+      dMemoryKeysNext = dMemoryKeysBefore;
+      dMemoryValuesNext = dMemoryValuesBefore;
+    }
+  }
+
+  private runNativeBackward(
+    sampleCaches: AdaptiveMemoryStepCache[][],
+    sampleErrors: Float32Array[][],
+    dWxh: Matrix,
+    dWhh: Matrix,
+    dBh: Matrix,
+    dWq: Matrix,
+    dWm: Matrix,
+    dWg: Matrix,
+    dBg: Matrix,
+    dxData: Float32Array,
+    dxCols: number,
+    batchSize: number
+  ): boolean {
+    if (!isNativeAvailable()) return false;
+    const seqLen = sampleCaches[0]?.length ?? 0;
+    if (seqLen === 0) return false;
+    const flattened = this.flattenStepCachesForNative(sampleCaches, sampleErrors, seqLen, batchSize);
+    return adaptiveMemoryRnnBackwardNative(
+      this.Wxh._data,
+      this.Whh._data,
+      this.Wq._data,
+      this.Wm._data,
+      this.Wg._data,
+      flattened.hPrev,
+      flattened.h,
+      flattened.dAct,
+      flattened.combined,
+      flattened.read,
+      flattened.queryInput,
+      flattened.query,
+      flattened.attention,
+      flattened.gateInput,
+      flattened.gate,
+      flattened.candidate,
+      flattened.memoryKeysBefore,
+      flattened.memoryValuesBefore,
+      flattened.writeSlots,
+      flattened.errH,
+      this.hiddenUnits,
+      this.units,
+      this.memoryDim,
+      this.memorySlots,
+      seqLen,
+      batchSize,
+      dWxh._data,
+      dWhh._data,
+      dBh._data,
+      dWq._data,
+      dWm._data,
+      dWg._data,
+      dBg._data,
+      dxData
+    );
+  }
+
+  private buildPerSampleExternalErrors(externalError: Float32Array[], seqLen: number, batchSize: number): Float32Array[][] {
+    const perSample = new Array<Float32Array[]>(batchSize);
+    for (let sample = 0; sample < batchSize; sample++) {
+      const sampleSteps = new Array<Float32Array>(seqLen);
+      for (let t = 0; t < seqLen; t++) {
+        const stepError = new Float32Array(this.hiddenUnits);
+        const source = externalError[t];
+        for (let i = 0; i < this.hiddenUnits; i++) {
+          stepError[i] = source[i * batchSize + sample];
+        }
+        sampleSteps[t] = stepError;
+      }
+      perSample[sample] = sampleSteps;
+    }
+    return perSample;
+  }
+
+  private flattenStepCachesForNative(
+    sampleCaches: AdaptiveMemoryStepCache[][],
+    sampleErrors: Float32Array[][],
+    seqLen: number,
+    batchSize: number
+  ): {
+    hPrev: Float32Array;
+    h: Float32Array;
+    dAct: Float32Array;
+    combined: Float32Array;
+    read: Float32Array;
+    queryInput: Float32Array;
+    query: Float32Array;
+    attention: Float32Array;
+    gateInput: Float32Array;
+    gate: Float32Array;
+    candidate: Float32Array;
+    memoryKeysBefore: Float32Array;
+    memoryValuesBefore: Float32Array;
+    writeSlots: Int32Array;
+    errH: Float32Array;
+  } {
+    const totalSteps = seqLen * batchSize;
+    const hPrev = new Float32Array(totalSteps * this.hiddenUnits);
+    const h = new Float32Array(totalSteps * this.hiddenUnits);
+    const dAct = new Float32Array(totalSteps * this.hiddenUnits);
+    const combined = new Float32Array(totalSteps * (this.units + this.memoryDim));
+    const read = new Float32Array(totalSteps * this.memoryDim);
+    const queryInput = new Float32Array(totalSteps * (this.units + this.hiddenUnits));
+    const query = new Float32Array(totalSteps * this.memoryDim);
+    const attention = new Float32Array(totalSteps * this.memorySlots);
+    const gateInput = new Float32Array(totalSteps * (this.units + this.hiddenUnits + this.memoryDim));
+    const gate = new Float32Array(totalSteps * this.memoryDim);
+    const candidate = new Float32Array(totalSteps * this.memoryDim);
+    const memoryKeysBefore = new Float32Array(totalSteps * this.memoryDim * this.memorySlots);
+    const memoryValuesBefore = new Float32Array(totalSteps * this.memoryDim * this.memorySlots);
+    const writeSlots = new Int32Array(totalSteps);
+    const errH = new Float32Array(totalSteps * this.hiddenUnits);
+
+    for (let sample = 0; sample < batchSize; sample++) {
+      for (let t = 0; t < seqLen; t++) {
+        const stepIndex = sample * seqLen + t;
+        const cache = sampleCaches[sample][t];
+        hPrev.set(cache.hPrev, stepIndex * this.hiddenUnits);
+        h.set(cache.h, stepIndex * this.hiddenUnits);
+        dAct.set(cache.dAct, stepIndex * this.hiddenUnits);
+        combined.set(cache.combined, stepIndex * (this.units + this.memoryDim));
+        read.set(cache.read, stepIndex * this.memoryDim);
+        queryInput.set(cache.queryInput, stepIndex * (this.units + this.hiddenUnits));
+        query.set(cache.query, stepIndex * this.memoryDim);
+        attention.set(cache.attention, stepIndex * this.memorySlots);
+        gateInput.set(cache.gateInput, stepIndex * (this.units + this.hiddenUnits + this.memoryDim));
+        gate.set(cache.gate, stepIndex * this.memoryDim);
+        candidate.set(cache.candidate, stepIndex * this.memoryDim);
+        memoryKeysBefore.set(cache.memoryKeysBefore, stepIndex * this.memoryDim * this.memorySlots);
+        memoryValuesBefore.set(cache.memoryValuesBefore, stepIndex * this.memoryDim * this.memorySlots);
+        writeSlots[stepIndex] = cache.writeSlot;
+        errH.set(sampleErrors[sample][t], stepIndex * this.hiddenUnits);
+      }
+    }
+
+    return {
+      hPrev,
+      h,
+      dAct,
+      combined,
+      read,
+      queryInput,
+      query,
+      attention,
+      gateInput,
+      gate,
+      candidate,
+      memoryKeysBefore,
+      memoryValuesBefore,
+      writeSlots,
+      errH,
+    };
+  }
+
+  private clipGradientsIfNeeded(dWxh: Matrix, dWhh: Matrix, dBh: Matrix, dWq: Matrix, dWm: Matrix, dWg: Matrix, dBg: Matrix): void {
     if (this.clipGradient === false) return;
     const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
     mj.clipGradients(dWxh, limit);
     mj.clipGradients(dWhh, limit);
     mj.clipGradients(dBh, limit);
+    mj.clipGradients(dWq, limit);
+    mj.clipGradients(dWm, limit);
+    mj.clipGradients(dWg, limit);
+    mj.clipGradients(dBg, limit);
   }
 
   private assertBatchInputSupported(x: Matrix, batchSize: number): void {

@@ -245,6 +245,11 @@ Key rules:
 - `hiddenSizes` takes priority over `hiddenSize` + `numLayers`.
 - If `Embedding` is not used, provide `inputSize`.
 - Set `embeddingTrainable: false` to freeze the internal `Embedding` layer.
+- `pooling` controls many-to-one sequence aggregation:
+  - `"last"` keeps the legacy last-hidden behavior.
+  - `"mean"` performs differentiable mean pooling over all valid timesteps.
+  - `"max"` performs differentiable max pooling with argmax-routed backward.
+- If `padTokenId` is set and the model uses `Embedding`, `"mean"` / `"max"` pooling ignore PAD positions. An all-PAD sample throws `RecurrentModel pooling: sample has no valid non-pad tokens.`
 - `many-to-one` is supported.
 - aligned `many-to-many` is supported with target shape `[1, seqLen]` (sparse) or `[outputSize, seqLen]` (dense/one-hot or regression).
 

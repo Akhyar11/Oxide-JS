@@ -21,6 +21,10 @@ ML-V1 includes a Rust extension (via [napi-rs](https://napi.rs/)) that accelerat
 - Full fused recurrent loops (RNN, LSTM, GRU) for high-speed BPTT
 - Fused Sparse Optimizer updates for NLP embedding training
 
+Current recurrent note:
+- `AdaptiveMemoryRNN` native backward supports the same trainable projections as the JavaScript reference path (`Wxh`, `Whh`, `bh`, `Wq`, `Wm`, `Wg`, `bg`) by consuming the same cached forward intermediates.
+- `memoryKeys`, `memoryValues`, and `memoryUsage` remain dynamic recurrent state rather than optimizer-trained global parameters.
+
 When the native addon is not available, the library falls back transparently to pure JavaScript implementations. There is no API difference; the same functions work in both cases.
 
 ---

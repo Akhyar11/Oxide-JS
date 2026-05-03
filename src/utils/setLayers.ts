@@ -150,6 +150,7 @@ registerLayer("lstm layer", (data) => {
   const lstm = new LSTM({
     units: data.units,
     hiddenUnits: data.hiddenUnits,
+    forgetBias: data.forgetBias,
     returnSequences: data.returnSequences,
     returnState: data.returnState,
     stateful: data.stateful,

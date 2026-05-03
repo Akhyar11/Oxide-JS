@@ -288,12 +288,17 @@ Recurrent layer with cell state and input/forget/output gates for longer-range d
 |---|---|---|
 | `units` | `number` | Input features per time step |
 | `hiddenUnits` | `number` | Hidden and cell state size |
+| `forgetBias` | `number` | Initial forget-gate bias for new layers. Default `1` |
 | `returnSequences` | `boolean` | Return all time steps |
 | `stateful` | `boolean` | Carry state across calls |
 | `optimizer` | `Optimzier` | Optimizer name |
 | `clipGradient` | `number` | Gradient clipping limit |
 
 `getState()` returns `{ h, c }`.
+
+Notes:
+- New `LSTM` layers initialize `bf` to `1` by default for better long-range retention.
+- `forgetBias` only affects fresh initialization. `load()` always preserves serialized `bf` from saved weights.
 
 ```ts
 import { LSTM, mj } from "@akhyar11/ml-v1"
@@ -376,7 +381,7 @@ k_i <- (1 - g_t) * k_i + g_t * q_t
 v_i <- (1 - g_t) * v_i + g_t * c_t
 ```
 
-The retrieval is attention-like, but it attends over the layer's memory slots rather than over all input tokens. In the current MVP, backward training updates only the RNN core weights (`Wxh`, `Whh`, `bh`). Memory retrieval and write parameters (`Wq`, `Wm`, `Wg`, `bg`, `memoryKeys`, `memoryValues`) are forward-state / stop-gradient until full differentiable memory training is added.
+The retrieval is attention-like, but it attends over the layer's memory slots rather than over all input tokens.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -387,7 +392,7 @@ The retrieval is attention-like, but it attends over the layer's memory slots ra
 | `memoryDim` | `number` | `hiddenUnits` | Key/value dimension for each memory slot |
 | `returnSequences` | `boolean` | `false` | Return all time steps or only the last hidden state |
 | `stateful` | `boolean` | `false` | Carry hidden state and memory bank across calls |
-| `optimizer` | `Optimzier` | `"adam"` | Optimizer for MVP RNN-core training |
+| `optimizer` | `Optimzier` | `"adam"` | Optimizer for trainable recurrent/query/write projections |
 | `clipGradient` | `number \| boolean` | `5.0` | Gradient clipping limit |
 
 ```ts
@@ -413,6 +418,12 @@ const model = new Sequential({
   ],
 });
 ```
+
+Gradient support:
+- Trainable via optimizer updates: `Wxh`, `Whh`, `bh`, `Wq`, `Wm`, `Wg`, `bg`.
+- `memoryKeys`, `memoryValues`, and `memoryUsage` are treated as dynamic recurrent state, not optimizer-trained global parameters.
+- Slot selection (`selectWriteSlot`) is discrete. Gradients flow through the selected slot's read/write computations, but not through the slot-choice decision itself.
+- The JavaScript path remains the correctness reference, and the native backward path is implemented to match it using the same forward caches.
 
 ---
 

@@ -1,6 +1,9 @@
 import { AdaptiveMemoryRNN } from "../../src/layers";
 import mj from "../../src/math";
+import { isNativeAvailable } from "../../src/math/rust_backend";
 import Matrix from "../../src/matrix";
+import Sequential from "../../src/models/sequential";
+import Dense from "../../src/layers/dense";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -16,6 +19,26 @@ function assertShape(matrix: Matrix, rows: number, cols: number, message: string
 function assertFinite(matrix: Matrix, message: string): void {
   for (const value of matrix._data) {
     assert(Number.isFinite(value), `${message}: found non-finite value ${value}`);
+  }
+}
+
+function assertChanged(before: Matrix, after: Matrix, message: string): void {
+  let changed = false;
+  for (let i = 0; i < before._data.length; i++) {
+    if (Math.abs(before._data[i] - after._data[i]) > 1e-7) {
+      changed = true;
+      break;
+    }
+  }
+  assert(changed, message);
+}
+
+function assertMatrixClose(actual: Matrix, expected: Matrix, tolerance: number, message: string): void {
+  assert(actual._data.length === expected._data.length, `${message}: length mismatch`);
+  for (let i = 0; i < actual._data.length; i++) {
+    if (Math.abs(actual._data[i] - expected._data[i]) > tolerance) {
+      throw new Error(`${message}: mismatch at flat index ${i}, expected ${expected._data[i]}, got ${actual._data[i]}`);
+    }
   }
 }
 
@@ -86,9 +109,24 @@ export function runAdaptiveMemoryRNNCorrectnessSuite(): void {
 
   const backwardLayer = new AdaptiveMemoryRNN({ units: 3, hiddenUnits: 5, memorySlots: 4, memoryDim: 6 });
   backwardLayer.forward(sampleInput());
+  const beforeWxh = backwardLayer.Wxh.clone();
+  const beforeWhh = backwardLayer.Whh.clone();
+  const beforeBh = backwardLayer.bh.clone();
+  const beforeWq = backwardLayer.Wq.clone();
+  const beforeWm = backwardLayer.Wm.clone();
+  const beforeWg = backwardLayer.Wg.clone();
+  const beforeBg = backwardLayer.bg.clone();
   const dx = backwardLayer.backward(mj.matrix([[0]]), mj.matrix([[0.1], [0.2], [0.3], [0.4], [0.5]]));
   assertShape(dx, 3, 3, "backward should return dx for input shape");
   assertFinite(dx, "backward dx");
+  assert(dx._data.some((value) => Math.abs(value) > 1e-8), "backward dx should be non-zero for non-zero err");
+  assertChanged(beforeWxh, backwardLayer.Wxh, "backward should update Wxh");
+  assertChanged(beforeWhh, backwardLayer.Whh, "backward should update Whh");
+  assertChanged(beforeBh, backwardLayer.bh, "backward should update bh");
+  assertChanged(beforeWq, backwardLayer.Wq, "backward should update Wq");
+  assertChanged(beforeWm, backwardLayer.Wm, "backward should update Wm");
+  assertChanged(beforeWg, backwardLayer.Wg, "backward should update Wg");
+  assertChanged(beforeBg, backwardLayer.bg, "backward should update bg");
 
   const batchLayer = new AdaptiveMemoryRNN({
     units: 3,
@@ -105,6 +143,10 @@ export function runAdaptiveMemoryRNNCorrectnessSuite(): void {
   const batchOut = batchLayer.forwardBatch(batchInput, 2);
   assertShape(batchOut, 5, 2, "forwardBatch returnSequences=false");
   assertFinite(batchOut, "forwardBatch output");
+  const batchBeforeWq = batchLayer.Wq.clone();
+  const batchBeforeWm = batchLayer.Wm.clone();
+  const batchBeforeWg = batchLayer.Wg.clone();
+  const batchBeforeBg = batchLayer.bg.clone();
   const batchDx = batchLayer.backwardBatch(
     mj.matrix([[0, 1]]),
     mj.matrix([
@@ -118,12 +160,141 @@ export function runAdaptiveMemoryRNNCorrectnessSuite(): void {
   );
   assertShape(batchDx, 3, 6, "backwardBatch should return dx for batched input shape");
   assertFinite(batchDx, "backwardBatch dx");
+  assert(batchDx._data.some((value) => Math.abs(value) > 1e-8), "backwardBatch dx should be non-zero");
+  assertChanged(batchBeforeWq, batchLayer.Wq, "backwardBatch should update Wq");
+  assertChanged(batchBeforeWm, batchLayer.Wm, "backwardBatch should update Wm");
+  assertChanged(batchBeforeWg, batchLayer.Wg, "backwardBatch should update Wg");
+  assertChanged(batchBeforeBg, batchLayer.bg, "backwardBatch should update bg");
+
+  let nativeParityChecked = "skipped";
+  if (isNativeAvailable()) {
+    const nativeLayer = new AdaptiveMemoryRNN({ units: 3, hiddenUnits: 4, memorySlots: 3, memoryDim: 4 });
+    const jsLayer = new AdaptiveMemoryRNN({ units: 3, hiddenUnits: 4, memorySlots: 3, memoryDim: 4 });
+    jsLayer.load(nativeLayer.save());
+    nativeLayer.forward(sampleInput());
+    jsLayer.forward(sampleInput());
+
+    const errMatrix = mj.matrix([[0.1], [0.2], [0.3], [0.4]]);
+    const nativeAny = nativeLayer as any;
+    const jsAny = jsLayer as any;
+    const seqLen = sampleInput()._shape[1];
+    const externalError = jsAny.resolveError(mj.matrix([[0]]), errMatrix, seqLen) as Float32Array[];
+    const perSampleErrors = [externalError];
+
+    const nativeDWxh = mj.zeros(nativeLayer.Wxh._shape);
+    const nativeDWhh = mj.zeros(nativeLayer.Whh._shape);
+    const nativeDBh = mj.zeros(nativeLayer.bh._shape);
+    const nativeDWq = mj.zeros(nativeLayer.Wq._shape);
+    const nativeDWm = mj.zeros(nativeLayer.Wm._shape);
+    const nativeDWg = mj.zeros(nativeLayer.Wg._shape);
+    const nativeDBg = mj.zeros(nativeLayer.bg._shape);
+    const nativeDx = mj.zeros([nativeLayer.units, seqLen]);
+
+    const jsDWxh = mj.zeros(jsLayer.Wxh._shape);
+    const jsDWhh = mj.zeros(jsLayer.Whh._shape);
+    const jsDBh = mj.zeros(jsLayer.bh._shape);
+    const jsDWq = mj.zeros(jsLayer.Wq._shape);
+    const jsDWm = mj.zeros(jsLayer.Wm._shape);
+    const jsDWg = mj.zeros(jsLayer.Wg._shape);
+    const jsDBg = mj.zeros(jsLayer.bg._shape);
+    const jsDx = mj.zeros([jsLayer.units, seqLen]);
+
+    const nativeOk = nativeAny.runNativeBackward(
+      [nativeAny.stepCaches],
+      perSampleErrors,
+      nativeDWxh,
+      nativeDWhh,
+      nativeDBh,
+      nativeDWq,
+      nativeDWm,
+      nativeDWg,
+      nativeDBg,
+      nativeDx._data,
+      seqLen,
+      1
+    );
+    assert(nativeOk, "native parity test expected native backward to run");
+
+    jsAny.backwardThroughStepCaches(
+      jsAny.stepCaches,
+      externalError,
+      jsDWxh,
+      jsDWhh,
+      jsDBh,
+      jsDWq,
+      jsDWm,
+      jsDWg,
+      jsDBg,
+      jsDx._data,
+      seqLen,
+      0,
+      1
+    );
+
+    assertMatrixClose(nativeDWxh, jsDWxh, 1e-5, "native parity dWxh");
+    assertMatrixClose(nativeDWhh, jsDWhh, 1e-5, "native parity dWhh");
+    assertMatrixClose(nativeDBh, jsDBh, 1e-5, "native parity dBh");
+    assertMatrixClose(nativeDWq, jsDWq, 1e-5, "native parity dWq");
+    assertMatrixClose(nativeDWm, jsDWm, 1e-5, "native parity dWm");
+    assertMatrixClose(nativeDWg, jsDWg, 1e-5, "native parity dWg");
+    assertMatrixClose(nativeDBg, jsDBg, 1e-5, "native parity dBg");
+    assertMatrixClose(nativeDx, jsDx, 1e-5, "native parity dx");
+    nativeParityChecked = "pass";
+  }
+
+  const trainModel = new Sequential({
+    layers: [
+      new AdaptiveMemoryRNN({
+        units: 2,
+        hiddenUnits: 4,
+        memorySlots: 2,
+        memoryDim: 3,
+        alpha: 0.05,
+        optimizer: "sgd",
+        status: "input",
+      }),
+      new Dense({
+        units: 4,
+        outputUnits: 2,
+        activation: "linear",
+        status: "output",
+        loss: "softmaxCrossEntropy",
+        alpha: 0.05,
+        optimizer: "sgd",
+      }),
+    ],
+  });
+
+  const trainX = [
+    mj.matrix([[1, 0, 1], [0, 1, 0]]),
+    mj.matrix([[0, 1, 0], [1, 0, 1]]),
+    mj.matrix([[1, 1, 0], [0, 0, 1]]),
+    mj.matrix([[0, 0, 1], [1, 1, 0]]),
+  ];
+  const trainY = [
+    mj.matrix([[0]]),
+    mj.matrix([[1]]),
+    mj.matrix([[0]]),
+    mj.matrix([[1]]),
+  ];
+  const history: number[] = [];
+  trainModel.fit(trainX, trainY, 12, {
+    batchSize: 1,
+    shuffle: false,
+    verbose: false,
+    onEpochEnd: (_epoch, loss) => history.push(loss),
+  });
+  assert(history[history.length - 1] < history[0], "tiny AdaptiveMemoryRNN model should reduce loss on synthetic data");
 
   console.log("=== AdaptiveMemoryRNN Correctness ===");
   console.table([
     { check: "constructor and forward shapes", status: "pass" },
     { check: "stateful reset and memory update", status: "pass" },
     { check: "save/load and backward core", status: "pass" },
+    { check: "memory/query/write params update", status: "pass" },
+    { check: "batch backward updates memory path", status: "pass" },
+    { check: "native backward parity", status: nativeParityChecked },
+    { check: "tiny synthetic overfit", status: "pass" },
   ]);
 }
 

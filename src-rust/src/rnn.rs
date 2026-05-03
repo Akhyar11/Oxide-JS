@@ -580,7 +580,13 @@ pub fn adaptive_memory_rnn_forward_native_into(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AdaptiveMemoryRNN – backward pass (BPTT through Wxh/Whh/bh only)
+// AdaptiveMemoryRNN – legacy partial backward
+//
+// IMPORTANT:
+// This native kernel only covers gradients for Wxh/Whh/bh and does not provide
+// parity with the full JS reference backward used by the TypeScript layer.
+// The TS wrapper intentionally disables use of this kernel for training until a
+// parity-complete native implementation exists.
 //
 // Input buffers (from forward):
 //   combined  : [seq_len * combined_width * batch_size]
@@ -694,6 +700,292 @@ pub fn adaptive_memory_rnn_backward_native_into(
         let off = t * bs * hu;
         for b in 0..bs {
             for r in 0..hu { dbh_s[r] += dz_all[off + r * bs + b]; }
+        }
+    }
+}
+
+#[napi]
+#[allow(clippy::too_many_arguments)]
+pub fn adaptive_memory_rnn_backward_full_native_into(
+    wxh: Float32Array,
+    whh: Float32Array,
+    wq: Float32Array,
+    wm: Float32Array,
+    wg: Float32Array,
+    h_prev: Float32Array,
+    h: Float32Array,
+    d_act: Float32Array,
+    combined: Float32Array,
+    read: Float32Array,
+    query_input: Float32Array,
+    query: Float32Array,
+    attention: Float32Array,
+    gate_input: Float32Array,
+    gate: Float32Array,
+    candidate: Float32Array,
+    memory_keys_before: Float32Array,
+    memory_values_before: Float32Array,
+    write_slots: Int32Array,
+    err_h: Float32Array,
+    hidden_units: u32,
+    input_units: u32,
+    memory_dim: u32,
+    memory_slots: u32,
+    seq_len: u32,
+    batch_size: u32,
+    mut dwxh: Float32Array,
+    mut dwhh: Float32Array,
+    mut dbh: Float32Array,
+    mut dwq: Float32Array,
+    mut dwm: Float32Array,
+    mut dwg: Float32Array,
+    mut dbg: Float32Array,
+    mut dx_out: Float32Array,
+) {
+    let hu = hidden_units as usize;
+    let iu = input_units as usize;
+    let md = memory_dim as usize;
+    let ms = memory_slots as usize;
+    let sl = seq_len as usize;
+    let bs = batch_size as usize;
+    let total_cols = sl * bs;
+    let combined_width = iu + md;
+    let query_input_width = iu + hu;
+    let gate_input_width = iu + hu + md;
+    let memory_state_size = md * ms;
+    let score_scale = 1.0 / (md as f32).sqrt();
+
+    let wxh_s = &*wxh;
+    let whh_s = &*whh;
+    let wq_s = &*wq;
+    let wm_s = &*wm;
+    let wg_s = &*wg;
+    let h_prev_s = &*h_prev;
+    let h_s = &*h;
+    let d_act_s = &*d_act;
+    let combined_s = &*combined;
+    let _read_s = &*read;
+    let query_input_s = &*query_input;
+    let query_s = &*query;
+    let attention_s = &*attention;
+    let gate_input_s = &*gate_input;
+    let gate_s = &*gate;
+    let candidate_s = &*candidate;
+    let memory_keys_before_s = &*memory_keys_before;
+    let memory_values_before_s = &*memory_values_before;
+    let write_slots_s = &*write_slots;
+    let err_h_s = &*err_h;
+    let dwxh_s = &mut *dwxh;
+    let dwhh_s = &mut *dwhh;
+    let dbh_s = &mut *dbh;
+    let dwq_s = &mut *dwq;
+    let dwm_s = &mut *dwm;
+    let dwg_s = &mut *dwg;
+    let dbg_s = &mut *dbg;
+    let dx_out_s = &mut *dx_out;
+
+    for b in 0..bs {
+        let mut dh_next = vec![0.0f32; hu];
+        let mut d_memory_keys_next = vec![0.0f32; memory_state_size];
+        let mut d_memory_values_next = vec![0.0f32; memory_state_size];
+
+        for ti in 0..sl {
+            let t = sl - 1 - ti;
+            let step_index = b * sl + t;
+            let h_prev_base = step_index * hu;
+            let h_base = step_index * hu;
+            let d_act_base = step_index * hu;
+            let combined_base = step_index * combined_width;
+            let _read_base = step_index * md;
+            let query_input_base = step_index * query_input_width;
+            let query_base = step_index * md;
+            let attention_base = step_index * ms;
+            let gate_input_base = step_index * gate_input_width;
+            let gate_base = step_index * md;
+            let candidate_base = step_index * md;
+            let memory_base = step_index * memory_state_size;
+            let err_base = step_index * hu;
+            let write_slot = write_slots_s[step_index] as usize;
+
+            let mut d_query = vec![0.0f32; md];
+            let mut d_candidate = vec![0.0f32; md];
+            let mut d_gate = vec![0.0f32; md];
+            let mut d_read = vec![0.0f32; md];
+            let mut d_memory_keys_before = d_memory_keys_next.clone();
+            let mut d_memory_values_before = d_memory_values_next.clone();
+
+            for i in 0..md {
+                let idx = i * ms + write_slot;
+                let gate_val = gate_s[gate_base + i];
+                let old_key = memory_keys_before_s[memory_base + idx];
+                let old_value = memory_values_before_s[memory_base + idx];
+                let d_key_after = d_memory_keys_next[idx];
+                let d_value_after = d_memory_values_next[idx];
+                d_memory_keys_before[idx] = d_key_after * (1.0 - gate_val);
+                d_memory_values_before[idx] = d_value_after * (1.0 - gate_val);
+                d_query[i] += d_key_after * gate_val;
+                d_candidate[i] += d_value_after * gate_val;
+                d_gate[i] += d_key_after * (query_s[query_base + i] - old_key)
+                    + d_value_after * (candidate_s[candidate_base + i] - old_value);
+            }
+
+            let mut dh = vec![0.0f32; hu];
+            for i in 0..hu {
+                dh[i] = err_h_s[err_base + i] + dh_next[i];
+            }
+
+            for i in 0..md {
+                let dc = d_candidate[i];
+                let row_off = i * hu;
+                for j in 0..hu {
+                    dwm_s[row_off + j] += dc * h_s[h_base + j];
+                }
+            }
+            for j in 0..hu {
+                let mut sum = 0.0f32;
+                for i in 0..md {
+                    sum += wm_s[i * hu + j] * d_candidate[i];
+                }
+                dh[j] += sum;
+            }
+
+            let mut d_gate_pre = vec![0.0f32; md];
+            for i in 0..md {
+                let gate_val = gate_s[gate_base + i];
+                let dgp = d_gate[i] * gate_val * (1.0 - gate_val);
+                d_gate_pre[i] = dgp;
+                dbg_s[i] += dgp;
+            }
+
+            for i in 0..md {
+                let dgp = d_gate_pre[i];
+                let row_off = i * gate_input_width;
+                for j in 0..gate_input_width {
+                    dwg_s[row_off + j] += dgp * gate_input_s[gate_input_base + j];
+                }
+            }
+
+            let col = t * bs + b;
+            for j in 0..iu {
+                let mut sum = 0.0f32;
+                for i in 0..md {
+                    sum += wg_s[i * gate_input_width + j] * d_gate_pre[i];
+                }
+                dx_out_s[j * total_cols + col] += sum;
+            }
+            for j in 0..hu {
+                let mut sum = 0.0f32;
+                for i in 0..md {
+                    sum += wg_s[i * gate_input_width + iu + j] * d_gate_pre[i];
+                }
+                dh[j] += sum;
+            }
+            for j in 0..md {
+                let mut sum = 0.0f32;
+                for i in 0..md {
+                    sum += wg_s[i * gate_input_width + iu + hu + j] * d_gate_pre[i];
+                }
+                d_read[j] += sum;
+            }
+
+            let mut dz = vec![0.0f32; hu];
+            for i in 0..hu {
+                let dzv = dh[i] * d_act_s[d_act_base + i];
+                dz[i] = dzv;
+                dbh_s[i] += dzv;
+            }
+
+            for i in 0..hu {
+                let dzv = dz[i];
+                let wxh_off = i * combined_width;
+                let whh_off = i * hu;
+                for j in 0..combined_width {
+                    dwxh_s[wxh_off + j] += dzv * combined_s[combined_base + j];
+                }
+                for j in 0..hu {
+                    dwhh_s[whh_off + j] += dzv * h_prev_s[h_prev_base + j];
+                }
+            }
+
+            for j in 0..iu {
+                let mut sum = 0.0f32;
+                for i in 0..hu {
+                    sum += wxh_s[i * combined_width + j] * dz[i];
+                }
+                dx_out_s[j * total_cols + col] += sum;
+            }
+            for j in 0..md {
+                let mut sum = 0.0f32;
+                for i in 0..hu {
+                    sum += wxh_s[i * combined_width + iu + j] * dz[i];
+                }
+                d_read[j] += sum;
+            }
+
+            let mut dh_prev = vec![0.0f32; hu];
+            for j in 0..hu {
+                let mut sum = 0.0f32;
+                for i in 0..hu {
+                    sum += whh_s[i * hu + j] * dz[i];
+                }
+                dh_prev[j] = sum;
+            }
+
+            let mut d_attention = vec![0.0f32; ms];
+            for slot in 0..ms {
+                let mut attn_grad = 0.0f32;
+                for i in 0..md {
+                    let idx = i * ms + slot;
+                    d_memory_values_before[idx] += d_read[i] * attention_s[attention_base + slot];
+                    attn_grad += memory_values_before_s[memory_base + idx] * d_read[i];
+                }
+                d_attention[slot] = attn_grad;
+            }
+
+            let mut softmax_inner = 0.0f32;
+            for slot in 0..ms {
+                softmax_inner += d_attention[slot] * attention_s[attention_base + slot];
+            }
+            let mut d_scores = vec![0.0f32; ms];
+            for slot in 0..ms {
+                d_scores[slot] = attention_s[attention_base + slot] * (d_attention[slot] - softmax_inner);
+            }
+
+            for slot in 0..ms {
+                let score_grad = d_scores[slot] * score_scale;
+                for i in 0..md {
+                    let idx = i * ms + slot;
+                    d_memory_keys_before[idx] += query_s[query_base + i] * score_grad;
+                    d_query[i] += memory_keys_before_s[memory_base + idx] * score_grad;
+                }
+            }
+
+            for i in 0..md {
+                let dq = d_query[i];
+                let row_off = i * query_input_width;
+                for j in 0..query_input_width {
+                    dwq_s[row_off + j] += dq * query_input_s[query_input_base + j];
+                }
+            }
+
+            for j in 0..iu {
+                let mut sum = 0.0f32;
+                for i in 0..md {
+                    sum += wq_s[i * query_input_width + j] * d_query[i];
+                }
+                dx_out_s[j * total_cols + col] += sum;
+            }
+            for j in 0..hu {
+                let mut sum = 0.0f32;
+                for i in 0..md {
+                    sum += wq_s[i * query_input_width + iu + j] * d_query[i];
+                }
+                dh_prev[j] += sum;
+            }
+
+            dh_next = dh_prev;
+            d_memory_keys_next = d_memory_keys_before;
+            d_memory_values_next = d_memory_values_before;
         }
     }
 }

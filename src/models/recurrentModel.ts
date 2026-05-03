@@ -1,12 +1,14 @@
 import { FitConfig, FitResult } from "../@types/fitConfig";
 import { Cost, Matrix as MatrixType, Optimzier } from "../@types/type";
 import { CompileDenseLayers, Dense, Embedding, GRU, LSTM, RNN } from "../layers";
+import mj from "../math";
 import Matrix from "../matrix";
 import { formatLoss, formatProgressBar, formatTime, shuffleInPlace, splitTrainValidation } from "../utils";
 import Sequential, { SequentialLayers } from "./sequential";
 
 export type RecurrentKind = "rnn" | "lstm" | "gru";
 export type RecurrentTrainingMode = "many-to-one" | "many-to-many";
+export type RecurrentPooling = "last" | "mean" | "max";
 
 export interface RecurrentModelConfig {
   kind: RecurrentKind;
@@ -20,6 +22,8 @@ export interface RecurrentModelConfig {
   outputSize: number;
   seqLen: number;
   mode?: RecurrentTrainingMode;
+  pooling?: RecurrentPooling;
+  padTokenId?: number | null;
   stateful?: boolean;
   alpha?: number;
   loss?: Cost;
@@ -32,6 +36,8 @@ type RecurrentLayer = RNN | LSTM | GRU;
 export default class RecurrentModel extends Sequential {
   readonly kind: RecurrentKind;
   readonly mode: RecurrentTrainingMode;
+  readonly pooling: RecurrentPooling;
+  readonly padTokenId: number | null;
   readonly seqLen: number;
   readonly outputSize: number;
   readonly stateful: boolean;
@@ -39,6 +45,14 @@ export default class RecurrentModel extends Sequential {
   private readonly embeddingLayer: Embedding | null;
   private readonly recurrentLayers: RecurrentLayer[];
   private readonly outputLayer: Dense;
+  private poolingCache:
+    | {
+      batchSize: number;
+      mask: Uint8Array;
+      counts: Int32Array;
+      argmax: Int32Array | null;
+    }
+    | null = null;
   private batchSequenceInputBufferData: Float32Array = new Float32Array(0);
   private batchSequenceTargetBufferData: Float32Array = new Float32Array(0);
 
@@ -54,6 +68,8 @@ export default class RecurrentModel extends Sequential {
     outputSize,
     seqLen,
     mode = "many-to-one",
+    pooling = "last",
+    padTokenId = null,
     stateful = false,
     alpha = 0.01,
     loss = "mse",
@@ -68,6 +84,9 @@ export default class RecurrentModel extends Sequential {
     }
 
     const normalizedHiddenSizes = RecurrentModel.resolveHiddenSizes(hiddenSize, hiddenSizes, numLayers);
+    if (pooling !== "last" && pooling !== "mean" && pooling !== "max") {
+      throw new Error(`RecurrentModel: pooling harus "last" | "mean" | "max", got ${pooling}`);
+    }
     const useEmbedding = vocabSize !== undefined || embeddingDim !== undefined;
     if (useEmbedding) {
       if (!Number.isInteger(vocabSize) || (vocabSize as number) < 1) {
@@ -90,6 +109,7 @@ export default class RecurrentModel extends Sequential {
         embeddingDim: embeddingDim as number,
         alpha,
         optimizer,
+        padTokenId,
         trainable: embeddingTrainable,
       });
       layers.push(embeddingLayer);
@@ -98,7 +118,9 @@ export default class RecurrentModel extends Sequential {
     const recurrentLayers: RecurrentLayer[] = [];
     for (let i = 0; i < normalizedHiddenSizes.length; i++) {
       const nextHiddenSize = normalizedHiddenSizes[i];
-      const returnSequences = mode === "many-to-many" || i < normalizedHiddenSizes.length - 1;
+      const returnSequences = mode === "many-to-many"
+        || i < normalizedHiddenSizes.length - 1
+        || (mode === "many-to-one" && pooling !== "last");
       const status = i === 0 ? "input" : "train";
       const layer = RecurrentModel.createRecurrentLayer(kind, {
         units: currentUnits,
@@ -132,6 +154,8 @@ export default class RecurrentModel extends Sequential {
 
     this.kind = kind;
     this.mode = mode;
+    this.pooling = pooling;
+    this.padTokenId = padTokenId;
     this.seqLen = seqLen;
     this.outputSize = outputSize;
     this.stateful = stateful;
@@ -344,6 +368,49 @@ export default class RecurrentModel extends Sequential {
     return this.outputLayer;
   }
 
+  forward(x: Matrix, batchSize: number = 1): Matrix {
+    let input = x;
+    if (this.embeddingLayer) {
+      input = this.embeddingLayer.forward(input);
+    }
+
+    for (const layer of this.recurrentLayers) {
+      input = batchSize > 1 && typeof (layer as any).forwardBatch === "function"
+        ? (layer as any).forwardBatch(input, batchSize)
+        : layer.forward(input);
+    }
+
+    if (this.mode === "many-to-one" && this.pooling !== "last") {
+      input = this.poolSequenceOutput(input, x, batchSize);
+    } else {
+      this.poolingCache = null;
+    }
+
+    return this.outputLayer.forward(input);
+  }
+
+  backward(y: Matrix, batchSize: number = 1) {
+    let err = this.outputLayer.backward(y, mj.matrix([[]]));
+    if (this.outputLayer.status === "output") {
+      this.loss = this.outputLayer.loss;
+    }
+
+    if (this.mode === "many-to-one" && this.pooling !== "last") {
+      err = this.expandPooledErrorToSequence(err);
+    }
+
+    for (let i = this.recurrentLayers.length - 1; i >= 0; i--) {
+      const layer = this.recurrentLayers[i];
+      err = batchSize > 1 && typeof (layer as any).backwardBatch === "function"
+        ? (layer as any).backwardBatch(y, err, batchSize)
+        : layer.backward(y, err);
+    }
+
+    if (this.embeddingLayer) {
+      this.embeddingLayer.backward(y, err);
+    }
+  }
+
   protected runValidation(
     valX: Matrix[],
     valY: Matrix[],
@@ -378,6 +445,118 @@ export default class RecurrentModel extends Sequential {
 
     if (verbose) process.stdout.write("\n");
     return totalValLoss / totalValWeight;
+  }
+
+  private poolSequenceOutput(sequence: Matrix, inputTokensOrMask: Matrix, batchSize: number): Matrix {
+    const [hiddenUnits, totalCols] = sequence._shape;
+    const expectedCols = this.seqLen * batchSize;
+    if (totalCols !== expectedCols) {
+      throw new Error(
+        `RecurrentModel pooling: expected sequence output cols ${expectedCols}, got ${totalCols}`
+      );
+    }
+
+    const pooled = this.createReusableBatchMatrix("x", hiddenUnits, batchSize);
+    pooled._data.fill(0);
+    const mask = new Uint8Array(expectedCols);
+    const counts = new Int32Array(batchSize);
+    const argmax = this.pooling === "max" ? new Int32Array(hiddenUnits * batchSize).fill(-1) : null;
+
+    for (let sample = 0; sample < batchSize; sample++) {
+      for (let t = 0; t < this.seqLen; t++) {
+        const col = t * batchSize + sample;
+        const valid = this.isValidPoolingStep(inputTokensOrMask, t, sample, batchSize);
+        mask[col] = valid ? 1 : 0;
+        if (valid) counts[sample]++;
+      }
+      if (counts[sample] === 0) {
+        throw new Error("RecurrentModel pooling: sample has no valid non-pad tokens.");
+      }
+    }
+
+    for (let row = 0; row < hiddenUnits; row++) {
+      for (let sample = 0; sample < batchSize; sample++) {
+        let acc = 0;
+        let bestValue = -Infinity;
+        let bestCol = -1;
+        for (let t = 0; t < this.seqLen; t++) {
+          const col = t * batchSize + sample;
+          if (mask[col] === 0) continue;
+          const value = sequence._data[row * totalCols + col];
+          if (this.pooling === "mean") {
+            acc += value;
+          } else {
+            if (bestCol === -1 || value > bestValue) {
+              bestValue = value;
+              bestCol = col;
+            }
+          }
+        }
+        if (this.pooling === "mean") {
+          pooled._data[row * batchSize + sample] = acc / counts[sample];
+        } else {
+          pooled._data[row * batchSize + sample] = bestValue;
+          (argmax as Int32Array)[row * batchSize + sample] = bestCol;
+        }
+      }
+    }
+
+    this.poolingCache = { batchSize, mask, counts, argmax };
+    return pooled;
+  }
+
+  private expandPooledErrorToSequence(err: Matrix): Matrix {
+    if (!this.poolingCache) {
+      throw new Error("RecurrentModel pooling backward: missing forward pooling cache.");
+    }
+
+    const hiddenUnits = err._shape[0];
+    const batchSize = this.poolingCache.batchSize;
+    if (err._shape[1] !== batchSize) {
+      throw new Error(
+        `RecurrentModel pooling backward: expected pooled error cols ${batchSize}, got ${err._shape[1]}`
+      );
+    }
+
+    const totalCols = this.seqLen * batchSize;
+    const expanded = this.createSequenceBatchMatrix(hiddenUnits, totalCols);
+    expanded._data.fill(0);
+
+    if (this.pooling === "mean") {
+      for (let row = 0; row < hiddenUnits; row++) {
+        for (let sample = 0; sample < batchSize; sample++) {
+          const grad = err._data[row * batchSize + sample] / this.poolingCache.counts[sample];
+          for (let t = 0; t < this.seqLen; t++) {
+            const col = t * batchSize + sample;
+            if (this.poolingCache.mask[col] === 1) {
+              expanded._data[row * totalCols + col] = grad;
+            }
+          }
+        }
+      }
+      return expanded;
+    }
+
+    const argmax = this.poolingCache.argmax;
+    if (!argmax) {
+      throw new Error("RecurrentModel pooling backward: missing max-pooling argmax cache.");
+    }
+    for (let row = 0; row < hiddenUnits; row++) {
+      for (let sample = 0; sample < batchSize; sample++) {
+        const col = argmax[row * batchSize + sample];
+        expanded._data[row * totalCols + col] = err._data[row * batchSize + sample];
+      }
+    }
+    return expanded;
+  }
+
+  private isValidPoolingStep(input: Matrix, timeIndex: number, batchIndex: number, batchSize: number): boolean {
+    if (!this.embeddingLayer || this.padTokenId === null) return true;
+    if (input._shape[0] !== this.seqLen) return true;
+    const cols = input._shape[1];
+    if (cols !== 1 && cols !== batchSize) return true;
+    const colIndex = cols === 1 ? 0 : batchIndex;
+    return input._data[timeIndex * cols + colIndex] !== this.padTokenId;
   }
 
   private static resolveHiddenSizes(

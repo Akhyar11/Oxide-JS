@@ -126,6 +126,9 @@ Model split:
 - `Sequential` is for generic feed-forward / per-sample supervised learning.
 - `Transformers` has its own token-weighted `fit()` for causal LM.
 - `RecurrentModel` is the high-level entry point for stacked `RNN` / `LSTM` / `GRU` sequence training, including `many-to-one` and aligned `many-to-many`.
+  - For many-to-one, `pooling: "last" | "mean" | "max"` is available. `"mean"` / `"max"` support PAD masking via `padTokenId` when an `Embedding` layer is used.
+  - `LSTM` initializes the forget gate bias to `1` by default on new layers.
+  - `AdaptiveMemoryRNN` trains `Wxh`, `Whh`, `bh`, `Wq`, `Wm`, `Wg`, and `bg`; memory slots are treated as dynamic state rather than optimizer-trained global parameters, and the native backward path matches the JS reference.
 
 ---
 

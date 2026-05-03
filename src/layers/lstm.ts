@@ -8,6 +8,7 @@ import setOptimizer from "../utils/setOptimizer";
 export interface LSTMLayerConfig {
   units: number;
   hiddenUnits: number;
+  forgetBias?: number;
   returnSequences?: boolean;
   returnState?: boolean;
   stateful?: boolean;
@@ -22,6 +23,7 @@ export default class LSTM {
   name = "lstm layer";
   units: number;
   hiddenUnits: number;
+  forgetBias: number;
   returnSequences: boolean;
   returnState: boolean;
   stateful: boolean;
@@ -122,6 +124,7 @@ export default class LSTM {
   constructor({
     units,
     hiddenUnits,
+    forgetBias = 1,
     returnSequences = false,
     returnState = false,
     stateful = false,
@@ -133,6 +136,7 @@ export default class LSTM {
   }: LSTMLayerConfig) {
     this.units = units;
     this.hiddenUnits = hiddenUnits;
+    this.forgetBias = forgetBias;
     this.returnSequences = returnSequences;
     this.returnState = returnState;
     this.stateful = stateful;
@@ -149,6 +153,7 @@ export default class LSTM {
     this.Wxf = mj.xavier([hiddenUnits, units]);
     this.Whf = mj.xavier([hiddenUnits, hiddenUnits]);
     this.bf = mj.zeros([hiddenUnits, 1]);
+    this.bf._data.fill(forgetBias);
     this.Wxo = mj.xavier([hiddenUnits, units]);
     this.Who = mj.xavier([hiddenUnits, hiddenUnits]);
     this.bo = mj.zeros([hiddenUnits, 1]);
@@ -181,6 +186,7 @@ export default class LSTM {
       name: this.name,
       units: this.units,
       hiddenUnits: this.hiddenUnits,
+      forgetBias: this.forgetBias,
       returnSequences: this.returnSequences,
       returnState: this.returnState,
       stateful: this.stateful,
@@ -207,6 +213,9 @@ export default class LSTM {
   }
 
   load(data: Record<string, number[][] | number | boolean | undefined>) {
+    if (typeof data.forgetBias === "number") {
+      this.forgetBias = data.forgetBias;
+    }
     this.assertSerializedMatrix(data.Wxi, "Wxi");
     this.assertSerializedMatrix(data.Whi, "Whi");
     this.assertSerializedMatrix(data.bi, "bi");
@@ -1131,4 +1140,3 @@ export default class LSTM {
     this.batchGSeq = [];
   }
 }
-

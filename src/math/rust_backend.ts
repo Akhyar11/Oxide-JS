@@ -924,35 +924,85 @@ export const adaptiveMemoryRnnForwardNative = (
 };
 
 /**
- * Native AdaptiveMemoryRNN Backward (BPTT through Wxh/Whh/bh; dx propagated
- * through the combined input — only the raw-input portion is written to dx_out).
+ * Native AdaptiveMemoryRNN Backward with full parity to the JS reference path.
  *
- * combined layout : [seq_len * (input_units+memory_dim) * batch_size]
- * h_seq layout    : [(seq_len+1) * batch_size * hidden_units]
- * act_grad layout : [seq_len * batch_size * hidden_units]
- * err_h layout    : [seq_len * batch_size * hidden_units]  (pre-built per-step errors)
- * dx_out layout   : [input_units, total_cols]
+ * All cache tensors are flattened sample-major then time-major, using the exact
+ * forward caches emitted by the TypeScript layer.
  *
- * Returns false when the native binary does not export this symbol.
+ * Returns false when the native binary does not export the parity-complete symbol.
  */
 export const adaptiveMemoryRnnBackwardNative = (
-  wxh: Float32Array, whh: Float32Array,
-  combined: Float32Array, hSeq: Float32Array,
-  actGrad: Float32Array, errH: Float32Array,
-  hiddenUnits: number, inputUnits: number, memoryDim: number,
-  seqLen: number, batchSize: number,
-  dwxh: Float32Array, dwhh: Float32Array, dbh: Float32Array,
+  wxh: Float32Array,
+  whh: Float32Array,
+  wq: Float32Array,
+  wm: Float32Array,
+  wg: Float32Array,
+  hPrev: Float32Array,
+  h: Float32Array,
+  dAct: Float32Array,
+  combined: Float32Array,
+  read: Float32Array,
+  queryInput: Float32Array,
+  query: Float32Array,
+  attention: Float32Array,
+  gateInput: Float32Array,
+  gate: Float32Array,
+  candidate: Float32Array,
+  memoryKeysBefore: Float32Array,
+  memoryValuesBefore: Float32Array,
+  writeSlots: Int32Array,
+  errH: Float32Array,
+  hiddenUnits: number,
+  inputUnits: number,
+  memoryDim: number,
+  memorySlots: number,
+  seqLen: number,
+  batchSize: number,
+  dwxh: Float32Array,
+  dwhh: Float32Array,
+  dbh: Float32Array,
+  dwq: Float32Array,
+  dwm: Float32Array,
+  dwg: Float32Array,
+  dbg: Float32Array,
   dxOut: Float32Array,
 ): boolean => {
   if (!native) return false;
-  if (typeof native.adaptiveMemoryRnnBackwardNativeInto !== "function") return false;
-  native.adaptiveMemoryRnnBackwardNativeInto(
-    wxh, whh,
-    combined, hSeq,
-    actGrad, errH,
-    hiddenUnits, inputUnits, memoryDim,
-    seqLen, batchSize,
-    dwxh, dwhh, dbh,
+  if (typeof native.adaptiveMemoryRnnBackwardFullNativeInto !== "function") return false;
+  native.adaptiveMemoryRnnBackwardFullNativeInto(
+    wxh,
+    whh,
+    wq,
+    wm,
+    wg,
+    hPrev,
+    h,
+    dAct,
+    combined,
+    read,
+    queryInput,
+    query,
+    attention,
+    gateInput,
+    gate,
+    candidate,
+    memoryKeysBefore,
+    memoryValuesBefore,
+    writeSlots,
+    errH,
+    hiddenUnits,
+    inputUnits,
+    memoryDim,
+    memorySlots,
+    seqLen,
+    batchSize,
+    dwxh,
+    dwhh,
+    dbh,
+    dwq,
+    dwm,
+    dwg,
+    dbg,
     dxOut,
   );
   return true;
