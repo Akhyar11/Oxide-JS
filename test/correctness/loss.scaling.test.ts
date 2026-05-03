@@ -1,7 +1,11 @@
 import CategoricalCrossEntropy from "../../src/cost/crossEntropy";
 import SoftmaxCrossEntropy from "../../src/cost/softmaxCrossEntropy";
 import mj from "../../src/math";
-import { setForceDisableNative } from "../../src/math/rust_backend";
+import {
+  isNativeAvailable,
+  maskedSparseSoftmaxCrossEntropyNative,
+  setForceDisableNative,
+} from "../../src/math/rust_backend";
 import Matrix from "../../src/matrix";
 import { Sequential, Transformers } from "../../src/models";
 import { Dense } from "../../src/layers";
@@ -57,6 +61,78 @@ function buildBatch(samples: number[][]): Matrix {
     out.setCol(col, Float32Array.from(samples[col]));
   }
   return out;
+}
+
+function computeExpectedMaskedSparseSoftmaxCrossEntropy(
+  logits: Float32Array,
+  inputTokens: Float32Array,
+  targets: Float32Array,
+  seqLen: number,
+  batchSize: number,
+  vocabSize: number,
+  padTokenId: number | null
+): { loss: number; grad: Float32Array; validTokens: number } {
+  const totalTokens = seqLen * batchSize;
+  const grad = new Float32Array(vocabSize * totalTokens);
+  const epsilon = 1e-15;
+  let totalLoss = 0;
+  let validTokens = 0;
+
+  for (let batch = 0; batch < batchSize; batch++) {
+    for (let pos = 0; pos < seqLen; pos++) {
+      const sourceIndex = pos * batchSize + batch;
+      const tokenIndex = batch * seqLen + pos;
+      const sourceToken = Math.floor(inputTokens[sourceIndex]);
+      const targetToken = Math.floor(targets[sourceIndex]);
+      const isValid =
+        pos < seqLen - 1 &&
+        (padTokenId === null || (sourceToken !== padTokenId && targetToken !== padTokenId));
+
+      if (!isValid) {
+        continue;
+      }
+      if (targetToken < 0 || targetToken >= vocabSize) {
+        throw new Error(`expected helper: target token ${targetToken} di luar vocab`);
+      }
+
+      validTokens++;
+
+      let maxLogit = -Infinity;
+      for (let vocab = 0; vocab < vocabSize; vocab++) {
+        const value = logits[vocab * totalTokens + tokenIndex];
+        if (value > maxLogit) maxLogit = value;
+      }
+
+      let sumExp = 0;
+      for (let vocab = 0; vocab < vocabSize; vocab++) {
+        const expValue = Math.exp(logits[vocab * totalTokens + tokenIndex] - maxLogit);
+        grad[vocab * totalTokens + tokenIndex] = expValue;
+        sumExp += expValue;
+      }
+
+      for (let vocab = 0; vocab < vocabSize; vocab++) {
+        grad[vocab * totalTokens + tokenIndex] /= sumExp;
+      }
+
+      const targetOffset = targetToken * totalTokens + tokenIndex;
+      totalLoss -= Math.log(Math.max(epsilon, grad[targetOffset]));
+      grad[targetOffset] -= 1;
+    }
+  }
+
+  if (validTokens === 0) {
+    throw new Error("expected helper: tidak ada token valid");
+  }
+
+  for (let i = 0; i < grad.length; i++) {
+    grad[i] /= validTokens;
+  }
+
+  return {
+    loss: totalLoss / validTokens,
+    grad,
+    validTokens,
+  };
 }
 
 function runSoftmaxCrossEntropyScalingTest(): void {
@@ -193,6 +269,92 @@ function runTransformerFallbackGradientScalingTest(): void {
   }
 }
 
+function runMaskedSparseSoftmaxCrossEntropyNativeParityTest(): boolean {
+  setForceDisableNative(false);
+  if (!isNativeAvailable()) {
+    console.log("skip: native masked sparse softmax cross entropy parity (native backend unavailable)");
+    return false;
+  }
+
+  const seqLen = 4;
+  const batchSize = 2;
+  const vocabSize = 5;
+  const totalTokens = seqLen * batchSize;
+  const padTokenId = 0;
+
+  const inputTokens = buildBatch([
+    [1, 2, 3, 4],
+    [1, 2, 0, 0],
+  ]);
+  const targets = buildBatch([
+    [2, 3, 4, 0],
+    [2, 0, 0, 0],
+  ]);
+  const logits = Matrix.fromFlat(new Float32Array([
+    2.2, 0.1, -0.7, 1.3, 0.5, -1.2, 0.3, 0.8,
+    -0.4, 1.9, 0.2, -0.8, 1.1, 0.6, -0.5, -1.4,
+    0.7, -0.6, 2.4, 0.4, -0.3, 1.5, 0.9, -0.2,
+    -1.1, 0.5, -0.2, 2.1, 0.8, -0.7, 1.4, 0.2,
+    0.3, -1.4, 1.1, -0.5, 2.0, 0.4, -1.0, 1.7,
+  ]), [vocabSize, totalTokens]);
+  const gradNative = new Float32Array(vocabSize * totalTokens);
+
+  const nativeResult = maskedSparseSoftmaxCrossEntropyNative(
+    logits._data,
+    inputTokens._data,
+    targets._data,
+    seqLen,
+    batchSize,
+    vocabSize,
+    padTokenId,
+    gradNative
+  );
+
+  const expected = computeExpectedMaskedSparseSoftmaxCrossEntropy(
+    logits._data,
+    inputTokens._data,
+    targets._data,
+    seqLen,
+    batchSize,
+    vocabSize,
+    padTokenId
+  );
+
+  assert(nativeResult.validTokens === 4, `native parity: expected 4 valid tokens, got ${nativeResult.validTokens}`);
+  assert(
+    nativeResult.validTokens === expected.validTokens,
+    `native parity: valid token mismatch expected ${expected.validTokens}, got ${nativeResult.validTokens}`
+  );
+  assertClose(nativeResult.loss, expected.loss, 1e-6, "native parity: loss mismatch");
+
+  for (let i = 0; i < gradNative.length; i++) {
+    assertClose(gradNative[i], expected.grad[i], 1e-6, `native parity: grad mismatch idx=${i}`);
+  }
+
+  const invalidTokenIndices = [3, 5, 6, 7];
+  for (const tokenIndex of invalidTokenIndices) {
+    for (let vocab = 0; vocab < vocabSize; vocab++) {
+      assertClose(
+        gradNative[vocab * totalTokens + tokenIndex],
+        0,
+        1e-6,
+        `native parity: invalid token grad must be zero token=${tokenIndex} vocab=${vocab}`
+      );
+    }
+  }
+
+  const validTokenIndices = [0, 1, 2, 4];
+  for (const tokenIndex of validTokenIndices) {
+    let sum = 0;
+    for (let vocab = 0; vocab < vocabSize; vocab++) {
+      sum += gradNative[vocab * totalTokens + tokenIndex];
+    }
+    assertClose(sum, 0, 1e-6, `native parity: gradient column sum mismatch token=${tokenIndex}`);
+  }
+
+  return true;
+}
+
 function runSequentialLossAggregationTest(): void {
   const model = new WeightedLossSequential();
   const X = [mj.matrix([[1]]), mj.matrix([[2]])];
@@ -234,6 +396,7 @@ export function runLossScalingCorrectnessSuite(): void {
   runSoftmaxCrossEntropyScalingTest();
   runCategoricalCrossEntropyScalingTest();
   runTransformerFallbackGradientScalingTest();
+  const nativeParityRan = runMaskedSparseSoftmaxCrossEntropyNativeParityTest();
   runSequentialLossAggregationTest();
   runSparseSoftmaxGuardTest();
 
@@ -242,6 +405,7 @@ export function runLossScalingCorrectnessSuite(): void {
     { check: "softmaxCrossEntropy sparse scaling", status: "pass" },
     { check: "categoricalCrossEntropy batch scaling", status: "pass" },
     { check: "transformers fallback token scaling", status: "pass" },
+    { check: "native vs JS masked sparse softmax parity", status: nativeParityRan ? "pass" : "skip" },
     { check: "sequential weighted aggregation", status: "pass" },
     { check: "sparse softmax guard", status: "pass" },
   ]);

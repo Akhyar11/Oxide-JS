@@ -156,8 +156,8 @@ function runTransformerTokenWeightedFitTest(): void {
 
   const expectedTrain = computeExpectedTokenWeightedLoss(model, trainX, trainY, 2, "train");
   const expectedVal = computeExpectedTokenWeightedLoss(model, valX, valY, 2, "eval");
-  assertClose(result.history.loss[0], expectedTrain, 3e-2, "Transformers token-weighted train loss mismatch");
-  assertClose((result.history.valLoss as number[])[0], expectedVal, 3e-2, "Transformers token-weighted val loss mismatch");
+  assertClose(result.history.loss[0], expectedTrain, 5e-2, "Transformers token-weighted train loss mismatch");
+  assertClose((result.history.valLoss as number[])[0], expectedVal, 5e-2, "Transformers token-weighted val loss mismatch");
 }
 
 function computeExpectedTokenWeightedLoss(

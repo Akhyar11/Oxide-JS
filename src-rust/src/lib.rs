@@ -1857,9 +1857,15 @@ pub fn masked_sparse_softmax_cross_entropy_into(
         panic!("masked_sparse_softmax_cross_entropy_into: no valid tokens");
     }
 
-    let grad_scale = 1.0f32 / valid_tokens as f32;
-    for value in grad_slice.iter_mut() {
-        *value *= grad_scale;
+    let inv_valid_tokens = 1.0f32 / valid_tokens as f32;
+    if grad_slice.len() >= MASKED_SPARSE_SOFTMAX_PARALLEL_THRESHOLD {
+        grad_slice.par_iter_mut().for_each(|value| {
+            *value *= inv_valid_tokens;
+        });
+    } else {
+        for value in grad_slice.iter_mut() {
+            *value *= inv_valid_tokens;
+        }
     }
 
     MaskedSparseSoftmaxCrossEntropyResult {
