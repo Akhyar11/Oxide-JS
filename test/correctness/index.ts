@@ -8,6 +8,7 @@ import { runRecurrentLearningCorrectnessSuite } from "./rnn.learning.test";
 import { runTokenizerMultilingualCorrectnessSuite } from "./tokenizer.multilingual.test";
 import { runTransformerApiCorrectnessSuite } from "./transformers.api.test";
 import { runTransformerLearningCorrectnessSuite } from "./transformers.learning.test";
+import { runMemoryBankCorrectnessSuite } from "./memoryBank.test";
 
 export function runCorrectnessSuite(): void {
   runAdaptiveMemoryRNNCorrectnessSuite();
@@ -20,6 +21,7 @@ export function runCorrectnessSuite(): void {
   runRecurrentLearningCorrectnessSuite();
   runTransformerApiCorrectnessSuite();
   runTransformerLearningCorrectnessSuite();
+  runMemoryBankCorrectnessSuite();
 }
 
 if (require.main === module) {

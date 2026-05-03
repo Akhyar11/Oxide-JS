@@ -12,6 +12,7 @@ import RNN from "./rnn";
 import LSTM from "./lstm";
 import GRU from "./gru";
 import AdaptiveMemoryRNN from "./adaptiveMemoryRNN";
+import MemoryBank from "./memoryBank";
 import { CompileDenseLayers } from "./dense";
 
 export {
@@ -30,4 +31,5 @@ export {
   LSTM,
   GRU,
   AdaptiveMemoryRNN,
+  MemoryBank,
 };

@@ -14,6 +14,7 @@ import {
   PositionalEncoding,
   RNN,
   SelfAttention,
+  MemoryBank,
 } from "../layers";
 import { SequentialLayers } from "../models/sequential";
 
@@ -197,6 +198,31 @@ registerLayer("adaptive memory rnn layer", (data) => {
     status: data.status,
     clipGradient: data.clipGradient,
     loss: data.loss,
+  });
+  layer.load(data);
+  return layer;
+});
+
+registerLayer("memory bank layer", (data) => {
+  const layer = new MemoryBank({
+    units: data.units,
+    memorySlots: data.memorySlots,
+    memoryDim: data.memoryDim,
+    outputUnits: data.outputUnits,
+    mode: data.mode,
+    similarity: data.similarity,
+    readTopK: data.readTopK,
+    updateMode: data.updateMode,
+    writePolicy: data.writePolicy,
+    writeThreshold: data.writeThreshold,
+    persistence: data.persistence,
+    resetOnInit: data.resetOnInit,
+    writeEnabled: data.writeEnabled,
+    trainablePolicy: data.trainablePolicy,
+    alpha: data.alpha,
+    optimizer: data.optimizer,
+    clipGradient: data.clipGradient,
+    status: data.status,
   });
   layer.load(data);
   return layer;

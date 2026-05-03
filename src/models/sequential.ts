@@ -516,4 +516,54 @@ export default class Sequential {
       }
     }
   }
+
+  // Memory helpers: iterate layers and call memory API when available
+  resetMemory(): this {
+    for (const layer of this.layers) {
+      if (typeof (layer as any).resetMemory === "function") {
+        (layer as any).resetMemory();
+      }
+    }
+    return this;
+  }
+
+  saveMemory(path: string): this {
+    const states: any[] = [];
+    for (const layer of this.layers) {
+      if (typeof (layer as any).getMemoryState === "function") {
+        states.push((layer as any).getMemoryState());
+      } else {
+        states.push(null);
+      }
+    }
+    writeFileSync(path, JSON.stringify(states), "utf-8");
+    return this;
+  }
+
+  loadMemory(path: string): this {
+    const raw = readFileSync(path, "utf-8");
+    const states = JSON.parse(raw);
+    for (let i = 0; i < states.length && i < this.layers.length; i++) {
+      const st = states[i];
+      if (!st) continue;
+      if (typeof (this.layers[i] as any).setMemoryState === "function") {
+        (this.layers[i] as any).setMemoryState(st);
+      }
+    }
+    return this;
+  }
+
+  freezeMemoryWrites(): this {
+    for (const layer of this.layers) {
+      if (typeof (layer as any).freezeWrites === "function") (layer as any).freezeWrites();
+    }
+    return this;
+  }
+
+  enableMemoryWrites(): this {
+    for (const layer of this.layers) {
+      if (typeof (layer as any).enableWrites === "function") (layer as any).enableWrites();
+    }
+    return this;
+  }
 }

@@ -11,6 +11,7 @@ import RNN from "../layers/rnn";
 import LSTM from "../layers/lstm";
 import GRU from "../layers/gru";
 import AdaptiveMemoryRNN from "../layers/adaptiveMemoryRNN";
+import MemoryBank from "../layers/memoryBank";
 import Dropout from "../layers/dropout";
 import Matrix from "../matrix";
 import AdaGrad from "../optimizer/adaGrad";
@@ -53,7 +54,8 @@ export type Layers =
     | RNN
     | LSTM
     | GRU
-    | AdaptiveMemoryRNN;
+    | AdaptiveMemoryRNN
+    | MemoryBank;
 
 export type WorkerData = {
   value: number;

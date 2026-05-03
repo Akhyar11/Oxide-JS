@@ -433,3 +433,62 @@ Gradient support:
 - `RNN.getState()` returns a `Matrix`, `LSTM.getState()` returns `{ h, c }`, `GRU.getState()` returns `{ forward, backward? }`.
 - `AdaptiveMemoryRNN.getState()` returns `{ h, memoryKeys, memoryValues, memoryUsage }`.
 - `save()` / `load()` preserve recurrent weights and stateful hidden states.
+
+---
+
+### `MemoryBank`
+
+Generic, reusable runtime memory layer suitable for insertion after any layer. `MemoryBank` provides a short-term, session-persistent key/value memory that is updated at runtime during `forward()` and can be saved/loaded separately from model weights.
+
+Key properties:
+- Auto-infers `units` from the first `forward()` if omitted in constructor.
+- Memory state (`memoryKeys`, `memoryValues`, `memoryFilled`, `memoryUsage`, `memoryAge`) is runtime state — it is NOT trained by the model optimizer and is saved via `saveMemory()` / `loadMemory()`.
+- Trainable policy weights (query/need/output projections) are stored in model `save()` / `load()` and are trained via `backward()`.
+- Memory persists across `forward()` calls until `resetMemory()` is called.
+
+Constructor config (selected):
+- `units?: number` — input rows; if omitted, inferred on first forward.
+- `memorySlots: number` — number of memory slots (required).
+- `memoryDim?: number` — key/value dim; defaults to `units` when omitted.
+- `outputUnits?: number` — output projection size for `mode='project'`.
+- `mode?: "project" | "concat" | "add"` — how memory context combines with input. Defaults to `project`.
+- `readTopK?: number` — top-K memory reads (default `min(4,memorySlots)`).
+- `writeThreshold?: number` — gate threshold to trigger writes (default `0.5`).
+- `writeEnabled?: boolean` — allow writes during forward (default `true`).
+- `trainablePolicy?: boolean` — whether policy projection weights are trainable (default `true`).
+
+API (important methods):
+- `forward(x: Matrix): Matrix` — read & optionally write memory per column; shapes:
+  - `project` => `[outputUnits, cols]`
+  - `concat`  => `[units + memoryDim, cols]`
+  - `add`     => `[units, cols]` (requires `memoryDim===units`)
+- `backward(y: Matrix, err: Matrix): Matrix` — returns `dx` with gradients to inputs and updates trainable policy weights.
+- `resetMemory()` / `clearMemory()` — clear runtime memory to empty state.
+- `hasMemory()` — returns `boolean` whether any slot is filled.
+- `getMemoryState()` / `setMemoryState(state)` — get/set runtime memory snapshot (useful for saving/restoring session memory programmatically).
+- `saveMemory(path)` / `loadMemory(path)` — persist runtime memory to a file (JSON).
+- `freezeWrites()` / `enableWrites()` — disable/enable runtime writes.
+
+Usage example:
+
+```ts
+import { Sequential, Dense, MemoryBank, mj } from "@akhyar11/ml-v1";
+
+const model = new Sequential({
+  layers: [
+    new Dense({ units: 10, outputUnits: 32, activation: "relu", status: "input" }),
+    new MemoryBank({ memorySlots: 64, memoryDim: 32, mode: "project", readTopK: 4, writeThreshold: 0.5 }),
+    new Dense({ units: 32, outputUnits: 3, activation: "linear", status: "output", loss: "softmaxCrossEntropy" }),
+  ],
+});
+
+const x = mj.matrix(new Array(10).fill(0).map(() => new Array(2).fill(Math.random())));
+model.predict(x);
+model.saveMemory("session-memory.json");
+model.resetMemory();
+```
+
+Notes & design constraints:
+- Memory content is runtime-only and therefore not part of `model.save()` by default. Use `saveMemory()` / `loadMemory()` to persist session state.
+- `MemoryBank` is intentionally generic — it does not assume sequences, batches, or tokens. Inputs are handled as `[features, columns]`.
+- Slot selection and replacement are non-differentiable runtime operations. The backward pass computes gradients through the read (attention) path using the memory snapshot captured during forward. Write-policy gradients are trained via local/auxiliary updates in early implementations; consult tests for exact behavior.
