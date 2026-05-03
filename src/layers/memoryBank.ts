@@ -881,7 +881,7 @@ export default class MemoryBank {
         if (!outputKernel || !outputBias) {
           throw new Error("MemoryBank: outputKernel/outputBias unavailable for mode='read-project'");
         }
-        const o = this.matVecMul(outputKernel, read);
+        const o = this.matVecMul(outputKernel, context);
         for (let r = 0; r < this.outputUnits; r++) {
           out._data[r * cols + c] = o[r] + outputBias._data[r];
         }
@@ -913,11 +913,18 @@ export default class MemoryBank {
           const computedKey = this.normalizeSafe(newKeyRaw);
           for (let i = 0; i < this.memoryDim; i++) newKey[i] = computedKey[i];
 
-          const computedValue = this.matVecMul(this.writeValueKernel, xCol);
+          const computedValueRaw = this.matVecMul(this.writeValueKernel, xCol);
+          const computedValue = this.normalizeSafe(computedValueRaw);
           for (let i = 0; i < this.memoryDim; i++) newValue[i] = computedValue[i];
           writeSlot = this.pickWriteSlot(q);
           this.updateMemorySlot(writeSlot, newKey, newValue, writeGate);
           writeCommitted = true;
+
+          // DEBUG: Monitor what's actually entering the memory
+          if (this.memoryStep % 1000 === 0 && this.status === "train") {
+             const nvNorm = this.l2Norm(newValue);
+             // console.log(`[MB-Write] slot=${writeSlot} gate=${writeGate.toFixed(6)} valNorm=${nvNorm.toFixed(6)}`);
+          }
 
           // PART 4A: track last committed write for probe training
           this.lastWriteInfo = {

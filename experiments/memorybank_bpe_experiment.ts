@@ -40,19 +40,19 @@ const USE_WRITE_PROBE = !process.argv.includes("--no-probe");
 const BPE_TARGET_VOCAB_SIZE = Number(process.env.VOCAB_SIZE ?? 256);
 const MAX_TURN_TOKENS = Number(process.env.MAX_TURN_TOKENS ?? 16);
 
-const EMBEDDING_DIM = Number(process.env.EMBEDDING_DIM ?? 64);
+const EMBEDDING_DIM = Number(process.env.EMBEDDING_DIM ?? 128);
 const MEMORY_SLOTS = Number(process.env.MEMORY_SLOTS ?? 20);
-const MEMORY_DIM = Number(process.env.MEMORY_DIM ?? 64);
+const MEMORY_DIM = Number(process.env.MEMORY_DIM ?? 128);
 const OUTPUT_CLASSES = 24;
 
 const EPOCHS = Number(process.env.EPOCHS ?? 30);
-const ALPHA = Number(process.env.ALPHA ?? 0.001);
+const ALPHA = Number(process.env.ALPHA ?? 0.01);
 
 const TRAIN_LIMIT = Number(process.env.TRAIN_LIMIT ?? 0); // 0 means all
 const VAL_LIMIT = Number(process.env.VAL_LIMIT ?? 0);
 const TEST_LIMIT = Number(process.env.TEST_LIMIT ?? 0);
 
-const PRINT_EVERY = Number(process.env.PRINT_EVERY ?? 100);
+const PRINT_EVERY = Number(process.env.PRINT_EVERY ?? 1000);
 
 // For early debugging, make MemoryBank write on every STORE/UPDATE.
 // Query/noop writes are manually frozen.
@@ -567,6 +567,11 @@ function auditMemoryEpisodes(
         if (!q) continue;
 
         stats.queries++;
+        if (entry) {
+          needSum += entry.need;
+          readNormSum += entry.readNorm;
+          contextNormSum += entry.contextNorm;
+        }
 
         const topReadSlot = entry?.readSlots[0]?.slot ?? -1;
         const topAttn = entry?.readSlots[0]?.attn ?? 0;
@@ -589,6 +594,8 @@ function auditMemoryEpisodes(
             `  [audit-example] ep=${i} t=${t}: key="${q.key_text}" ` +
             `expectedSlot=${expectedSlot} topSlot=${topReadSlot} ` +
             `topAttn=${topAttn.toFixed(3)} ` +
+            `readNorm=${(entry?.readNorm ?? 0).toFixed(3)} ` +
+            `ctxNorm=${(entry?.contextNorm ?? 0).toFixed(3)} ` +
             `topFact=${JSON.stringify(topFact)} ` +
             `pred=${predClass} target=${q.target_class} ` +
             `slotOk=${slotOk} valueOk=${valueOk} predOk=${predOk}`
@@ -601,11 +608,6 @@ function auditMemoryEpisodes(
         const pred = model.forward(encoded.x);
         const trace = mb.getDebugTrace();
         const entry = trace[0];
-        if (entry) {
-          needSum += entry.need;
-          readNormSum += entry.readNorm;
-          contextNormSum += entry.contextNorm;
-        }
         if (entry?.writeCommitted) stats.unexpectedNoopWrites++;
       }
     }
