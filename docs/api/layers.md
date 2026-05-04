@@ -444,7 +444,7 @@ Key properties:
 - Auto-infers `units` from the first `forward()` if omitted in constructor.
 - Memory state (`memoryKeys`, `memoryValues`, `memoryFilled`, `memoryUsage`, `memoryAge`) is runtime state — it is NOT trained by the model optimizer and is saved via `saveMemory()` / `loadMemory()`.
 - Trainable read/output weights (`queryKernel`, `needKernel`, `outputKernel`, `outputBias`) are stored in model `save()` / `load()` and are trained via `backward()`.
-- Optional write-side weights (`writeValueKernel`, `writeGateKernel`, `writeKeyKernel`) are only present in the matching modes and should be considered auxiliary write-policy parameters, not generic end-to-end memory state.
+- Optional write-side weights (`writeValueKernel`, `writeGateKernel`, `writeKeyKernel`) are only present in the matching modes. They are trainable parameters, but they are still distinct from runtime memory state.
 - Memory persists across `forward()` calls until `resetMemory()` is called.
 
 How `MemoryBank` works conceptually:
@@ -481,14 +481,19 @@ API (important methods):
   - `concat`  => `[units + memoryDim, cols]`
   - `add`     => `[units, cols]` (requires `memoryDim===units`)
 - `backward(y: Matrix, err: Matrix): Matrix` — returns `dx` with gradients to inputs and updates differentiable read/output weights.
+- `beginSequence({ maxHistorySteps? })` — start explicit sequence-history mode so several `forward()` calls become one unrolled BPTT timeline.
+- `backwardSequence(err: Matrix)` — run backward over the currently active sequence history across multiple `forward()` calls.
+- `detachSequence()` — keep numeric memory state, but cut gradient/history to earlier sequence steps.
+- `endSequence()` — stop sequence mode and clear stored history.
+- `getSequenceLength()` / `isSequenceActive()` — inspect active sequence-history state.
 - `resetMemory()` / `clearMemory()` — clear runtime memory to empty state.
 - `hasMemory()` — returns `boolean` whether any slot is filled.
 - `getMemoryState()` / `setMemoryState(state)` — get/set runtime memory snapshot (useful for saving/restoring session memory programmatically).
 - `saveMemory(path)` / `loadMemory(path)` — persist runtime memory to a file (JSON).
 - `freezeWrites()` / `unfreezeWrites()` / `setWriteFrozen(boolean)` — disable/enable runtime writes while still allowing reads.
-- `trainLastWriteKey(targetKey)` — auxiliary supervised update for `writeKeyKernel` in `writeKeyMode='separate-project'`.
-- `trainLastWriteValue(targetValue)` — auxiliary supervised update for `writeValueKernel` in `valueMode='project'`.
-- `trainLastWriteGate(targetGate)` — auxiliary supervised update for `writeGateKernel` in `writeGateMode='learned'`.
+- `trainLastWriteKey(targetKey)` — optional supervised helper for directly steering `writeKeyKernel` in `writeKeyMode='separate-project'`.
+- `trainLastWriteValue(targetValue)` — optional supervised helper for directly steering `writeValueKernel` in `valueMode='project'`.
+- `trainLastWriteGate(targetGate)` — optional supervised helper for directly steering `writeGateKernel` in `writeGateMode='learned'`.
 
 Recommended correctness-first config:
 
@@ -806,11 +811,14 @@ Trainable by `backward()`:
 - `needKernel`
 - `outputKernel`
 - `outputBias`
+- `writeValueKernel` when `valueMode="project"` and the current sequence contains future loss that depends on previous writes
+- `writeGateKernel` when `writeGateMode="learned"` and the current sequence contains future loss that depends on previous writes
+- `writeKeyKernel` when `writeKeyMode="separate-project"` and the current sequence contains future loss that depends on previous writes
 
-Conditionally trainable through explicit auxiliary APIs:
-- `writeValueKernel` when `valueMode="project"`
-- `writeGateKernel` when `writeGateMode="learned"`
-- `writeKeyKernel` when `writeKeyMode="separate-project"`
+Optionally trainable through explicit supervised helper APIs:
+- `trainLastWriteValue(...)`
+- `trainLastWriteGate(...)`
+- `trainLastWriteKey(...)`
 
 Runtime state only, not optimizer weights:
 - `memoryKeys`
@@ -831,31 +839,77 @@ This distinction is important:
 - `load()` restores all of the above.
 - `saveMemory()` / `loadMemory()` only store and restore runtime memory state.
 
+#### Sequence-History BPTT Across Multiple `forward()` Calls
+
+By default, one `forward(x)` call is one training sequence for `MemoryBank.backward(...)`.
+
+If you want gradient to flow across several separate `forward()` calls, use sequence mode:
+
+```ts
+memory.beginSequence({ maxHistorySteps: 64 });
+
+memory.forward(step1);
+memory.forward(step2);
+memory.forward(step3);
+
+memory.backwardSequence(sequenceErr);
+memory.endSequence();
+```
+
+What this means:
+- each `forward()` appends its step caches to an active sequence-history buffer
+- `backwardSequence(...)` walks that buffer backward, so a read/loss in a later call can train writes from earlier calls
+- `detachSequence()` keeps current memory contents but clears gradient history, similar to truncated BPTT in recurrent training
+
+When to use it:
+- stateful episodic tasks split across multiple `forward()` calls
+- training loops that naturally emit one step at a time
+
+When you do not need it:
+- if your whole training sequence already fits into one `forward(x)` call with multiple columns
+
 #### Simple Usage Example
+
+`MemoryBank` is a special-case layer and is not supported inside `Sequential`.
+Use it in a manual/custom model loop where you control `forward()`, `backward()`, and optional sequence-history boundaries yourself.
 
 For a first experiment, use this:
 
 ```ts
-import { Sequential, Dense, MemoryBank, mj } from "@akhyar11/ml-v1";
+import { Dense, MemoryBank, mj } from "@akhyar11/ml-v1";
 
-const model = new Sequential({
-  layers: [
-    new Dense({ units: 10, outputUnits: 32, activation: "relu", status: "input" }),
-    new MemoryBank({
-      memorySlots: 64,
-      memoryDim: 32,
-      mode: "read-project",
-      similarity: "cosine",
-      writeKeyMode: "shared-query",
-      valueMode: "identity",
-      writeGateMode: "always",
-      updateMode: "replace",
-      writePolicy: "empty-first",
-      forceNeedGate: 1,
-    }),
-    new Dense({ units: 32, outputUnits: 3, activation: "linear", status: "output", loss: "softmaxCrossEntropy" }),
-  ],
+const encoder = new Dense({
+  units: 10,
+  outputUnits: 32,
+  activation: "relu",
+  status: "input",
 });
+
+const memory = new MemoryBank({
+  memorySlots: 64,
+  memoryDim: 32,
+  mode: "read-project",
+  similarity: "cosine",
+  writeKeyMode: "shared-query",
+  valueMode: "identity",
+  writeGateMode: "always",
+  updateMode: "replace",
+  writePolicy: "empty-first",
+  forceNeedGate: 1,
+});
+
+const head = new Dense({
+  units: 32,
+  outputUnits: 3,
+  activation: "linear",
+  status: "output",
+  loss: "softmaxCrossEntropy",
+});
+
+const x = mj.matrix(new Array(10).fill(0).map(() => new Array(2).fill(Math.random())));
+const z = encoder.forward(x);
+const m = memory.forward(z);
+const y = head.forward(m);
 ```
 
 If `memoryDim !== units`, then `valueMode: "identity"` is invalid, so change it to:
@@ -864,28 +918,20 @@ If `memoryDim !== units`, then `valueMode: "identity"` is invalid, so change it 
 valueMode: "project"
 ```
 
-Usage example:
+Manual backward sketch:
 
 ```ts
-import { Sequential, Dense, MemoryBank, mj } from "@akhyar11/ml-v1";
-
-const model = new Sequential({
-  layers: [
-    new Dense({ units: 10, outputUnits: 32, activation: "relu", status: "input" }),
-    new MemoryBank({ memorySlots: 64, memoryDim: 32, mode: "project", readTopK: 4, writeThreshold: 0.5 }),
-    new Dense({ units: 32, outputUnits: 3, activation: "linear", status: "output", loss: "softmaxCrossEntropy" }),
-  ],
-});
-
-const x = mj.matrix(new Array(10).fill(0).map(() => new Array(2).fill(Math.random())));
-model.predict(x);
-model.saveMemory("session-memory.json");
-model.resetMemory();
+const errHead = head.backward(target, mj.matrix([[]]));
+const errMemory = memory.backward(target, errHead);
+encoder.backward(target, errMemory);
 ```
 
 Notes & design constraints:
+- `Sequential` intentionally rejects `MemoryBank`. Build a custom training loop instead.
 - Memory content is runtime state, not optimizer state.
 - `MemoryBank` is intentionally generic — it does not assume sequences, batches, or tokens. Inputs are handled as `[features, columns]`.
 - Slot selection and replacement are non-differentiable runtime operations. The backward pass computes exact gradients through the read/output path using the memory snapshot captured during forward.
 - The current implementation is correctness-first:
-  read/output path is differentiable through `backward()`, while optional write-side learned policies should be treated as explicit auxiliary training paths rather than automatic full-history BPTT.
+  read/output path is differentiable through `backward()`, and write-side learned policies also receive exact within-sequence gradient flow when later columns in the same `forward()` depend on earlier writes.
+- Important limitation:
+  this is sequence-level BPTT inside one `forward()` call. It is not an unlimited autograd graph across separate `forward()` calls from different training steps.

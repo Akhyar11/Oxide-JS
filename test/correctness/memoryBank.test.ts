@@ -392,6 +392,222 @@ export function runMemoryBankCorrectnessSuite(): void {
     assert(before <= 0.5, `separate-project alignment should start poor, got ${before}`);
     assert(after >= 0.99, `trainLastWriteKey should improve retrieval alignment, got ${after}`);
   }
+
+  // 9) write-side kernels behave consistently across all output modes
+  {
+    const modes: Array<"project" | "read-project" | "concat" | "add"> = ["project", "read-project", "concat", "add"];
+
+    for (const mode of modes) {
+      const layer = new MemoryBank({
+        units: 2,
+        memorySlots: 1,
+        memoryDim: 2,
+        outputUnits: 2,
+        mode,
+        similarity: "dot",
+        readTopK: 1,
+        updateMode: "replace",
+        writePolicy: "empty-first",
+        writeThreshold: 0.6,
+        writeEnabled: true,
+        forceNeedGate: 0.75,
+        valueMode: "project",
+        writeKeyMode: "separate-project",
+        writeGateMode: "learned",
+        optimizer: "sgd",
+        alpha: 0.2,
+      });
+
+      layer.forward(mj.matrix([[0], [0]]));
+      (layer as any).queryKernel._data.set([1, 0, 0, 1]);
+      (layer as any).writeKeyKernel._data.set([2, 0, 0, 3]);
+      (layer as any).writeValueKernel._data.set([4, 0, 0, 5]);
+      (layer as any).writeGateKernel._data.fill(0);
+      (layer as any).writeGateKernel._data[0] = 2;
+      if ((layer as any).outputKernel) setIdentity((layer as any).outputKernel);
+      if ((layer as any).outputBias) (layer as any).outputBias._data.fill(0);
+      layer.resetMemory();
+
+      const x = mj.matrix([[1], [1]]);
+      layer.forward(x);
+      const info = layer.getLastWriteInfo();
+      const state = layer.getMemoryState();
+
+      assert(info !== null, `mode=${mode}: learned gate should allow a committed write`);
+      assertClose(info!.writeGate, 1 / (1 + Math.exp(-2)), 1e-6, `mode=${mode}: writeGate should come from writeGateKernel`);
+      assertClose(info!.newKey[0], 2, 1e-6, `mode=${mode}: writeKey dim0 should come from writeKeyKernel`);
+      assertClose(info!.newKey[1], 3, 1e-6, `mode=${mode}: writeKey dim1 should come from writeKeyKernel`);
+      assertClose(info!.newValue[0], 4, 1e-6, `mode=${mode}: writeValue dim0 should come from writeValueKernel`);
+      assertClose(info!.newValue[1], 5, 1e-6, `mode=${mode}: writeValue dim1 should come from writeValueKernel`);
+      assertClose(state.memoryKeys[0][0], 2, 1e-6, `mode=${mode}: stored key dim0 should match writeKeyKernel output`);
+      assertClose(state.memoryKeys[1][0], 3, 1e-6, `mode=${mode}: stored key dim1 should match writeKeyKernel output`);
+      assertClose(state.memoryValues[0][0], 4, 1e-6, `mode=${mode}: stored value dim0 should match writeValueKernel output`);
+      assertClose(state.memoryValues[1][0], 5, 1e-6, `mode=${mode}: stored value dim1 should match writeValueKernel output`);
+
+      const keyLossBefore = layer.trainLastWriteKey([1, 0])!;
+      const valueLossBefore = layer.trainLastWriteValue([0, 1])!;
+      const gateLossBefore = layer.trainLastWriteGate(1)!;
+      layer.resetMemory();
+      layer.forward(x);
+      const after = layer.getLastWriteInfo()!;
+
+      const keyLossAfter = 0.5 * ((after.newKey[0] - 1) ** 2 + (after.newKey[1] - 0) ** 2) / 2;
+      const valueLossAfter = 0.5 * ((after.newValue[0] - 0) ** 2 + (after.newValue[1] - 1) ** 2) / 2;
+      const gateLossAfter = 0.5 * (after.writeGate - 1) * (after.writeGate - 1);
+
+      assert(keyLossAfter < keyLossBefore, `mode=${mode}: trainLastWriteKey should improve key alignment`);
+      assert(valueLossAfter < valueLossBefore, `mode=${mode}: trainLastWriteValue should improve value alignment`);
+      assert(gateLossAfter < gateLossBefore, `mode=${mode}: trainLastWriteGate should improve gate target fit`);
+    }
+  }
+
+  // 10) main backward performs within-sequence BPTT into write-side kernels across modes
+  {
+    const modes: Array<"project" | "read-project" | "concat" | "add"> = ["project", "read-project", "concat", "add"];
+
+    for (const mode of modes) {
+      const layer = new MemoryBank({
+        units: 2,
+        memorySlots: 2,
+        memoryDim: 2,
+        outputUnits: 2,
+        mode,
+        similarity: "dot",
+        readTopK: 2,
+        updateMode: "gated-merge",
+        writePolicy: "empty-first",
+        writeThreshold: 0,
+        writeEnabled: true,
+        forceNeedGate: 1,
+        valueMode: "project",
+        writeKeyMode: "separate-project",
+        writeGateMode: "learned",
+        optimizer: "sgd",
+        alpha: 0.1,
+      });
+
+      layer.forward(mj.matrix([[0], [0]]));
+      setIdentity((layer as any).queryKernel);
+      setIdentity((layer as any).writeKeyKernel);
+      setIdentity((layer as any).writeValueKernel);
+      (layer as any).writeGateKernel._data.fill(0);
+      if (mode === "project") {
+        (layer as any).outputKernel._data.set([
+          0, 0, 1, 0,
+          0, 0, 0, 1,
+        ]);
+      } else if (mode === "read-project") {
+        setIdentity((layer as any).outputKernel);
+      }
+      if ((layer as any).outputBias) (layer as any).outputBias._data.fill(0);
+      layer.resetMemory();
+
+      const x = mj.matrix([
+        [1, 0, 1, 1],
+        [0, 1, 1, 0],
+      ]);
+
+      const wk0 = (layer as any).writeKeyKernel.clone();
+      const wv0 = (layer as any).writeValueKernel.clone();
+      const wg0 = (layer as any).writeGateKernel.clone();
+
+      const out = layer.forward(x);
+      const err = mj.zeros(out._shape);
+      const lastCol = out._shape[1] - 1;
+      for (let r = 0; r < out._shape[0]; r++) {
+        err._data[r * out._shape[1] + lastCol] = 1;
+      }
+      layer.backward(mj.matrix([[]]), err);
+
+      let keyChanged = false;
+      let valueChanged = false;
+      let gateChanged = false;
+      for (let i = 0; i < wk0._data.length; i++) if (Math.abs(wk0._data[i] - (layer as any).writeKeyKernel._data[i]) > 1e-12) keyChanged = true;
+      for (let i = 0; i < wv0._data.length; i++) if (Math.abs(wv0._data[i] - (layer as any).writeValueKernel._data[i]) > 1e-12) valueChanged = true;
+      for (let i = 0; i < wg0._data.length; i++) if (Math.abs(wg0._data[i] - (layer as any).writeGateKernel._data[i]) > 1e-12) gateChanged = true;
+
+      assert(keyChanged, `mode=${mode}: main backward should update writeKeyKernel through sequence history`);
+      assert(valueChanged, `mode=${mode}: main backward should update writeValueKernel through sequence history`);
+      assert(gateChanged, `mode=${mode}: main backward should update writeGateKernel through sequence history`);
+    }
+  }
+
+  // 11) sequence mode enables BPTT across separate forward() calls
+  {
+    const layer = new MemoryBank({
+      units: 2,
+      memorySlots: 2,
+      memoryDim: 2,
+      outputUnits: 2,
+      mode: "read-project",
+      similarity: "dot",
+      readTopK: 2,
+      updateMode: "gated-merge",
+      writePolicy: "empty-first",
+      writeThreshold: 0,
+      writeEnabled: true,
+      forceNeedGate: 1,
+      valueMode: "project",
+      writeKeyMode: "separate-project",
+      writeGateMode: "learned",
+      optimizer: "sgd",
+      alpha: 0.1,
+    });
+
+    layer.forward(mj.matrix([[0], [0]]));
+    setIdentity((layer as any).queryKernel);
+    setIdentity((layer as any).writeKeyKernel);
+    setIdentity((layer as any).writeValueKernel);
+    setIdentity((layer as any).outputKernel);
+    (layer as any).outputBias._data.fill(0);
+    (layer as any).writeGateKernel._data.fill(0);
+    layer.resetMemory();
+
+    assert(layer.isSequenceActive() === false, "sequence mode should start inactive");
+    layer.beginSequence({ maxHistorySteps: 8 });
+    assert(layer.isSequenceActive() === true, "beginSequence should activate sequence mode");
+
+    const wk0 = (layer as any).writeKeyKernel.clone();
+    const wv0 = (layer as any).writeValueKernel.clone();
+    const wg0 = (layer as any).writeGateKernel.clone();
+
+    layer.forward(mj.matrix([[1], [0]])); // write slot 0
+    layer.forward(mj.matrix([[0], [1]])); // write slot 1
+    layer.forward(mj.matrix([[1], [1]])); // update one occupied slot through gated-merge
+    layer.forward(mj.matrix([[1], [1]])); // query future state
+    assert(layer.getSequenceLength() === 4, `sequence history should collect 4 steps, got ${layer.getSequenceLength()}`);
+
+    const err = mj.zeros([2, 4]);
+    err._data[0 * 4 + 3] = 1;
+    err._data[1 * 4 + 3] = -1;
+    const dx = layer.backwardSequence(err);
+    assert(dx._shape[0] === 2 && dx._shape[1] === 4, "backwardSequence should return dx for the full active sequence");
+
+    let keyChanged = false;
+    let valueChanged = false;
+    let gateChanged = false;
+    for (let i = 0; i < wk0._data.length; i++) if (Math.abs(wk0._data[i] - (layer as any).writeKeyKernel._data[i]) > 1e-12) keyChanged = true;
+    for (let i = 0; i < wv0._data.length; i++) if (Math.abs(wv0._data[i] - (layer as any).writeValueKernel._data[i]) > 1e-12) valueChanged = true;
+    for (let i = 0; i < wg0._data.length; i++) if (Math.abs(wg0._data[i] - (layer as any).writeGateKernel._data[i]) > 1e-12) gateChanged = true;
+
+    assert(keyChanged, "backwardSequence should update writeKeyKernel across separate forward calls");
+    assert(valueChanged, "backwardSequence should update writeValueKernel across separate forward calls");
+    assert(gateChanged, "backwardSequence should update writeGateKernel across separate forward calls");
+
+    layer.detachSequence();
+    assert(layer.getSequenceLength() === 0, "detachSequence should clear active history but keep memory state");
+
+    layer.forward(mj.matrix([[1], [0]]));
+    assert(layer.getSequenceLength() === 1, "history should continue collecting after detach");
+    const shortErr = mj.zeros([2, 1]);
+    shortErr._data[0] = 1;
+    const shortDx = layer.backwardSequence(shortErr);
+    assert(shortDx._shape[0] === 2 && shortDx._shape[1] === 1, "backwardSequence should still run on a fresh post-detach history");
+
+    layer.endSequence();
+    assert(layer.isSequenceActive() === false, "endSequence should deactivate sequence mode");
+    assert(layer.getSequenceLength() === 0, "endSequence should clear sequence history");
+  }
 }
 
 if (require.main === module) {

@@ -1,6 +1,6 @@
 import mj from "../../src/math";
 import Matrix from "../../src/matrix";
-import { Dense, RNN } from "../../src/layers";
+import { Dense, MemoryBank, RNN } from "../../src/layers";
 import { Sequential, Transformers } from "../../src/models";
 
 function assert(condition: boolean, message: string): void {
@@ -95,6 +95,30 @@ function runSequentialSequenceGuardTest(): void {
   }
 
   assert(threw, "Sequential sequence guard: expected clear redirect to Transformers/RecurrentModel");
+}
+
+function runSequentialMemoryBankGuardTest(): void {
+  let ctorThrew = false;
+  try {
+    new Sequential({
+      layers: [
+        new Dense({ units: 2, outputUnits: 2, activation: "relu", status: "input" }),
+        new MemoryBank({ units: 2, memorySlots: 2, memoryDim: 2, outputUnits: 2 }),
+      ],
+    });
+  } catch (error: any) {
+    ctorThrew = error?.message?.includes("MemoryBank tidak didukung di arsitektur Sequential");
+  }
+  assert(ctorThrew, "Sequential constructor should reject MemoryBank");
+
+  const model = new Sequential();
+  let addThrew = false;
+  try {
+    model.add(new MemoryBank({ units: 2, memorySlots: 2, memoryDim: 2, outputUnits: 2 }));
+  } catch (error: any) {
+    addThrew = error?.message?.includes("MemoryBank tidak didukung di arsitektur Sequential");
+  }
+  assert(addThrew, "Sequential.add should reject MemoryBank");
 }
 
 function buildTokenSample(tokens: number[]): Matrix {
@@ -193,12 +217,14 @@ function computeExpectedTokenWeightedLoss(
 export function runModelArchitectureCorrectnessSuite(): void {
   runSequentialFeedForwardTest();
   runSequentialSequenceGuardTest();
+  runSequentialMemoryBankGuardTest();
   runTransformerTokenWeightedFitTest();
 
   console.log("=== Model Architecture Correctness ===");
   console.table([
     { check: "sequential multi-layer feed-forward fit", status: "pass" },
     { check: "sequential rejects recurrent fit path", status: "pass" },
+    { check: "sequential rejects memory bank path", status: "pass" },
     { check: "transformers token-weighted fit aggregation", status: "pass" },
   ]);
 }

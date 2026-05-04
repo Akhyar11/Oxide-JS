@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { Cost, Layers, Matrix } from "../@types/type";
 import { setLayers, setLoss, splitTrainValidation, shuffleInPlace, formatLoss, formatProgressBar, formatTime } from "../utils";
-import { CompileDenseLayers, Embedding } from "../layers";
+import { CompileDenseLayers, Embedding, MemoryBank } from "../layers";
 import mj from "../math";
 import { FitConfig, FitResult } from "../@types/fitConfig";
 
@@ -14,7 +14,19 @@ export default class Sequential {
   private batchInputBufferData: Float32Array = new Float32Array(0);
   private batchTargetBufferData: Float32Array = new Float32Array(0);
   constructor({ layers = [] }: { layers?: SequentialLayers } = {}) {
+    this.assertSequentialCompatibleLayers(layers);
     this.layers = layers;
+  }
+
+  private assertSequentialCompatibleLayers(layers: SequentialLayers): void {
+    for (const layer of layers) {
+      if (layer instanceof MemoryBank) {
+        throw new Error(
+          "Sequential: MemoryBank tidak didukung di arsitektur Sequential. " +
+            "Gunakan model manual/custom dan panggil forward/backward MemoryBank secara eksplisit."
+        );
+      }
+    }
   }
 
   summary() {
@@ -34,6 +46,7 @@ export default class Sequential {
   }
 
   add(layer: Layers) {
+    this.assertSequentialCompatibleLayers([layer]);
     this.layers.push(layer);
   }
 
@@ -66,7 +79,9 @@ export default class Sequential {
     const dataJson = readFileSync(path, "utf-8");
     const data = JSON.parse(dataJson);
     this.layers = [];
-    this.layers = setLayers(data);
+    const layers = setLayers(data);
+    this.assertSequentialCompatibleLayers(layers);
+    this.layers = layers;
   }
 
   compile(config: CompileDenseLayers) {

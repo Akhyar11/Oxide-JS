@@ -72,6 +72,10 @@ export interface MemoryBankState {
   memorySlots: number;
 }
 
+export interface MemoryBankSequenceConfig {
+  maxHistorySteps?: number;
+}
+
 interface ReadSlotCache {
   slot: number;
   attn: number;
@@ -97,6 +101,9 @@ interface ForwardCacheItem {
   newKeyRaw: Vec;
   newKey: Vec;
   newValue: Vec;
+  writeSlotWasFilled: boolean;
+  prevSlotKey: Vec;
+  prevSlotValue: Vec;
 }
 
 type MemoryBankSaveData = {
@@ -238,6 +245,9 @@ export default class MemoryBank {
   private configuredMemoryDim?: number;
   private configuredOutputUnits?: number;
   private configuredValueMode?: MemoryValueMode;
+  private sequenceActive = false;
+  private sequenceMaxHistorySteps: number | null = null;
+  private sequenceHistory: ForwardCacheItem[] = [];
 
   private lastWriteInfo: {
     committed: boolean;
@@ -398,6 +408,36 @@ export default class MemoryBank {
     const coeffQ = dot / (nq * nq * nq * nk);
     for (let i = 0; i < q.length; i++) {
       out[i] = key[i] * invNqNk - q[i] * coeffQ;
+    }
+    return out;
+  }
+
+  private cosineGradWrtKey(q: Vec, key: Vec): Vec {
+    const out = new Float32Array(key.length);
+    const nq = this.l2Norm(q);
+    const nk = this.l2Norm(key);
+    if (!Number.isFinite(nq) || !Number.isFinite(nk) || nq <= 1e-12 || nk <= 1e-12) {
+      return out;
+    }
+    const dot = this.vectorDot(q, key);
+    const invNqNk = 1 / (nq * nk);
+    const coeffK = dot / (nq * nk * nk * nk);
+    for (let i = 0; i < key.length; i++) {
+      out[i] = q[i] * invNqNk - key[i] * coeffK;
+    }
+    return out;
+  }
+
+  private addStateGrad(flat: Float32Array, slot: number, grad: Vec, scale = 1): void {
+    for (let i = 0; i < this.memoryDim; i++) {
+      flat[i * this.memorySlots + slot] += grad[i] * scale;
+    }
+  }
+
+  private getStateGrad(flat: Float32Array, slot: number): Vec {
+    const out = new Float32Array(this.memoryDim);
+    for (let i = 0; i < this.memoryDim; i++) {
+      out[i] = flat[i * this.memorySlots + slot];
     }
     return out;
   }
@@ -631,6 +671,13 @@ export default class MemoryBank {
     for (const grad of grads) {
       if (grad) mj.clipGradients(grad, limit);
     }
+  }
+
+  private trimSequenceHistoryIfNeeded(): void {
+    if (this.sequenceMaxHistorySteps === null) return;
+    if (this.sequenceHistory.length <= this.sequenceMaxHistorySteps) return;
+    const drop = this.sequenceHistory.length - this.sequenceMaxHistorySteps;
+    this.sequenceHistory.splice(0, drop);
   }
 
   getDebugTrace(): MemoryBankDebugTrace[] {
@@ -884,6 +931,9 @@ export default class MemoryBank {
       let newKeyRaw: Vec = new Float32Array(this.memoryDim);
       let newKey: Vec = new Float32Array(this.memoryDim);
       let newValue: Vec = new Float32Array(this.memoryDim);
+      let writeSlotWasFilled = false;
+      let prevSlotKey: Vec = new Float32Array(this.memoryDim);
+      let prevSlotValue: Vec = new Float32Array(this.memoryDim);
 
       if (this.writeEnabled && !this.writeFrozen) {
         const gateInfo = this.getWriteGate(needInput, need);
@@ -895,6 +945,11 @@ export default class MemoryBank {
           newKey = keyInfo.normalized;
           newValue = this.getWriteValueForInput(xCol);
           writeSlot = this.pickWriteSlot(q);
+          writeSlotWasFilled = this.memoryFilled[writeSlot] === 1;
+          if (writeSlotWasFilled) {
+            prevSlotKey = this.getMemoryColumn(this.memoryKeys, writeSlot);
+            prevSlotValue = this.getMemoryColumn(this.memoryValues, writeSlot);
+          }
           this.updateMemorySlot(writeSlot, newKey, newValue, writeGate);
           writeCommitted = true;
           this.lastWriteInfo = {
@@ -943,25 +998,34 @@ export default class MemoryBank {
         newKeyRaw,
         newKey,
         newValue,
+        writeSlotWasFilled,
+        prevSlotKey,
+        prevSlotValue,
       });
+    }
+
+    if (this.sequenceActive && this.cache.length > 0) {
+      this.sequenceHistory.push(...this.cache);
+      this.trimSequenceHistoryIfNeeded();
     }
 
     return out;
   }
 
-  backward(_y: Matrix, err: Matrix): Matrix {
-    if (!this.initialized) throw new Error("MemoryBank.backward called before forward initialization");
-    if (this.cache.length !== err._shape[1]) {
-      throw new Error("MemoryBank.backward: cache length mismatch, call forward() before backward() with same column count");
+  private backwardThroughCaches(caches: ForwardCacheItem[], err: Matrix, callerName: string): Matrix {
+    if (!this.initialized) throw new Error(`${callerName} called before forward initialization`);
+    if (caches.length !== err._shape[1]) {
+      throw new Error(`${callerName}: cache length mismatch, expected ${caches.length} columns, got ${err._shape[1]}`);
     }
 
-    const expectedRows = this.mode === "project" || this.mode === "read-project"
-      ? this.outputUnits
-      : this.mode === "concat"
-      ? this.units + this.memoryDim
-      : this.units;
+    const expectedRows =
+      this.mode === "project" || this.mode === "read-project"
+        ? this.outputUnits
+        : this.mode === "concat"
+        ? this.units + this.memoryDim
+        : this.units;
     if (err._shape[0] !== expectedRows) {
-      throw new Error(`MemoryBank.backward: err rows must be ${expectedRows}, got ${err._shape[0]}`);
+      throw new Error(`${callerName}: err rows must be ${expectedRows}, got ${err._shape[0]}`);
     }
 
     const dx = mj.zeros([this.units, err._shape[1]]);
@@ -969,12 +1033,21 @@ export default class MemoryBank {
     const gNeed = mj.zeros(this.needKernel._shape);
     const gOutput = this.outputKernel ? mj.zeros(this.outputKernel._shape) : undefined;
     const gOutputBias = this.outputBias ? mj.zeros(this.outputBias._shape) : undefined;
+    const gWriteValue = this.writeValueKernel ? mj.zeros(this.writeValueKernel._shape) : undefined;
+    const gWriteGate = this.writeGateKernel ? mj.zeros(this.writeGateKernel._shape) : undefined;
+    const gWriteKey = this.writeKeyKernel ? mj.zeros(this.writeKeyKernel._shape) : undefined;
 
-    for (let c = 0; c < err._shape[1]; c++) {
-      const cache = this.cache[c];
+    let futureKeyStateGrad = new Float32Array(this.memoryDim * this.memorySlots);
+    let futureValueStateGrad = new Float32Array(this.memoryDim * this.memorySlots);
+
+    for (let c = err._shape[1] - 1; c >= 0; c--) {
+      const cache = caches[c];
       const dxDirect = new Float32Array(this.units);
       const dContext = new Float32Array(this.memoryDim);
       const dRead = new Float32Array(this.memoryDim);
+      const dPreKeys = new Float32Array(futureKeyStateGrad);
+      const dPreValues = new Float32Array(futureValueStateGrad);
+      let dNeedFromWrite = 0;
 
       if (this.mode === "project") {
         const e = err.getCol(c);
@@ -1001,7 +1074,84 @@ export default class MemoryBank {
         }
       }
 
-      let dNeed = 0;
+      if (cache.writeCommitted) {
+        const slot = cache.writeSlot;
+        const dPostKeySlot = this.getStateGrad(futureKeyStateGrad, slot);
+        const dPostValueSlot = this.getStateGrad(futureValueStateGrad, slot);
+        for (let i = 0; i < this.memoryDim; i++) {
+          dPreKeys[i * this.memorySlots + slot] = 0;
+          dPreValues[i * this.memorySlots + slot] = 0;
+        }
+
+        const dNewKey = new Float32Array(this.memoryDim);
+        const dNewValue = new Float32Array(this.memoryDim);
+        let dGate = 0;
+
+        if (!cache.writeSlotWasFilled || this.updateMode === "replace") {
+          dNewKey.set(dPostKeySlot);
+          dNewValue.set(dPostValueSlot);
+        } else if (this.updateMode === "merge") {
+          const mixedKey = new Float32Array(this.memoryDim);
+          for (let i = 0; i < this.memoryDim; i++) {
+            mixedKey[i] = 0.5 * cache.prevSlotKey[i] + 0.5 * cache.newKey[i];
+          }
+          const dMixedKey = this.normalizeBackward(mixedKey, dPostKeySlot);
+          this.addStateGrad(dPreKeys, slot, dMixedKey, 0.5);
+          this.addStateGrad(dPreValues, slot, dPostValueSlot, 0.5);
+          for (let i = 0; i < this.memoryDim; i++) {
+            dNewKey[i] += 0.5 * dMixedKey[i];
+            dNewValue[i] += 0.5 * dPostValueSlot[i];
+          }
+        } else {
+          const gate = cache.writeGate;
+          const mixedKey = new Float32Array(this.memoryDim);
+          for (let i = 0; i < this.memoryDim; i++) {
+            mixedKey[i] = (1 - gate) * cache.prevSlotKey[i] + gate * cache.newKey[i];
+          }
+          const dMixedKey = this.normalizeBackward(mixedKey, dPostKeySlot);
+          this.addStateGrad(dPreKeys, slot, dMixedKey, 1 - gate);
+          this.addStateGrad(dPreValues, slot, dPostValueSlot, 1 - gate);
+          for (let i = 0; i < this.memoryDim; i++) {
+            dNewKey[i] += gate * dMixedKey[i];
+            dNewValue[i] += gate * dPostValueSlot[i];
+            dGate += (cache.newKey[i] - cache.prevSlotKey[i]) * dMixedKey[i];
+            dGate += (cache.newValue[i] - cache.prevSlotValue[i]) * dPostValueSlot[i];
+          }
+        }
+
+        if (this.valueMode === "identity") {
+          for (let i = 0; i < this.units; i++) dxDirect[i] += dNewValue[i];
+        } else if (gWriteValue && this.writeValueKernel) {
+          this.addOuter(gWriteValue, dNewValue, cache.xCol);
+          const dxWriteValue = this.matTVecMul(this.writeValueKernel, dNewValue);
+          for (let i = 0; i < this.units; i++) dxDirect[i] += dxWriteValue[i];
+        }
+
+        const dNewKeyRaw = this.similarity === "cosine"
+          ? this.normalizeBackward(cache.newKeyRaw, dNewKey)
+          : dNewKey;
+        if (this.writeKeyMode === "shared-query") {
+          this.addOuter(gQuery, dNewKeyRaw, cache.xCol);
+          const dxWriteKey = this.matTVecMul(this.queryKernel, dNewKeyRaw);
+          for (let i = 0; i < this.units; i++) dxDirect[i] += dxWriteKey[i];
+        } else if (gWriteKey && this.writeKeyKernel) {
+          this.addOuter(gWriteKey, dNewKeyRaw, cache.xCol);
+          const dxWriteKey = this.matTVecMul(this.writeKeyKernel, dNewKeyRaw);
+          for (let i = 0; i < this.units; i++) dxDirect[i] += dxWriteKey[i];
+        }
+
+        if (this.writeGateMode === "threshold") {
+          if (this.forceNeedGate === undefined) dNeedFromWrite += dGate;
+        } else if (this.writeGateMode === "learned" && gWriteGate && this.writeGateKernel) {
+          const dGatePre = dGate * cache.writeGate * (1 - cache.writeGate);
+          this.addOuter(gWriteGate, new Float32Array([dGatePre]), cache.needInput);
+          const dGateInput = this.matTVecMul(this.writeGateKernel, new Float32Array([dGatePre]));
+          for (let i = 0; i < this.units; i++) dxDirect[i] += dGateInput[i];
+          for (let i = 0; i < this.memoryDim; i++) dRead[i] += dGateInput[this.units + i];
+        }
+      }
+
+      let dNeed = dNeedFromWrite;
       for (let i = 0; i < this.memoryDim; i++) {
         dNeed += dContext[i] * cache.read[i];
         dRead[i] += dContext[i] * cache.need;
@@ -1029,13 +1179,24 @@ export default class MemoryBank {
         for (let i = 0; i < cache.readSlots.length; i++) weighted += cache.readSlots[i].attn * dAttn[i];
 
         for (let i = 0; i < cache.readSlots.length; i++) {
+          this.addStateGrad(dPreValues, cache.readSlots[i].slot, dRead, cache.readSlots[i].attn);
           const dScore = cache.readSlots[i].attn * (dAttn[i] - weighted);
           if (this.similarity === "dot") {
             const scale = dScore / Math.sqrt(this.memoryDim);
-            for (let d = 0; d < this.memoryDim; d++) dQuery[d] += scale * cache.readSlots[i].key[d];
+            const dKey = new Float32Array(this.memoryDim);
+            for (let d = 0; d < this.memoryDim; d++) {
+              dQuery[d] += scale * cache.readSlots[i].key[d];
+              dKey[d] = scale * cache.q[d];
+            }
+            this.addStateGrad(dPreKeys, cache.readSlots[i].slot, dKey);
           } else {
-            const gradCos = this.cosineGradWrtQ(cache.q, cache.readSlots[i].key);
-            for (let d = 0; d < this.memoryDim; d++) dQuery[d] += dScore * gradCos[d];
+            const gradCosQ = this.cosineGradWrtQ(cache.q, cache.readSlots[i].key);
+            const gradCosKey = this.cosineGradWrtKey(cache.q, cache.readSlots[i].key);
+            for (let d = 0; d < this.memoryDim; d++) {
+              dQuery[d] += dScore * gradCosQ[d];
+              gradCosKey[d] *= dScore;
+            }
+            this.addStateGrad(dPreKeys, cache.readSlots[i].slot, gradCosKey);
           }
         }
       }
@@ -1049,10 +1210,13 @@ export default class MemoryBank {
       for (let i = 0; i < this.units; i++) {
         dx._data[i * err._shape[1] + c] = dxDirect[i] + dxQuery[i];
       }
+
+      futureKeyStateGrad = dPreKeys;
+      futureValueStateGrad = dPreValues;
     }
 
     if (this.trainablePolicy) {
-      this.maybeClip(gQuery, gNeed, gOutput, gOutputBias);
+      this.maybeClip(gQuery, gNeed, gOutput, gOutputBias, gWriteValue, gWriteGate, gWriteKey);
       this.queryKernel.subInPlace(this.optimizerQuery.calculate(gQuery, this.alpha));
       this.needKernel.subInPlace(this.optimizerNeed.calculate(gNeed, this.alpha));
       if (gOutput && this.outputKernel && this.optimizerOutput) {
@@ -1061,12 +1225,71 @@ export default class MemoryBank {
       if (gOutputBias && this.outputBias && this.optimizerOutputBias) {
         this.outputBias.subInPlace(this.optimizerOutputBias.calculate(gOutputBias, this.alpha));
       }
+      if (gWriteValue && this.writeValueKernel && this.optimizerWriteValue) {
+        this.writeValueKernel.subInPlace(this.optimizerWriteValue.calculate(gWriteValue, this.alpha));
+      }
+      if (gWriteGate && this.writeGateKernel && this.optimizerWriteGate) {
+        this.writeGateKernel.subInPlace(this.optimizerWriteGate.calculate(gWriteGate, this.alpha));
+      }
+      if (gWriteKey && this.writeKeyKernel && this.optimizerWriteKey) {
+        this.writeKeyKernel.subInPlace(this.optimizerWriteKey.calculate(gWriteKey, this.alpha));
+      }
     }
 
-    // Write-state and write-policy params are not silently optimizer-trained here.
     // Runtime memory state mutates only via forward writes/reset/setMemoryState/load.
-    // Optional writeValue/writeGate/writeKey training uses explicit auxiliary APIs.
+    // This backward pass propagates exact gradients through read/output path and
+    // through within-sequence write history for the same forward() call.
     return dx;
+  }
+
+  backward(_y: Matrix, err: Matrix): Matrix {
+    return this.backwardThroughCaches(this.cache, err, "MemoryBank.backward");
+  }
+
+  backwardSequence(err: Matrix): Matrix {
+    if (!this.sequenceActive) {
+      throw new Error("MemoryBank.backwardSequence: sequence mode is not active, call beginSequence() first");
+    }
+    return this.backwardThroughCaches(this.sequenceHistory, err, "MemoryBank.backwardSequence");
+  }
+
+  beginSequence(cfg: MemoryBankSequenceConfig = {}): this {
+    if (cfg.maxHistorySteps !== undefined) {
+      if (!Number.isInteger(cfg.maxHistorySteps) || cfg.maxHistorySteps <= 0) {
+        throw new Error(`MemoryBank.beginSequence: maxHistorySteps must be positive integer, got ${cfg.maxHistorySteps}`);
+      }
+      this.sequenceMaxHistorySteps = cfg.maxHistorySteps;
+    } else {
+      this.sequenceMaxHistorySteps = null;
+    }
+    this.sequenceHistory = [];
+    this.sequenceActive = true;
+    return this;
+  }
+
+  detachSequence(): this {
+    this.sequenceHistory = [];
+    return this;
+  }
+
+  clearSequenceHistory(): this {
+    this.sequenceHistory = [];
+    return this;
+  }
+
+  endSequence(): this {
+    this.sequenceHistory = [];
+    this.sequenceActive = false;
+    this.sequenceMaxHistorySteps = null;
+    return this;
+  }
+
+  isSequenceActive(): boolean {
+    return this.sequenceActive;
+  }
+
+  getSequenceLength(): number {
+    return this.sequenceHistory.length;
   }
 
   compile(cfg: { alpha?: number; optimizer?: Optimzier; clipGradient?: number | boolean }): void {
