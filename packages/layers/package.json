@@ -2,6 +2,11 @@
   "name": "@oxidejs/layers",
   "version": "1.0.0",
   "description": "OxideJS Layers: Neural network components including Dense, RNN, and MemoryBank.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Akhyar11/OxideJS.git",
+    "directory": "packages/layers"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

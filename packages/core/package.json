@@ -2,6 +2,11 @@
   "name": "@oxidejs/core",
   "version": "1.0.0",
   "description": "OxideJS Core: Matrix operations and Rust native acceleration.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Akhyar11/OxideJS.git",
+    "directory": "packages/core"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "napi": {

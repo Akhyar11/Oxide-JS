@@ -2,6 +2,11 @@
   "name": "@oxidejs/models",
   "version": "1.0.0",
   "description": "OxideJS Models: High-level model abstractions like Sequential and Transformers.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Akhyar11/OxideJS.git",
+    "directory": "packages/models"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
