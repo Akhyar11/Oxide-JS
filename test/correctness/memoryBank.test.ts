@@ -1,8 +1,8 @@
 import { unlinkSync } from "fs";
-import { MemoryBank } from "@oxidejs/layers";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { setLayers } from "@oxidejs/layers";
+import { MemoryBank } from "@oxide-js/layers";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { setLayers } from "@oxide-js/layers";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);

@@ -1,5 +1,5 @@
-import { LSTM } from "@oxidejs/layers";
-import { setLayers } from "@oxidejs/layers";
+import { LSTM } from "@oxide-js/layers";
+import { setLayers } from "@oxide-js/layers";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);

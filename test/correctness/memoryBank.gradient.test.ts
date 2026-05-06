@@ -1,5 +1,5 @@
-import { MemoryBank } from "@oxidejs/layers";
-import { mj } from "@oxidejs/core";
+import { MemoryBank } from "@oxide-js/layers";
+import { mj } from "@oxide-js/core";
 
 type ParamName = "queryKernel" | "writeGateKernel" | "writeGateBias" | "writeQueryKernel" | "needKernel" | "outputKernel" | "outputBias";
 

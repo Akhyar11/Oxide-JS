@@ -1,6 +1,6 @@
 # Installation and Setup Guide
 
-Follow the steps below to set up the **OxideJS** development environment on your local machine.
+Follow the steps below to set up the **Oxide-JS** development environment on your local machine.
 
 ## Main Prerequisites
 
@@ -17,7 +17,7 @@ Before starting, ensure you have the following software installed:
 Clone the monorepo to your local machine:
 ```bash
 git clone <repository-url>
-cd OxideJS
+cd Oxide-JS
 ```
 
 ### 2. Install Node.js Dependencies
@@ -43,7 +43,7 @@ The build process will produce a `.node` binary file inside `packages/core/` (e.
 After installation is complete, you can verify if the native backend is active by running a simple test:
 
 ```ts
-import { isNativeAvailable } from "@oxidejs/core";
+import { isNativeAvailable } from "@oxide-js/core";
 
 console.log("Native Backend Status:", isNativeAvailable());
 ```
@@ -73,7 +73,7 @@ Since this project is a monorepo, you should build all packages before using the
 ```bash
 npm run build
 ```
-This will compile `@oxidejs/core`, `@oxidejs/layers`, and `@oxidejs/models`.
+This will compile `@oxide-js/core`, `@oxide-js/layers`, and `@oxide-js/models`.
 
 ---
 

@@ -1,9 +1,9 @@
 import fs from "fs";
-import { Optimizer, OptimizerType, StatusLayer, matrix2d } from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { dotProductNative, isNativeAvailable } from "@oxidejs/core";
-import { setOptimizer } from "@oxidejs/core";
+import { Optimizer, OptimizerType, StatusLayer, matrix2d } from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { dotProductNative, isNativeAvailable } from "@oxide-js/core";
+import { setOptimizer } from "@oxide-js/core";
 import AttentionPooling from "./attentionPooling.js";
 
 type Vec = Float32Array<ArrayBufferLike>;

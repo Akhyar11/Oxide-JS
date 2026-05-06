@@ -1,16 +1,16 @@
 # Native Backend
 
-The Rust native backend provides hardware-accelerated implementations of the most computationally intensive operations in OxideJS.
+The Rust native backend provides hardware-accelerated implementations of the most computationally intensive operations in Oxide-JS.
 
 ## Import
 
 ```ts
-import { isNativeAvailable } from "@oxidejs/core"
+import { isNativeAvailable } from "@oxide-js/core"
 ```
 
 ## Overview
 
-OxideJS includes a Rust extension (via [napi-rs](https://napi.rs/)) that accelerates critical hot paths:
+Oxide-JS includes a Rust extension (via [napi-rs](https://napi.rs/)) that accelerates critical hot paths:
 
 - Matrix dot-product (GEMM)
 - Activation functions (sigmoid, relu, softmax, etc.)
@@ -36,7 +36,7 @@ When the native addon is not available, the library falls back transparently to 
 Returns `true` if the compiled Rust native addon is loaded and active.
 
 ```ts
-import { isNativeAvailable } from "@oxidejs/core"
+import { isNativeAvailable } from "@oxide-js/core"
 
 console.log("Native active:", isNativeAvailable());
 ```

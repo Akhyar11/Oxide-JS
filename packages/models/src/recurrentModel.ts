@@ -1,9 +1,9 @@
-import { FitConfig, FitResult } from "@oxidejs/core";
-import { Cost, Matrix as MatrixType, Optimizer } from "@oxidejs/core";
-import { CompileDenseLayers, Dense, Embedding, GRU, LSTM, RNN } from "@oxidejs/layers";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { formatLoss, formatProgressBar, formatTime, shuffleInPlace, splitTrainValidation } from "@oxidejs/core";
+import { FitConfig, FitResult } from "@oxide-js/core";
+import { Cost, Matrix as MatrixType, Optimizer } from "@oxide-js/core";
+import { CompileDenseLayers, Dense, Embedding, GRU, LSTM, RNN } from "@oxide-js/layers";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { formatLoss, formatProgressBar, formatTime, shuffleInPlace, splitTrainValidation } from "@oxide-js/core";
 import Sequential, { SequentialLayers } from "./sequential.js";
 
 export type RecurrentKind = "rnn" | "lstm" | "gru";

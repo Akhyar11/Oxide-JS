@@ -1,4 +1,4 @@
-import { Cost, StatusLayer, Optimizer } from "@oxidejs/core";
+import { Cost, StatusLayer, Optimizer } from "@oxide-js/core";
 import {
   Activation,
   AdaptiveMemoryRNN,

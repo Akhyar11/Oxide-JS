@@ -4,11 +4,11 @@
 
 ### Rebranding & Modularization Milestone
 
-- **Project Rebranding**: Officially transitioned from **ML-V1** to **OxideJS**.
+- **Project Rebranding**: Officially transitioned from **ML-V1** to **Oxide-JS**.
 - **Monorepo Architecture**: Split the monolithic codebase into specialized packages:
-  - `@oxidejs/core`: Matrix operations, math primitives, and native kernels.
-  - `@oxidejs/layers`: Neural network building blocks.
-  - `@oxidejs/models`: High-level architectures (Transformers, Sequential, etc.).
+  - `@oxide-js/core`: Matrix operations, math primitives, and native kernels.
+  - `@oxide-js/layers`: Neural network building blocks.
+  - `@oxide-js/models`: High-level architectures (Transformers, Sequential, etc.).
 - **Modular Rust Backend**: Refactored `src-rust` from a single `lib.rs` into an organized module structure (`math`, `activation`, `layers`, `optimizer`, `loss`).
 - **ESM Migration**: Fully migrated the library and test suite to **ES Modules (ESM)**, resolving CJS/ESM resolution conflicts.
 - **CI/CD Validation**: Added GitHub Actions workflow for automated testing and build validation.
@@ -26,7 +26,7 @@
   feat: implement hyper-speed native kernels with parallel pre-projection and optimized memory layout.
   fix: synchronize GRU mathematical architecture with ML-V1's specific reset-gate scaling.
 
-Semua perubahan penting pada proyek **OxideJS** akan didokumentasikan di file ini.
+Semua perubahan penting pada proyek **Oxide-JS** akan didokumentasikan di file ini.
 
 Format ini didasarkan pada [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

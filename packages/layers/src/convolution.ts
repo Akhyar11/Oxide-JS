@@ -5,14 +5,14 @@ import {
   OptimizerType,
   StatusLayer,
   matrix2d,
-} from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { setActivation } from "@oxidejs/core";
-import { setLoss } from "@oxidejs/core";
-import { setOptimizer } from "@oxidejs/core";
+} from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { setActivation } from "@oxide-js/core";
+import { setLoss } from "@oxide-js/core";
+import { setOptimizer } from "@oxide-js/core";
 import { CompileDenseLayers } from "./dense.js";
-import { isNativeAvailable, convBackwardInputNative } from "@oxidejs/core";
+import { isNativeAvailable, convBackwardInputNative } from "@oxide-js/core";
 
 interface ConvolutionLayers {
   kernelSize: [number, number];

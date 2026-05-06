@@ -15,8 +15,8 @@ import {
   formatLoss,
   formatProgressBar,
   formatTime
-} from "@oxidejs/core"
-import { setLayers, registerLayer } from "@oxidejs/layers"
+} from "@oxide-js/core"
+import { setLayers, registerLayer } from "@oxide-js/layers"
 ```
 
 ## Overview
@@ -64,7 +64,7 @@ Computes the cosine similarity between two vectors.
 **Returns:** a value in `[-1, 1]` where `1` is identical direction and `-1` is opposite.
 
 ```ts
-import { mj, cosineSimilarity } from "@oxidejs/core"
+import { mj, cosineSimilarity } from "@oxide-js/core"
 
 const a = mj.matrix([[1, 0, 0]]);
 const b = mj.matrix([[0, 1, 0]]);
@@ -77,7 +77,7 @@ const sim = cosineSimilarity(a, b);
 Shuffles an array in-place using the Fisher-Yates algorithm.
 
 ```ts
-import { shuffleInPlace } from "@oxidejs/core"
+import { shuffleInPlace } from "@oxide-js/core"
 
 const samples = [1, 2, 3, 4, 5];
 shuffleInPlace(samples);
@@ -93,7 +93,7 @@ Splits an array into training and validation sets without shuffling.
 | `validationSplit` | `number` | Fraction reserved for validation (0–1) |
 
 ```ts
-import { splitTrainValidation } from "@oxidejs/core"
+import { splitTrainValidation } from "@oxide-js/core"
 
 const { train, val } = splitTrainValidation(samples, 0.2);
 ```

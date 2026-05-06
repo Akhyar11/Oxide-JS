@@ -12,14 +12,14 @@ import {
   unicodeWordPreTokenizer,
   whitespacePreTokenizer,
   scriptAwarePreTokenizer
-} from "@oxidejs/core"
+} from "@oxide-js/core"
 
 import type {
   BPETrainingEncodeOptions,
   BPETokenizerOptions,
   BuiltInPreTokenizer,
   PreTokenizer
-} from "@oxidejs/core"
+} from "@oxide-js/core"
 ```
 
 ## Overview
@@ -42,7 +42,7 @@ import type {
 | `specialTokens` | `string[]` | — | Additional special tokens to preserve |
 
 ```ts
-import { BPETokenizer } from "@oxidejs/core"
+import { BPETokenizer } from "@oxide-js/core"
 
 const tokenizer = new BPETokenizer({
   vocabSize: 1000,
@@ -165,7 +165,7 @@ const loadedTokenizer = BPETokenizer.load("./model/vocab.json");
 
 ### Pre-tokenizers
 
-Pre-tokenizers split raw text into initial segments before BPE merges. OxideJS provides five built-in strategies:
+Pre-tokenizers split raw text into initial segments before BPE merges. Oxide-JS provides five built-in strategies:
 
 | Name | Export | Description |
 |---|---|---|
@@ -178,7 +178,7 @@ Pre-tokenizers split raw text into initial segments before BPE merges. OxideJS p
 Pre-tokenizers can be used directly as functions `(text: string) => string[]`:
 
 ```ts
-import { scriptAwarePreTokenizer } from "@oxidejs/core"
+import { scriptAwarePreTokenizer } from "@oxide-js/core"
 
 const tokens = scriptAwarePreTokenizer("ꦱꦺꦴꦥꦺꦴ");
 // ["ꦱꦺꦴ", "ꦥꦺꦴ"]
@@ -196,7 +196,7 @@ const tokens = scriptAwarePreTokenizer("ꦱꦺꦴꦥꦺꦴ");
 #### Multilingual Example
 
 ```ts
-import { BPETokenizer } from "@oxidejs/core"
+import { BPETokenizer } from "@oxide-js/core"
 
 const tokenizer = new BPETokenizer({
   vocabSize: 1000,
@@ -226,7 +226,7 @@ import type {
   BPETokenizerOptions,
   BuiltInPreTokenizer,
   PreTokenizer
-} from "@oxidejs/core"
+} from "@oxide-js/core"
 ```
 
 ### `BPETokenizerOptions`

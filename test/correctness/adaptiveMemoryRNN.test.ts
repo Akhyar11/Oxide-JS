@@ -1,9 +1,9 @@
-import { AdaptiveMemoryRNN } from "@oxidejs/layers";
-import { mj } from "@oxidejs/core";
-import { isNativeAvailable } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { Sequential } from "@oxidejs/models";
-import { Dense } from "@oxidejs/layers";
+import { AdaptiveMemoryRNN } from "@oxide-js/layers";
+import { mj } from "@oxide-js/core";
+import { isNativeAvailable } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { Sequential } from "@oxide-js/models";
+import { Dense } from "@oxide-js/layers";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);

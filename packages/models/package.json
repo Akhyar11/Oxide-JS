@@ -1,11 +1,11 @@
 {
-  "name": "@oxidejs/models",
+  "name": "@oxide-js/models",
   "version": "0.0.0",
   "type": "module",
-  "description": "OxideJS Models: High-level model abstractions like Sequential and Transformers.",
+  "description": "Oxide-JS Models: High-level model abstractions like Sequential and Transformers.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Akhyar11/OxideJS.git",
+    "url": "https://github.com/Akhyar11/Oxide-JS.git",
     "directory": "packages/models"
   },
   "main": "dist/index.js",
@@ -17,13 +17,13 @@
   "keywords": [
     "deep-learning",
     "models",
-    "oxidejs"
+    "oxide-js"
   ],
   "author": "Akhyar",
   "license": "ISC",
   "dependencies": {
-    "@oxidejs/core": "*",
-    "@oxidejs/layers": "*"
+    "@oxide-js/core": "*",
+    "@oxide-js/layers": "*"
   },
   "devDependencies": {
     "typescript": "^6.0.3"

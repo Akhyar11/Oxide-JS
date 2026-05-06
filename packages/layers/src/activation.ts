@@ -1,8 +1,8 @@
-import { ActivationType, Cost, StatusLayer } from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { setActivation } from "@oxidejs/core";
-import { setLoss } from "@oxidejs/core";
+import { ActivationType, Cost, StatusLayer } from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { setActivation } from "@oxide-js/core";
+import { setLoss } from "@oxide-js/core";
 
 export default class Activation {
   name: string = "activation layer";

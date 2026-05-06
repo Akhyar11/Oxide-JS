@@ -1,17 +1,17 @@
 {
-  "name": "@oxidejs/monorepo",
+  "name": "@oxide-js/monorepo",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "version": "2.3.1",
   "type": "module",
-  "description": "OxideJS: A modular, high-performance machine learning library for TypeScript with Rust acceleration.",
+  "description": "Oxide-JS: A modular, high-performance machine learning library for TypeScript with Rust acceleration.",
   "scripts": {
     "test": "node --loader ts-node/esm test/index.ts",
     "build": "npm run build -w packages/core && npm run build -w packages/layers && npm run build -w packages/models",
-    "build:rust": "npm run build:rust -w @oxidejs/core",
-    "postinstall": "node -e \"try{require('child_process').execSync('npm run build:rust -w @oxidejs/core',{stdio:'inherit'})}catch(e){console.warn('[oxidejs] Rust build skipped — native acceleration unavailable.')}\""
+    "build:rust": "npm run build:rust -w @oxide-js/core",
+    "postinstall": "node -e \"try{require('child_process').execSync('npm run build:rust -w @oxide-js/core',{stdio:'inherit'})}catch(e){console.warn('[oxide-js] Rust build skipped — native acceleration unavailable.')}\""
   },
   "keywords": [
     "machine-learning",
@@ -34,11 +34,11 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Akhyar11/OxideJS.git"
+    "url": "https://github.com/Akhyar11/Oxide-JS.git"
   },
-  "homepage": "https://github.com/Akhyar11/OxideJS#readme",
+  "homepage": "https://github.com/Akhyar11/Oxide-JS#readme",
   "bugs": {
-    "url": "https://github.com/Akhyar11/OxideJS/issues"
+    "url": "https://github.com/Akhyar11/Oxide-JS/issues"
   },
   "engines": {
     "node": ">=18.0.0"

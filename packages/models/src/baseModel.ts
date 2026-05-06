@@ -1,5 +1,5 @@
-import { FitConfig, FitResult } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
+import { FitConfig, FitResult } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
 
 export interface TrainableModel {
   forward(x: Matrix, batchSize?: number): Matrix;

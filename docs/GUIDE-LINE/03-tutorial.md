@@ -1,13 +1,13 @@
-# Practical Tutorial: Getting Started with OxideJS
+# Practical Tutorial: Getting Started with Oxide-JS
 
-This guide will walk you through the basics of using **OxideJS**, from simple matrix operations to training a small transformer model.
+This guide will walk you through the basics of using **Oxide-JS**, from simple matrix operations to training a small transformer model.
 
 ## 1. Basic Matrix Operations
 
-All data in OxideJS is represented as `Matrix` objects. Use the `mj` module from `@oxidejs/core` to perform operations.
+All data in Oxide-JS is represented as `Matrix` objects. Use the `mj` module from `@oxide-js/core` to perform operations.
 
 ```ts
-import { mj } from "@oxidejs/core";
+import { mj } from "@oxide-js/core";
 
 // Create a 2x2 matrix
 const a = mj.matrix([[1, 2], [3, 4]]);
@@ -27,12 +27,12 @@ console.log("Shape:", d._shape);
 
 ## 2. Building a Simple Model
 
-You can use the `Sequential` class from `@oxidejs/models` to stack layers from `@oxidejs/layers`.
+You can use the `Sequential` class from `@oxide-js/models` to stack layers from `@oxide-js/layers`.
 
 ```ts
-import { mj } from "@oxidejs/core";
-import { Dense } from "@oxidejs/layers";
-import { Sequential } from "@oxidejs/models";
+import { mj } from "@oxide-js/core";
+import { Dense } from "@oxide-js/layers";
+import { Sequential } from "@oxide-js/models";
 
 const model = new Sequential({
   layers: [
@@ -84,10 +84,10 @@ pred.print();
 
 ## 4. Using the BPE Tokenizer
 
-For NLP tasks, you need to convert text into a sequence of numbers (token IDs). The tokenizer is available in `@oxidejs/core`.
+For NLP tasks, you need to convert text into a sequence of numbers (token IDs). The tokenizer is available in `@oxide-js/core`.
 
 ```ts
-import { BPETokenizer } from "@oxidejs/core";
+import { BPETokenizer } from "@oxide-js/core";
 
 const tokenizer = new BPETokenizer({ vocabSize: 100, minFrequency: 1 });
 
@@ -110,7 +110,7 @@ tokenizer.save("./my-tokenizer.json");
 For multilingual text, choose a Unicode-aware pre-tokenizer:
 
 ```ts
-import { BPETokenizer } from "@oxidejs/core";
+import { BPETokenizer } from "@oxide-js/core";
 
 const tokenizer = new BPETokenizer({
   vocabSize: 1000,
@@ -140,8 +140,8 @@ console.log(tokenizer.decode(ids));
 Use `RecurrentModel` for high-level sequence training.
 
 ```ts
-import { mj } from "@oxidejs/core";
-import { RecurrentModel } from "@oxidejs/models";
+import { mj } from "@oxide-js/core";
+import { RecurrentModel } from "@oxide-js/models";
 
 const model = new RecurrentModel({
   kind: "gru",
@@ -174,8 +174,8 @@ model.fit([x], [y], 100, { batchSize: 1, shuffle: false });
 For `Transformers`, you can use `predictMode` to switch between training-style output and inference-style next-token prediction.
 
 ```ts
-import { mj } from "@oxidejs/core";
-import { Transformers } from "@oxidejs/models";
+import { mj } from "@oxide-js/core";
+import { Transformers } from "@oxide-js/models";
 
 const padTokenId = 0;
 const model = new Transformers({
@@ -206,9 +206,9 @@ const allTokenLogits = model.predict(x); // All sequence tokens
 
 ## Development Tips
 
-- **Modular Packages**: Import from `@oxidejs/core` for math/matrix, `@oxidejs/layers` for neural network components, and `@oxidejs/models` for model architectures.
+- **Modular Packages**: Import from `@oxide-js/core` for math/matrix, `@oxide-js/layers` for neural network components, and `@oxide-js/models` for model architectures.
 - **Training vs Eval Mode**: Always call `model.train()` before backprop and `model.eval()` before prediction (especially for `Dropout` or `LayerNormalization`).
-- **Native Check**: Verify acceleration with `isNativeAvailable()` from `@oxidejs/core`.
+- **Native Check**: Verify acceleration with `isNativeAvailable()` from `@oxide-js/core`.
 
 **Next Steps:**
 Explore the [Full API Reference](../api/README.md) for a complete list of parameters and methods.

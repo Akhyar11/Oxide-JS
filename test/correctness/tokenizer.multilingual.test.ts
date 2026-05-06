@@ -1,4 +1,4 @@
-import { BPETokenizer, scriptAwarePreTokenizer, unicodeGraphemePreTokenizer } from "@oxidejs/core";
+import { BPETokenizer, scriptAwarePreTokenizer, unicodeGraphemePreTokenizer } from "@oxide-js/core";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";

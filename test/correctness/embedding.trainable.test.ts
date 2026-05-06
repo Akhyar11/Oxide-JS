@@ -1,11 +1,11 @@
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { Embedding } from "@oxidejs/layers";
-import { RecurrentModel, Sequential, Transformers } from "@oxidejs/models";
-import { setLayers } from "@oxidejs/layers";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { Embedding } from "@oxide-js/layers";
+import { RecurrentModel, Sequential, Transformers } from "@oxide-js/models";
+import { setLayers } from "@oxide-js/layers";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {

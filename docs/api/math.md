@@ -5,7 +5,7 @@ The `mj` object is a collection of pure functions for tensor and matrix processi
 ## Import
 
 ```ts
-import { mj } from "@oxidejs/core"
+import { mj } from "@oxide-js/core"
 ```
 
 ## Overview

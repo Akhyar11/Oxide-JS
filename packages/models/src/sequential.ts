@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
-import { Cost, Matrix, setLoss, splitTrainValidation, shuffleInPlace, formatLoss, formatProgressBar, formatTime, mj } from "@oxidejs/core";
-import { setLayers, Layers, CompileDenseLayers, Embedding, MemoryBank } from "@oxidejs/layers";
-import { FitConfig, FitResult } from "@oxidejs/core";
+import { Cost, Matrix, setLoss, splitTrainValidation, shuffleInPlace, formatLoss, formatProgressBar, formatTime, mj } from "@oxide-js/core";
+import { setLayers, Layers, CompileDenseLayers, Embedding, MemoryBank } from "@oxide-js/layers";
+import { FitConfig, FitResult } from "@oxide-js/core";
 
 export type SequentialLayers = Layers[];
 

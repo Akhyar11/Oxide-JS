@@ -1,11 +1,11 @@
 import { readFileSync } from "fs";
-import { softmaxInto } from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
+import { softmaxInto } from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
 import Sequential from "./sequential.js";
-import { MultiHeadAttention, Dense, PositionalEncoding, LayerNormalization, Embedding, Dropout } from "@oxidejs/layers";
-import { FitConfig, FitResult } from "@oxidejs/core";
-import { isNativeAvailable, maskedSparseSoftmaxCrossEntropyNative, trimPaddingBatch, formatLoss, formatProgressBar, formatTime, shuffleInPlace, splitTrainValidation } from "@oxidejs/core";
+import { MultiHeadAttention, Dense, PositionalEncoding, LayerNormalization, Embedding, Dropout } from "@oxide-js/layers";
+import { FitConfig, FitResult } from "@oxide-js/core";
+import { isNativeAvailable, maskedSparseSoftmaxCrossEntropyNative, trimPaddingBatch, formatLoss, formatProgressBar, formatTime, shuffleInPlace, splitTrainValidation } from "@oxide-js/core";
 
 export type TransformersPredictMode = "next-token" | "full-sequence";
 

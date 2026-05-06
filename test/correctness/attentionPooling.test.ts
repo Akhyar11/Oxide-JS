@@ -1,7 +1,7 @@
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { AttentionPooling } from "@oxidejs/layers";
-import { setLayers } from "@oxidejs/layers";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { AttentionPooling } from "@oxide-js/layers";
+import { setLayers } from "@oxide-js/layers";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);

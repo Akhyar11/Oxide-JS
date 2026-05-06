@@ -1,8 +1,8 @@
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { Optimizer, OptimizerType, StatusLayer, matrix2d } from "@oxidejs/core";
-import { setOptimizer } from "@oxidejs/core";
-import { isNativeAvailable, embeddingForwardNative, embeddingBackwardSparseNative } from "@oxidejs/core";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { Optimizer, OptimizerType, StatusLayer, matrix2d } from "@oxide-js/core";
+import { setOptimizer } from "@oxide-js/core";
+import { isNativeAvailable, embeddingForwardNative, embeddingBackwardSparseNative } from "@oxide-js/core";
 import { readFileSync } from "fs";
 
 export interface EmbeddingLayerParams {

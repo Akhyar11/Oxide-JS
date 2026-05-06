@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import { BPETokenizer, mj, Matrix } from "@oxidejs/core";
-import { Sequential } from "@oxidejs/models";;
+import { BPETokenizer, mj, Matrix } from "@oxide-js/core";
+import { Sequential } from "@oxide-js/models";;
 import { getDatasetValid } from "./get_dataset.js";
 
 const __filename = fileURLToPath(import.meta.url);

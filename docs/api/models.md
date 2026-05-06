@@ -1,6 +1,6 @@
 # Models
 
-High-level model compositions in OxideJS.
+High-level model compositions in Oxide-JS.
 
 ## Import
 
@@ -10,12 +10,12 @@ import {
   Transformers,
   DimentionalityReduction,
   RecurrentModel
-} from "@oxidejs/models"
+} from "@oxide-js/models"
 ```
 
 ## Overview
 
-OxideJS provides four model classes:
+Oxide-JS provides four model classes:
 
 | Model | Description |
 |---|---|
@@ -42,7 +42,7 @@ Use:
 Optionally accepts `{ layers: Layer[] }` to initialize with a predefined layer list.
 
 ```ts
-import { Sequential } from "@oxidejs/models"
+import { Sequential } from "@oxide-js/models"
 
 const model = new Sequential();
 ```
@@ -52,8 +52,8 @@ const model = new Sequential();
 Appends a layer to the execution sequence.
 
 ```ts
-import { Sequential } from "@oxidejs/models"
-import { Dense } from "@oxidejs/layers"
+import { Sequential } from "@oxide-js/models"
+import { Dense } from "@oxide-js/layers"
 
 const model = new Sequential();
 model.add(new Dense({ units: 4, outputUnits: 2 }));
@@ -135,9 +135,9 @@ interface FitResult {
 ##### Example
 
 ```ts
-import { mj } from "@oxidejs/core"
-import { Dense } from "@oxidejs/layers"
-import { Sequential } from "@oxidejs/models"
+import { mj } from "@oxide-js/core"
+import { Dense } from "@oxide-js/layers"
+import { Sequential } from "@oxide-js/models"
 
 const model = new Sequential({
   layers: [
@@ -185,8 +185,8 @@ Extends `Sequential` for autoencoder / encoder-decoder scenarios. Splits the lay
 #### `constructor({ layers })`
 
 ```ts
-import { Dense } from "@oxidejs/layers"
-import { DimentionalityReduction } from "@oxidejs/models"
+import { Dense } from "@oxide-js/layers"
+import { DimentionalityReduction } from "@oxide-js/models"
 
 const model = new DimentionalityReduction({
   layers: [
@@ -230,7 +230,7 @@ High-level recurrent model wrapper built on top of the existing `RNN`, `LSTM`, a
 #### `constructor(config)`
 
 ```ts
-import { RecurrentModel } from "@oxidejs/models"
+import { RecurrentModel } from "@oxide-js/models"
 
 const model = new RecurrentModel({
   kind: "lstm",
@@ -290,7 +290,7 @@ Full Transformer architecture model for causal language modeling. Built on top o
 | `predictMode` | `"next-token" \| "full-sequence"` | `"next-token"` | Default mode for `predict()` |
 
 ```ts
-import { Transformers } from "@oxidejs/models"
+import { Transformers } from "@oxide-js/models"
 
 const model = new Transformers({
   units: 128,
@@ -384,8 +384,8 @@ Embedding metadata such as `trainable` is also restored.
 #### Full-Sequence Training Example
 
 ```ts
-import { mj } from "@oxidejs/core"
-import { Transformers } from "@oxidejs/models"
+import { mj } from "@oxide-js/core"
+import { Transformers } from "@oxide-js/models"
 
 const model = new Transformers({
   units: 64,
@@ -424,8 +424,8 @@ console.log(logits._shape, model.loss);
 #### Inference / Generation Example
 
 ```ts
-import { mj } from "@oxidejs/core"
-import { Transformers } from "@oxidejs/models"
+import { mj } from "@oxide-js/core"
+import { Transformers } from "@oxide-js/models"
 
 const model = new Transformers({
   units: 64,

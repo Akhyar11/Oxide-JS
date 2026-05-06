@@ -1,11 +1,11 @@
 {
-  "name": "@oxidejs/core",
+  "name": "@oxide-js/core",
   "version": "0.0.0",
   "type": "module",
-  "description": "OxideJS Core: Matrix operations and Rust native acceleration.",
+  "description": "Oxide-JS Core: Matrix operations and Rust native acceleration.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Akhyar11/OxideJS.git",
+    "url": "https://github.com/Akhyar11/Oxide-JS.git",
     "directory": "packages/core"
   },
   "main": "dist/index.js",
@@ -22,7 +22,7 @@
     "matrix",
     "rust",
     "napi",
-    "oxidejs"
+    "oxide-js"
   ],
   "author": "Akhyar",
   "license": "ISC",

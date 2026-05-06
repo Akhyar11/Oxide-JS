@@ -1,10 +1,10 @@
-import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxidejs/core";
-import { softmaxBackward, softmaxOnly } from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { setLoss } from "@oxidejs/core";
-import { setOptimizer } from "@oxidejs/core";
-import { isNativeAvailable, applyAttentionMaskNative } from "@oxidejs/core";
+import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
+import { softmaxBackward, softmaxOnly } from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { setLoss } from "@oxide-js/core";
+import { setOptimizer } from "@oxide-js/core";
+import { isNativeAvailable, applyAttentionMaskNative } from "@oxide-js/core";
 
 interface SelfAttentionLayer {
   units: number;

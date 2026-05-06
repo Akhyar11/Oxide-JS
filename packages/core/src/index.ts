@@ -1,5 +1,5 @@
 /**
- * @oxidejs/core: Foundation of OxideJS
+ * @oxide-js/core: Foundation of Oxide-JS
  */
 
 // === Matrix & Math ===

@@ -8,8 +8,8 @@
  * Only proceed to write-path debugging AFTER this passes.
  */
 
-import { MemoryBank } from "@oxidejs/layers";
-import { mj } from "@oxidejs/core";
+import { MemoryBank } from "@oxide-js/layers";
+import { mj } from "@oxide-js/core";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);

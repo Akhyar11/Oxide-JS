@@ -1,6 +1,6 @@
 # Layers
 
-Neural network layer implementations in OxideJS.
+Neural network layer implementations in Oxide-JS.
 
 ## Import
 
@@ -22,7 +22,7 @@ import {
   LSTM,
   GRU,
   AdaptiveMemoryRNN
-} from "@oxidejs/layers"
+} from "@oxide-js/layers"
 ```
 
 ## Overview
@@ -51,7 +51,7 @@ Fully-connected layer where every input is connected to every output.
 | `clipGradient` | `number \| boolean` | `5.0` | Gradient clipping limit for this layer |
 
 ```ts
-import { Dense } from "@oxidejs/layers"
+import { Dense } from "@oxide-js/layers"
 
 const layer = new Dense({
   units: 128,
@@ -83,7 +83,7 @@ Transforms integer token IDs into dense vectors. Required for NLP tasks.
 | `trainable` | `boolean` | `true` | Freeze weight updates when set to `false` |
 
 ```ts
-import { Embedding } from "@oxidejs/layers"
+import { Embedding } from "@oxide-js/layers"
 
 const embed = new Embedding({
   vocabSize: 5000,
@@ -120,7 +120,7 @@ Use this when you want to compress `[features, seqLen]` into a single `[features
 | `clipGradient` | `number \| boolean` | `5.0` | Gradient clipping limit |
 
 ```ts
-import { AttentionPooling } from "@oxidejs/layers"
+import { AttentionPooling } from "@oxide-js/layers"
 
 const pooling = new AttentionPooling({
   units: 128,
@@ -154,7 +154,7 @@ Causal multi-head self-attention — the core of the Transformer architecture. A
 | `clipGradient` | `number` | `5.0` | Gradient clipping limit |
 
 ```ts
-import { MultiHeadAttention } from "@oxidejs/layers"
+import { MultiHeadAttention } from "@oxide-js/layers"
 
 const attention = new MultiHeadAttention({
   units: 512,
@@ -191,7 +191,7 @@ Per-column normalization that stabilizes the distribution of values within the n
 | `clipGradient` | `number` | Gradient clipping limit |
 
 ```ts
-import { LayerNormalization } from "@oxidejs/layers"
+import { LayerNormalization } from "@oxide-js/layers"
 
 const norm = new LayerNormalization({ units: 128 });
 ```
@@ -209,7 +209,7 @@ Randomly deactivates a fraction of neurons during training to prevent overfittin
 | `rate` | `number` | Fraction of neurons to drop (0–1) |
 
 ```ts
-import { Dropout } from "@oxidejs/layers"
+import { Dropout } from "@oxide-js/layers"
 
 const drop = new Dropout({ rate: 0.1 });
 ```
@@ -291,8 +291,8 @@ Basic recurrent layer with one hidden state and Backpropagation Through Time (BP
 | `clipGradient` | `number` | `5.0` | Gradient clipping limit |
 
 ```ts
-import { mj } from "@oxidejs/core"
-import { RNN } from "@oxidejs/layers"
+import { mj } from "@oxide-js/core"
+import { RNN } from "@oxide-js/layers"
 
 const layer = new RNN({
   units: 8,
@@ -339,8 +339,8 @@ Notes:
 - `forgetBias` only affects fresh initialization. `load()` always preserves serialized `bf` from saved weights.
 
 ```ts
-import { mj } from "@oxidejs/core"
-import { LSTM } from "@oxidejs/layers"
+import { mj } from "@oxide-js/core"
+import { LSTM } from "@oxide-js/layers"
 
 const layer = new LSTM({
   units: 8,
@@ -384,8 +384,8 @@ Recurrent layer with update/reset gates. Also supports **bidirectional** mode.
 `getState()` returns `{ forward, backward? }`.
 
 ```ts
-import { mj } from "@oxidejs/core"
-import { GRU } from "@oxidejs/layers"
+import { mj } from "@oxide-js/core"
+import { GRU } from "@oxide-js/layers"
 
 const layer = new GRU({
   units: 8,
@@ -436,7 +436,7 @@ The retrieval is attention-like, but it attends over the layer's memory slots ra
 | `clipGradient` | `number \| boolean` | `5.0` | Gradient clipping limit |
 
 ```ts
-import { AdaptiveMemoryRNN, Dense, Embedding, Sequential } from "@oxidejs/layers"
+import { AdaptiveMemoryRNN, Dense, Embedding, Sequential } from "@oxide-js/layers"
 
 const model = new Sequential({
   layers: [
@@ -641,8 +641,8 @@ Use it in a manual/custom model loop where you control `forward()`, `backward()`
 For a first experiment, use this:
 
 ```ts
-import { mj } from "@oxidejs/core";
-import { Dense, MemoryBank } from "@oxidejs/layers";
+import { mj } from "@oxide-js/core";
+import { Dense, MemoryBank } from "@oxide-js/layers";
 
 const encoder = new Dense({
   units: 10,

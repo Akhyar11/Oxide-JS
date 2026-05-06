@@ -1,6 +1,6 @@
-import { StatusLayer } from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
+import { StatusLayer } from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
 
 export default class Dropout {
   name: string = "dropout layer";

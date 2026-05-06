@@ -2,7 +2,7 @@ import { runBenchmarkSuite } from "./benchmark/index.ts";
 import { runCorrectnessSuite } from "./correctness/index.ts";
 
 async function main() {
-  console.log("🚀 Starting OxideJS Test Suite...");
+  console.log("🚀 Starting Oxide-JS Test Suite...");
   runCorrectnessSuite();
   await runBenchmarkSuite();
 }

@@ -1,7 +1,7 @@
 import { performance } from "perf_hooks";
-import { Matrix } from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
-import { RecurrentModel } from "@oxidejs/models";
+import { Matrix } from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
+import { RecurrentModel } from "@oxide-js/models";
 
 type RecurrentFamily = "rnn" | "lstm" | "gru";
 

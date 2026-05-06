@@ -1,10 +1,10 @@
 # System Documentation: Overview
 
-Welcome to the official documentation of **OxideJS**, a custom machine learning framework designed to provide full control, flexibility, and high performance for AI researchers and developers.
+Welcome to the official documentation of **Oxide-JS**, a custom machine learning framework designed to provide full control, flexibility, and high performance for AI researchers and developers.
 
-## What is OxideJS?
+## What is Oxide-JS?
 
-**OxideJS** is a low-to-mid-level machine learning library built with **TypeScript** and accelerated by a **Rust (N-API)** backend. This project was born from the need for a transparent ML ecosystem, where every mathematical operation and training loop logic can be manually inspected and modified without depending on complex commercial frameworks.
+**Oxide-JS** is a low-to-mid-level machine learning library built with **TypeScript** and accelerated by a **Rust (N-API)** backend. This project was born from the need for a transparent ML ecosystem, where every mathematical operation and training loop logic can be manually inspected and modified without depending on complex commercial frameworks.
 
 ## Vision and Goals
 
@@ -53,7 +53,7 @@ High-level abstractions for managing data flow:
 
 ## Performance Philosophy
 
-OxideJS prioritizes performance through:
+Oxide-JS prioritizes performance through:
 1. **Pre-allocated Buffers**: Reducing Garbage Collection (GC) frequency during intense training loops.
 2. **Native Dispatching**: Using `napi-rs` to minimize overhead between JavaScript and Rust layers.
 3. **Modular Kernels**: High-performance Rust kernels separated by domain (math, activations, optimizers) for optimal execution.

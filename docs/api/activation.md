@@ -17,12 +17,12 @@ import {
   softmaxBackward,
   softmaxBackwardInto,
   softmaxGradient
-} from "@oxidejs/core"
+} from "@oxide-js/core"
 ```
 
 ## Overview
 
-In OxideJS, most activation functions return a tuple **`[Matrix, Matrix]`**:
+In Oxide-JS, most activation functions return a tuple **`[Matrix, Matrix]`**:
 
 1. **Forward output** — the activation result passed to the next layer.
 2. **Gradient/derivative** — used during backpropagation to compute weight updates.
@@ -41,7 +41,7 @@ Identity activation. Output equals input. Derivative is `1` for all elements.
 Typically used in output layers for **regression** tasks.
 
 ```ts
-import { linear } from "@oxidejs/core"
+import { linear } from "@oxide-js/core"
 
 const [out, grad] = linear(inputMatrix);
 // out:  identical to input
@@ -55,7 +55,7 @@ const [out, grad] = linear(inputMatrix);
 Maps values to the range **(0, 1)**. Commonly used in output layers for **binary classification**.
 
 ```ts
-import { sigmoid } from "@oxidejs/core"
+import { sigmoid } from "@oxide-js/core"
 
 const input = mj.matrix([[-1, 0, 2]]);
 const [out, grad] = sigmoid(input);
@@ -71,7 +71,7 @@ const [out, grad] = sigmoid(input);
 Maps values to the range **(-1, 1)**. Often better than sigmoid for hidden layers.
 
 ```ts
-import { tanh } from "@oxidejs/core"
+import { tanh } from "@oxide-js/core"
 
 const input = mj.matrix([[-1, 0, 1]]);
 const [out, grad] = tanh(input);
@@ -87,7 +87,7 @@ const [out, grad] = tanh(input);
 Rectified Linear Unit. Sets negative values to `0`, leaves positive values unchanged. The most popular activation for hidden layers.
 
 ```ts
-import { relu } from "@oxidejs/core"
+import { relu } from "@oxide-js/core"
 
 const input = mj.matrix([[-1.5, 0.5, 2.0]]);
 const [out, grad] = relu(input);
@@ -103,7 +103,7 @@ const [out, grad] = relu(input);
 Leaky ReLU. Like ReLU but gives a small value (`1e-5` multiplier) to negative inputs to prevent the "dying neuron" problem.
 
 ```ts
-import { lRelu } from "@oxidejs/core"
+import { lRelu } from "@oxide-js/core"
 
 const input = mj.matrix([[-1, 1]]);
 const [out, grad] = lRelu(input);
@@ -123,7 +123,7 @@ Produces a probability distribution where all elements sum to `1.0`.
 | `row` | `boolean` | `false` | `true` = probability per row; `false` = probability per column |
 
 ```ts
-import { softmax } from "@oxidejs/core"
+import { softmax } from "@oxide-js/core"
 
 const logits = mj.matrix([[1, 2, 3]]);
 const [probs, dSoftmax] = softmax(logits, true);

@@ -25,7 +25,7 @@ export type StatusLayer =
 export type Optimizer = "sgd" | "adaGrad" | "momentum" | "nag" | "adam";
 export type OptimizerType = SGD | AdaGrad | NAG | Momentum | Adam;
 export type Cost = "mse" | "crossEntropy" | "binaryCrossEntropy" | "softmaxCrossEntropy";
-// Layers type is now in @oxidejs/layers
+// Layers type is now in @oxide-js/layers
 
 
 export type WorkerData = {

@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
 import Sequential, { SequentialLayers } from "./sequential.js";
-import { Matrix } from "@oxidejs/core";
-import { setLayers } from "@oxidejs/layers";
-import { FitConfig, FitResult } from "@oxidejs/core";
+import { Matrix } from "@oxide-js/core";
+import { setLayers } from "@oxide-js/layers";
+import { FitConfig, FitResult } from "@oxide-js/core";
 
 export default class DimentionalityReduction extends Sequential {
   layersEncode: SequentialLayers = [];

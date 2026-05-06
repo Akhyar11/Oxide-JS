@@ -1,12 +1,12 @@
 # Optimizers
 
-Optimizers calculate parameter updates from gradients during backpropagation. In normal usage, OxideJS creates optimizer instances internally when you configure a layer or call `model.compile(...)`.
+Optimizers calculate parameter updates from gradients during backpropagation. In normal usage, Oxide-JS creates optimizer instances internally when you configure a layer or call `model.compile(...)`.
 
 ## Import
 
 ```ts
-import { setOptimizer } from "@oxidejs/core"
-import type { Matrix, MatrixShape, Optimizer } from "@oxidejs/core"
+import { setOptimizer } from "@oxide-js/core"
+import type { Matrix, MatrixShape, Optimizer } from "@oxide-js/core"
 ```
 
 > **Note:** The public type name is currently `Optimizer` (matching the source code spelling).
@@ -16,8 +16,8 @@ import type { Matrix, MatrixShape, Optimizer } from "@oxidejs/core"
 Choose an optimizer with the `optimizer` string in `compile()` or layer constructors:
 
 ```ts
-import { Sequential } from "@oxidejs/models"
-import { Dense } from "@oxidejs/layers"
+import { Sequential } from "@oxide-js/models"
+import { Dense } from "@oxide-js/layers"
 
 const model = new Sequential([
   new Dense({ units: 2, outputUnits: 8, activation: "relu" }),
@@ -64,7 +64,7 @@ setOptimizer(
 | `alpha` | `number` | Value passed to the AdaGrad constructor as `epsilon`; ignored by other optimizer constructors |
 
 ```ts
-import { mj, setOptimizer } from "@oxidejs/core"
+import { mj, setOptimizer } from "@oxide-js/core"
 
 const grad = mj.matrix([[0.1, -0.2]]);
 const optimizer = setOptimizer("adam", grad._shape, 0.001);
@@ -142,7 +142,7 @@ sumGrad = sumGrad + grad * grad
 update = alpha * grad / sqrt(sumGrad + epsilon)
 ```
 
-In OxideJS, `setOptimizer("adaGrad", shape, alpha)` passes the third argument to the `AdaGrad` constructor as `epsilon`.
+In Oxide-JS, `setOptimizer("adaGrad", shape, alpha)` passes the third argument to the `AdaGrad` constructor as `epsilon`.
 
 ### `Adam`
 
@@ -170,7 +170,7 @@ As of **v2.3.0**, all optimizers (`Adam`, `SGD`, `AdaGrad`, `Momentum`, `NAG`) a
 
 ### Fused Embedding Updates
 
-For the `Embedding` layer, OxideJS uses a **fused native update** path. Instead of calculating gradients and updating weights in separate steps, the entire BPTT gradient aggregation and parameter update are performed in a single native call. This eliminates redundant memory copies and is the primary reason for the high throughput in the recurrent and transformer families.
+For the `Embedding` layer, Oxide-JS uses a **fused native update** path. Instead of calculating gradients and updating weights in separate steps, the entire BPTT gradient aggregation and parameter update are performed in a single native call. This eliminates redundant memory copies and is the primary reason for the high throughput in the recurrent and transformer families.
 
 ---
 
@@ -179,7 +179,7 @@ For the `Embedding` layer, OxideJS uses a **fused native update** path. Instead 
 Most layers that own trainable parameters accept an optimizer name directly:
 
 ```ts
-import { Dense, Embedding, RNN } from "@oxidejs/layers"
+import { Dense, Embedding, RNN } from "@oxide-js/layers"
 
 const dense = new Dense({
   units: 16,

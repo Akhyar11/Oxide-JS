@@ -1,5 +1,5 @@
-import { mj } from "@oxidejs/core";
-import { softmaxBackward } from "@oxidejs/core";
+import { mj } from "@oxide-js/core";
+import { softmaxBackward } from "@oxide-js/core";
 import {
   ActivationType,
   Cost,
@@ -7,11 +7,11 @@ import {
   OptimizerType,
   StatusLayer,
   matrix2d,
-} from "@oxidejs/core";
-import { setActivation } from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { setOptimizer } from "@oxidejs/core";
-import { setLoss } from "@oxidejs/core";
+} from "@oxide-js/core";
+import { setActivation } from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { setOptimizer } from "@oxide-js/core";
+import { setLoss } from "@oxide-js/core";
 import {
   denseLinearBackwardNative,
   isNativeAvailable,
@@ -20,7 +20,7 @@ import {
   shouldUseNativeDenseLinearBackward,
   sigmoidNative,
   tanhNative
-} from "@oxidejs/core";
+} from "@oxide-js/core";
 
 interface DenseLayers {
   units: number;

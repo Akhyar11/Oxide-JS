@@ -1,14 +1,14 @@
-import { CategoricalCrossEntropy } from "@oxidejs/core";
-import { SoftmaxCrossEntropy } from "@oxidejs/core";
-import { mj } from "@oxidejs/core";
+import { CategoricalCrossEntropy } from "@oxide-js/core";
+import { SoftmaxCrossEntropy } from "@oxide-js/core";
+import { mj } from "@oxide-js/core";
 import {
   isNativeAvailable,
   maskedSparseSoftmaxCrossEntropyNative,
   setForceDisableNative,
-} from "@oxidejs/core";
-import { Matrix } from "@oxidejs/core";
-import { Sequential, Transformers } from "@oxidejs/models";
-import { Dense } from "@oxidejs/layers";
+} from "@oxide-js/core";
+import { Matrix } from "@oxide-js/core";
+import { Sequential, Transformers } from "@oxide-js/models";
+import { Dense } from "@oxide-js/layers";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {

@@ -1,6 +1,6 @@
 # API Documentation
 
-Dokumentasi API OxideJS dipisahkan berdasarkan module agar lebih mudah dibaca dan dirawat.
+Dokumentasi API Oxide-JS dipisahkan berdasarkan module agar lebih mudah dibaca dan dirawat.
 
 ## Core
 
