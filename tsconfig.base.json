@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "ignoreDeprecations": "5.0",
     /* Visit https://aka.ms/tsconfig to read more about this file */
 
     /* Projects */
