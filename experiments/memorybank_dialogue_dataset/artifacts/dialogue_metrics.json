@@ -1,8 +1,0 @@
-{
-  "trainExactMatch": 0.00831792975970425,
-  "validationExactMatch": 0.052307692307692305,
-  "testExactMatch": 0.02710843373493976,
-  "trainTokenAccuracy": 0.162002476561118,
-  "validationTokenAccuracy": 0.20415944540727904,
-  "testTokenAccuracy": 0.16420727522306108
-}
