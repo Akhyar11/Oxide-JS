@@ -1,6 +1,7 @@
 import { MatrixCollection } from "../@types/type.js";
 import Matrix from "../matrix/index.js";
 import { addNative, isNativeAvailable, shouldUseNativeElementwise } from "./rust_backend.js";
+import { engine } from "../autodiff/engine.js";
 
 const ensureOutputShape = (out: Matrix, rows: number, cols: number): void => {
   if (out._shape[0] !== rows || out._shape[1] !== cols) {
@@ -49,11 +50,24 @@ export default function add(a: MatrixCollection, b: MatrixCollection, out?: Matr
   // USE NATIVE IF AVAILABLE
   if (isNativeAvailable() && shouldUseNativeElementwise(am._data.length)) {
     addNative(am._data, bm._data, resultData);
-    return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+  } else {
+    for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] + bm._data[i];
+  }
+  const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([am, bm], [res], (grad) => {
+      if (am.grad) am.grad.addInPlace(grad);
+      else am.grad = grad.clone();
+
+      if (bm.grad) bm.grad.addInPlace(grad);
+      else bm.grad = grad.clone();
+    });
   }
 
-  for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] + bm._data[i];
-  return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+  return res;
 }
 
 /**

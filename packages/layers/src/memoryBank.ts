@@ -1,5 +1,5 @@
 import fs from "fs";
-import { Optimizer, OptimizerType, StatusLayer, matrix2d } from "@oxide-js/core";
+import { Optimizer, OptimizerType, StatusLayer, matrix2d, engine } from "@oxide-js/core";
 import { mj } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { dotProductNative, isNativeAvailable } from "@oxide-js/core";
@@ -223,6 +223,41 @@ export default class MemoryBank {
   inputShape: [number, number] = [0, 1];
   outputShape: [number, number] = [0, 1];
   params = 0;
+
+  getParams(): Matrix[] {
+    const p = [
+      this.queryKernel,
+      this.writeGateKernel,
+      this.writeGateBias,
+      this.writeQueryKernel
+    ];
+    if (this.needKernel) p.push(this.needKernel);
+    if (this.needBias) p.push(this.needBias);
+    if (this.outputKernel) p.push(this.outputKernel);
+    if (this.outputBias) p.push(this.outputBias);
+    
+    if (this.memorySummaryPooling) {
+      p.push(...this.memorySummaryPooling.getParams());
+    }
+    
+    return p;
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    this.optimizerQuery.apply(this.queryKernel, a);
+    this.optimizerWriteGate.apply(this.writeGateKernel, a);
+    this.optimizerWriteGateBias.apply(this.writeGateBias, a);
+    this.optimizerWriteQuery.apply(this.writeQueryKernel, a);
+    if (this.needKernel && this.optimizerNeed) this.optimizerNeed.apply(this.needKernel, a);
+    if (this.needBias && this.optimizerNeedBias) this.optimizerNeedBias.apply(this.needBias, a);
+    if (this.outputKernel && this.optimizerOutput) this.optimizerOutput.apply(this.outputKernel, a);
+    if (this.outputBias && this.optimizerOutputBias) this.optimizerOutputBias.apply(this.outputBias, a);
+    
+    if (this.memorySummaryPooling) {
+      this.memorySummaryPooling.update(a);
+    }
+  }
 
   private initialized = false;
   private trainingMode = true;
@@ -967,10 +1002,20 @@ export default class MemoryBank {
       this.trimSequenceHistoryIfNeeded();
     }
 
+    // RECORD FOR AUTO-DIFF
+    const tape = engine.tape;
+    if (tape) {
+      tape.record(this.getParams().concat([x]), [out], (grad: Matrix) => {
+        const dx = this.backwardThroughCaches(this.cache, grad, "MemoryBank.autodiff", true); // true = gradOnly
+        if (x.grad) x.grad.addInPlace(dx);
+        else x.grad = dx;
+      });
+    }
+
     return out;
   }
 
-  private backwardThroughCaches(caches: ForwardCacheItem[], err: Matrix, callerName: string): Matrix {
+  private backwardThroughCaches(caches: ForwardCacheItem[], err: Matrix, callerName: string, gradOnly = false): Matrix {
     if (!this.initialized) throw new Error(`${callerName} called before forward initialization`);
     if (caches.length !== err._shape[1]) {
       throw new Error(`${callerName}: cache length mismatch, expected ${caches.length} columns, got ${err._shape[1]}`);
@@ -1242,21 +1287,43 @@ export default class MemoryBank {
     }
 
     this.maybeClip(gQuery, gWriteGate, gWriteGateBias, gWriteQuery, gNeed, gNeedBias, gOutput, gOutputBias);
-    this.queryKernel.subInPlace(this.optimizerQuery.calculate(gQuery, this.alpha));
-    this.writeGateKernel.subInPlace(this.optimizerWriteGate.calculate(gWriteGate, this.alpha));
-    this.writeGateBias.subInPlace(this.optimizerWriteGateBias.calculate(gWriteGateBias, this.alpha));
-    this.writeQueryKernel.subInPlace(this.optimizerWriteQuery.calculate(gWriteQuery, this.alpha));
-    if (gNeed && this.needKernel && this.optimizerNeed) {
-      this.needKernel.subInPlace(this.optimizerNeed.calculate(gNeed, this.alpha));
+    
+    // Populate .grad for Tape support
+    if (this.queryKernel.grad) this.queryKernel.grad.addInPlace(gQuery); else this.queryKernel.grad = gQuery;
+    if (this.writeGateKernel.grad) this.writeGateKernel.grad.addInPlace(gWriteGate); else this.writeGateKernel.grad = gWriteGate;
+    if (this.writeGateBias.grad) this.writeGateBias.grad.addInPlace(gWriteGateBias); else this.writeGateBias.grad = gWriteGateBias;
+    if (this.writeQueryKernel.grad) this.writeQueryKernel.grad.addInPlace(gWriteQuery); else this.writeQueryKernel.grad = gWriteQuery;
+    
+    if (gNeed && this.needKernel) {
+      if (this.needKernel.grad) this.needKernel.grad.addInPlace(gNeed); else this.needKernel.grad = gNeed;
     }
-    if (gNeedBias && this.needBias && this.optimizerNeedBias) {
-      this.needBias.subInPlace(this.optimizerNeedBias.calculate(gNeedBias, this.alpha));
+    if (gNeedBias && this.needBias) {
+      if (this.needBias.grad) this.needBias.grad.addInPlace(gNeedBias); else this.needBias.grad = gNeedBias;
     }
-    if (gOutput && this.outputKernel && this.optimizerOutput) {
-      this.outputKernel.subInPlace(this.optimizerOutput.calculate(gOutput, this.alpha));
+    if (gOutput && this.outputKernel) {
+      if (this.outputKernel.grad) this.outputKernel.grad.addInPlace(gOutput); else this.outputKernel.grad = gOutput;
     }
-    if (gOutputBias && this.outputBias && this.optimizerOutputBias) {
-      this.outputBias.subInPlace(this.optimizerOutputBias.calculate(gOutputBias, this.alpha));
+    if (gOutputBias && this.outputBias) {
+      if (this.outputBias.grad) this.outputBias.grad.addInPlace(gOutputBias); else this.outputBias.grad = gOutputBias;
+    }
+
+    if (!gradOnly) {
+      this.queryKernel.subInPlace(this.optimizerQuery.calculate(gQuery, this.alpha));
+      this.writeGateKernel.subInPlace(this.optimizerWriteGate.calculate(gWriteGate, this.alpha));
+      this.writeGateBias.subInPlace(this.optimizerWriteGateBias.calculate(gWriteGateBias, this.alpha));
+      this.writeQueryKernel.subInPlace(this.optimizerWriteQuery.calculate(gWriteQuery, this.alpha));
+      if (gNeed && this.needKernel && this.optimizerNeed) {
+        this.needKernel.subInPlace(this.optimizerNeed.calculate(gNeed, this.alpha));
+      }
+      if (gNeedBias && this.needBias && this.optimizerNeedBias) {
+        this.needBias.subInPlace(this.optimizerNeedBias.calculate(gNeedBias, this.alpha));
+      }
+      if (gOutput && this.outputKernel && this.optimizerOutput) {
+        this.outputKernel.subInPlace(this.optimizerOutput.calculate(gOutput, this.alpha));
+      }
+      if (gOutputBias && this.outputBias && this.optimizerOutputBias) {
+        this.outputBias.subInPlace(this.optimizerOutputBias.calculate(gOutputBias, this.alpha));
+      }
     }
 
     return dx;
@@ -1415,6 +1482,70 @@ export default class MemoryBank {
       memoryAge: memoryState.memoryAge,
       memoryStep: memoryState.memoryStep,
     };
+  }
+
+  toKerasConfig() {
+    return {
+      class_name: "MemoryBank",
+      config: {
+        units: this.units,
+        memorySlots: this.memorySlots,
+        outputUnits: this.outputUnits,
+        mode: this.mode,
+        similarity: this.similarity,
+        readTopK: this.readTopK,
+        persistence: this.persistence,
+        resetOnInit: this.resetOnInit,
+        writeEnabled: this.writeEnabled,
+        overwriteThreshold: this.overwriteThreshold,
+        name: `memory_bank_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    const manifest = [
+      { name: "queryKernel", shape: this.queryKernel._shape, data: this.queryKernel._data },
+      { name: "writeGateKernel", shape: this.writeGateKernel._shape, data: this.writeGateKernel._data },
+      { name: "writeGateBias", shape: this.writeGateBias._shape, data: this.writeGateBias._data },
+      { name: "writeQueryKernel", shape: this.writeQueryKernel._shape, data: this.writeQueryKernel._data },
+      { name: "memoryKeys", shape: this.memoryKeys._shape, data: this.memoryKeys._data },
+      { name: "memoryValues", shape: this.memoryValues._shape, data: this.memoryValues._data }
+    ];
+    if (this.needKernel) manifest.push({ name: "needKernel", shape: this.needKernel._shape, data: this.needKernel._data });
+    if (this.needBias) manifest.push({ name: "needBias", shape: this.needBias._shape, data: this.needBias._data });
+    if (this.outputKernel) manifest.push({ name: "outputKernel", shape: this.outputKernel._shape, data: this.outputKernel._data });
+    if (this.outputBias) manifest.push({ name: "outputBias", shape: this.outputBias._shape, data: this.outputBias._data });
+
+    const poolingManifest = this.memorySummaryPooling.getWeightsManifest();
+    for (const item of poolingManifest) {
+      manifest.push({ name: `pool_${item.name}`, shape: item.shape, data: item.data });
+    }
+    return manifest;
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.queryKernel) this.queryKernel._data.set(weights.queryKernel);
+    if (weights.writeGateKernel) this.writeGateKernel._data.set(weights.writeGateKernel);
+    if (weights.writeGateBias) this.writeGateBias._data.set(weights.writeGateBias);
+    if (weights.writeQueryKernel) this.writeQueryKernel._data.set(weights.writeQueryKernel);
+    if (weights.needKernel && this.needKernel) this.needKernel._data.set(weights.needKernel);
+    if (weights.needBias && this.needBias) this.needBias._data.set(weights.needBias);
+    if (weights.outputKernel && this.outputKernel) this.outputKernel._data.set(weights.outputKernel);
+    if (weights.outputBias && this.outputBias) this.outputBias._data.set(weights.outputBias);
+    if (weights.memoryKeys) this.memoryKeys._data.set(weights.memoryKeys);
+    if (weights.memoryValues) this.memoryValues._data.set(weights.memoryValues);
+
+    const poolWeights: Record<string, Float32Array> = {};
+    for (const key of Object.keys(weights)) {
+      if (key.startsWith("pool_")) {
+        poolWeights[key.substring(5)] = weights[key];
+      }
+    }
+    if (Object.keys(poolWeights).length > 0) {
+      this.memorySummaryPooling.setWeightsFromBinary(poolWeights);
+    }
   }
 
   load(data: any): void {

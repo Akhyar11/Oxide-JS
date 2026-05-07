@@ -389,8 +389,8 @@ export default class RecurrentModel extends Sequential {
     return this.outputLayer.forward(input);
   }
 
-  backward(y: Matrix, batchSize: number = 1) {
-    let err = this.outputLayer.backward(y, mj.matrix([[]]));
+  backward(y: Matrix, batchSize: number = 1, gradOnly = false) {
+    let err = this.outputLayer.backward(y, mj.matrix([[]]), gradOnly);
     if (this.outputLayer.status === "output") {
       this.loss = this.outputLayer.loss;
     }
@@ -402,12 +402,12 @@ export default class RecurrentModel extends Sequential {
     for (let i = this.recurrentLayers.length - 1; i >= 0; i--) {
       const layer = this.recurrentLayers[i];
       err = batchSize > 1 && typeof (layer as any).backwardBatch === "function"
-        ? (layer as any).backwardBatch(y, err, batchSize)
-        : layer.backward(y, err);
+        ? (layer as any).backwardBatch(y, err, batchSize, gradOnly)
+        : (layer as any).backward(y, err, gradOnly);
     }
 
     if (this.embeddingLayer) {
-      this.embeddingLayer.backward(y, err);
+      this.embeddingLayer.backward(y, err, gradOnly);
     }
   }
 

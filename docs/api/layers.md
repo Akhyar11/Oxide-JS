@@ -29,6 +29,15 @@ import {
 
 All layers share a common interface: `forward(input)` for the forward pass and `backward(grad)` for the backward pass. Layers are composable inside `Sequential`, `Transformers`, or `DimentionalityReduction` models, or they can be used standalone in a manual training loop.
 
+### Keras Compatibility
+
+All standard layers support **Keras-style serialization**. They implement:
+- `toKerasConfig()`: Returns the JSON configuration.
+- `getWeightsManifest()`: Returns the weight buffer metadata.
+- `setWeightsFromBinary()`: Loads weights from a binary buffer.
+
+This allows Oxide-JS models to be saved as `model.json` and `weights.bin` files.
+
 ---
 
 ## API Reference

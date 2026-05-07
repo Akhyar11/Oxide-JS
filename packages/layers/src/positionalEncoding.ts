@@ -1,4 +1,4 @@
-import { mj } from "@oxide-js/core";
+import { mj, engine } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { StatusLayer } from "@oxide-js/core";
 
@@ -70,6 +70,39 @@ export default class PositionalEncoding {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "PositionalEncoding",
+      config: {
+        dModel: this.dModel,
+        maxSeqLen: this.maxSeqLen,
+        name: `positional_encoding_${Math.floor(Math.random() * 1000)}`,
+        trainable: false,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return []; // No trainable weights
+  }
+
+  setWeightsFromBinary(_weights: Record<string, Float32Array>): void {
+    // No trainable weights to load
+  }
+
+  load(data: any): void {
+    if (data.dModel !== undefined) this.dModel = data.dModel;
+    if (data.maxSeqLen !== undefined) this.maxSeqLen = data.maxSeqLen;
+  }
+
+  getParams(): Matrix[] {
+    return [];
+  }
+
+  update(_alpha: number): void {
+    // No trainable parameters
+  }
+
   /**
    * Forward: tambahkan positional encoding ke input embedding
    * Input shape:  [dModel, seqLen * batchSize]  (sample-major flattened)
@@ -120,13 +153,21 @@ export default class PositionalEncoding {
       }
     }
 
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x], [this.resultBuffer], (grad: Matrix) => {
+        if (x.grad) x.grad.addInPlace(grad);
+        else x.grad = grad;
+      });
+    }
+
     return this.resultBuffer;
   }
 
   /**
    * Backward: PE adalah konstanta, gradien langsung diteruskan tanpa modifikasi
    */
-  backward(_y: Matrix, err: Matrix): Matrix {
+  backward(_y: Matrix, err: Matrix, _gradOnly = false): Matrix {
     return err;
   }
 

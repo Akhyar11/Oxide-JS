@@ -1,5 +1,4 @@
-import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
-import { mj } from "@oxide-js/core";
+import { mj, engine, Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
 import { isNativeAvailable, multiHeadAttentionBackwardNative, multiHeadAttentionForwardNative } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { setOptimizer } from "@oxide-js/core";
@@ -129,7 +128,6 @@ export default class MultiHeadAttention {
     this.errScoreScratch = new Float32Array(0);
     this.ensureSequenceBuffersForBatch(seqLen, seqLen);
   }
-
   compile({ alpha, optimizer, error, clipGradient }: { alpha?: number; optimizer?: Optimizer; error?: Cost; clipGradient?: number | boolean }) {
     if (alpha !== undefined) this.alpha = alpha;
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
@@ -140,6 +138,18 @@ export default class MultiHeadAttention {
       this.optimizerV = setOptimizer(optimizer, this.v._shape, this.alpha);
     }
     this.wo.compile({ alpha, optimizer, error, clipGradient });
+  }
+
+  getParams(): Matrix[] {
+    return [this.q, this.k, this.v, ...this.wo.getParams()];
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    this.optimizerQ.apply(this.q, a);
+    this.optimizerK.apply(this.k, a);
+    this.optimizerV.apply(this.v, a);
+    this.wo.update(a);
   }
 
   setPadMask(padMask: boolean[]): void {
@@ -217,30 +227,34 @@ export default class MultiHeadAttention {
       );
     }
 
+    // --- TAPE RECORDING (Attention Mechanism Only) ---
+    const tape = engine.tape;
+    if (tape) {
+      const currentPadMask = [...this.padMask]; // Snapshot mask
+      const currentScale = scale;
+      const currentBatchSize = batchSize;
+      const currentSeqLen = seqLen;
+
+      tape.record([this.Q, this.K, this.V], [this.concatenated], (grad: Matrix) => {
+        this.calculateAttentionGradients(grad, currentPadMask, currentScale, currentBatchSize, currentSeqLen);
+      });
+    }
+
     this.outputShape = [this.concatenated._shape[0], this.concatenated._shape[1]];
     return this.wo.forward(this.concatenated);
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
-    const dCat = this.wo.backward(y, err);
-    const totalCols = dCat._shape[1];
-    const seqLen = this._effectiveSeqLen ?? this.seqLen;
-    if (totalCols % seqLen !== 0) {
-      throw new Error(`MultiHeadAttention.backward: totalCols (${totalCols}) is not divisible by seqLen (${seqLen})`);
-    }
-    const batchSize = totalCols / seqLen;
-    const scale = 1 / Math.sqrt(this.headUnits);
-
-    this.ensureSequenceBuffersForBatch(totalCols, seqLen);
-
+  private calculateAttentionGradients(grad: Matrix, padMask: boolean[], scale: number, batchSize: number, seqLen: number): void {
+    this.ensureSequenceBuffersForBatch(grad._shape[1], seqLen);
+    
     if (isNativeAvailable()) {
       multiHeadAttentionBackwardNative(
         this.Q._data,
         this.K._data,
         this.V._data,
         this.attentionData,
-        dCat._data,
-        this.padMask,
+        grad._data,
+        padMask,
         this.heads,
         this.headUnits,
         seqLen,
@@ -256,8 +270,8 @@ export default class MultiHeadAttention {
         this.K._data,
         this.V._data,
         this.attentionData,
-        dCat._data,
-        this.padMask,
+        grad._data,
+        padMask,
         this.heads,
         this.headUnits,
         seqLen,
@@ -271,6 +285,28 @@ export default class MultiHeadAttention {
       );
     }
 
+    // Accumulate gradients for Q, K, V
+    if (this.Q.grad) this.Q.grad.addInPlace(this.dQAll); else this.Q.grad = this.dQAll.clone();
+    if (this.K.grad) this.K.grad.addInPlace(this.dKAll); else this.K.grad = this.dKAll.clone();
+    if (this.V.grad) this.V.grad.addInPlace(this.dVAll); else this.V.grad = this.dVAll.clone();
+  }
+
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
+    const dCat = this.wo.backward(y, err, gradOnly);
+    const totalCols = dCat._shape[1];
+    const seqLen = this._effectiveSeqLen ?? this.seqLen;
+    const batchSize = totalCols / seqLen;
+    const scale = 1 / Math.sqrt(this.headUnits);
+
+    const gradInput = this.calculateGradients(dCat, this.padMask, scale, batchSize, seqLen, gradOnly);
+    if (!gradOnly) this.update(this.alpha);
+    return gradInput;
+  }
+
+  private calculateGradients(dCat: Matrix, padMask: boolean[], scale: number, batchSize: number, seqLen: number, gradOnly = false): Matrix {
+    this.calculateAttentionGradients(dCat, padMask, scale, batchSize, seqLen);
+
+    // Manual backprop for weights
     const gradQ = mj.dotProduct(this.dQAll, this.input, this.gradQBuffer, false, true);
     const gradK = mj.dotProduct(this.dKAll, this.input, this.gradKBuffer, false, true);
     const gradV = mj.dotProduct(this.dVAll, this.input, this.gradVBuffer, false, true);
@@ -288,9 +324,14 @@ export default class MultiHeadAttention {
     mj.dotProduct(this.v, this.dVAll, this.gradContributionBuffer, true, false);
     gradInput.addInPlace(this.gradContributionBuffer);
 
-    this.q.subInPlace(this.optimizerQ.calculate(gradQ, this.alpha));
-    this.k.subInPlace(this.optimizerK.calculate(gradK, this.alpha));
-    this.v.subInPlace(this.optimizerV.calculate(gradV, this.alpha));
+    // Add gradients to .grad for Tape compatibility
+    const accumulate = (p: Matrix, g: Matrix) => {
+      if (p.grad) p.grad.addInPlace(g);
+      else p.grad = g.clone();
+    };
+    accumulate(this.q, gradQ);
+    accumulate(this.k, gradK);
+    accumulate(this.v, gradV);
 
     return gradInput;
   }
@@ -311,6 +352,50 @@ export default class MultiHeadAttention {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "MultiHeadAttention",
+      config: {
+        units: this.units,
+        heads: this.heads,
+        seqLen: this.seqLen,
+        name: `multi_head_attention_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    const manifest = [
+      { name: "q", shape: this.q._shape, data: this.q._data },
+      { name: "k", shape: this.k._shape, data: this.k._data },
+      { name: "v", shape: this.v._shape, data: this.v._data },
+    ];
+    // Include dense layer weights
+    const woManifest = this.wo.getWeightsManifest();
+    for (const item of woManifest) {
+      manifest.push({ name: `wo_${item.name}`, shape: item.shape, data: item.data });
+    }
+    return manifest;
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.q) this.q._data.set(weights.q);
+    if (weights.k) this.k._data.set(weights.k);
+    if (weights.v) this.v._data.set(weights.v);
+    
+    // Pass prefixed weights to wo
+    const woWeights: Record<string, Float32Array> = {};
+    for (const key of Object.keys(weights)) {
+      if (key.startsWith("wo_")) {
+        woWeights[key.substring(3)] = weights[key];
+      }
+    }
+    if (Object.keys(woWeights).length > 0) {
+      this.wo.setWeightsFromBinary(woWeights);
+    }
+  }
+
   load(data: any) {
     if (data.q && data.k && data.v) {
       this.q._value = data.q;
@@ -321,7 +406,7 @@ export default class MultiHeadAttention {
     }
 
     if (data.wo) {
-      this.wo.load(data.wo.weight, data.wo.bias, data.wo.clipGradient);
+      this.wo.load(data.wo.weight ?? data.wo.kernel, data.wo.bias, data.wo.clipGradient);
     }
     if (data.clipGradient !== undefined) this.clipGradient = data.clipGradient;
     this.optimizerQ = setOptimizer(this.optimizerName, this.q._shape, this.alpha);

@@ -225,7 +225,7 @@ export default class Transformers extends Sequential {
     return this.predictMode;
   }
 
-  backward(y: Matrix) {
+  backward(y: Matrix, batchSizeArg: number = 1, gradOnly = false) {
     const batchSize = this.lastInputTokens._shape[1];
     const seqLen = this.lastInputTokens._shape[0];
     const units = this.embedding.embeddingDim;
@@ -239,13 +239,13 @@ export default class Transformers extends Sequential {
       const lossState = this.buildShiftedLossGradient(y);
       this.profileEnd("loss gradient build", lossGradientBuildStart);
       const denseBackwardStart = this.profileStart();
-      errDense = this.dense.backward(this.emptyErr, lossState.gradient);
+      errDense = this.dense.backward(this.emptyErr, lossState.gradient, gradOnly);
       this.profileEnd("output dense backward", denseBackwardStart);
       this.loss = lossState.loss;
       this.dense.loss = lossState.loss;
       this.lastFullSequenceLossWeight = lossState.validTokens;
     } else if (y._shape[0] === 1) {
-      errDense = this.dense.backward(y, this.emptyErr);
+      errDense = this.dense.backward(y, this.emptyErr, gradOnly);
       this.profileEnd("output dense backward", outputDenseBackwardStart);
       this.loss = this.dense.loss;
       this.lastFullSequenceLossWeight = y._shape[1];
@@ -285,25 +285,25 @@ export default class Transformers extends Sequential {
       const block = this.blocks[blockIndex];
 
       const ffnBackwardStart = this.profileStart();
-      const errDrop2 = block.drop2.backward(this.emptyErr, blockErr);
-      const errFfn2 = block.ffn2.backward(this.emptyErr, errDrop2);
-      const errDropFfn = block.dropFfn.backward(this.emptyErr, errFfn2);
-      const errFfn1 = block.ffn1.backward(this.emptyErr, errDropFfn);
+      const errDrop2 = block.drop2.backward(this.emptyErr, blockErr, gradOnly);
+      const errFfn2 = block.ffn2.backward(this.emptyErr, errDrop2, gradOnly);
+      const errDropFfn = block.dropFfn.backward(this.emptyErr, errFfn2, gradOnly);
+      const errFfn1 = block.ffn1.backward(this.emptyErr, errDropFfn, gradOnly);
       this.profileEnd(`FFN backward [block ${blockIndex}]`, ffnBackwardStart);
 
       const layerNorm2BackwardStart = this.profileStart();
-      const errLn2 = block.ln2.backward(this.emptyErr, errFfn1);
+      const errLn2 = block.ln2.backward(this.emptyErr, errFfn1, gradOnly);
       this.profileEnd(`layer norm backward [block ${blockIndex}]`, layerNorm2BackwardStart);
 
       const res1Err = mj.addInto(blockErr, errLn2, block.errRes1Buf);
 
-      const errDrop1 = block.drop1.backward(this.emptyErr, res1Err);
+      const errDrop1 = block.drop1.backward(this.emptyErr, res1Err, gradOnly);
       const mhaBackwardStart = this.profileStart();
-      const errMha = block.mha.backward(this.emptyErr, errDrop1);
+      const errMha = block.mha.backward(this.emptyErr, errDrop1, gradOnly);
       this.profileEnd(`MHA backward [block ${blockIndex}]`, mhaBackwardStart);
 
       const layerNorm1BackwardStart = this.profileStart();
-      const errLn1 = block.ln1.backward(this.emptyErr, errMha);
+      const errLn1 = block.ln1.backward(this.emptyErr, errMha, gradOnly);
       this.profileEnd(`layer norm backward [block ${blockIndex}]`, layerNorm1BackwardStart);
 
       // Reuse errRes2Buf block-local setelah blockErr sebelumnya tidak lagi dipakai.
@@ -312,8 +312,8 @@ export default class Transformers extends Sequential {
 
     // 4. PE & Embedding Backward
     const embeddingBackwardStart = this.profileStart();
-    const embErr = this.pe.backward(this.emptyErr, blockErr);
-    this.embedding.backward(this.emptyErr, embErr);
+    const embErr = this.pe.backward(this.emptyErr, blockErr, gradOnly);
+    this.embedding.backward(this.emptyErr, embErr, gradOnly);
     this.profileEnd("embedding backward", embeddingBackwardStart);
   }
 
@@ -631,9 +631,72 @@ export default class Transformers extends Sequential {
     );
   }
 
+  private loadKerasLayersModel(modelJson: any, jsonPath: string): void {
+    const layersConfig = modelJson.modelTopology?.config?.layers;
+    if (!Array.isArray(layersConfig) || layersConfig.length !== this.layers.length) {
+      throw new Error(`Invalid transformer model file: ${jsonPath}`);
+    }
+
+    const weightsManifest = modelJson.weightsManifest?.[0];
+    const weights = weightsManifest?.weights ?? [];
+    const binFilename = weightsManifest?.paths?.[0];
+    if (!binFilename) {
+      throw new Error(`Transformers.load: weights manifest missing for ${jsonPath}`);
+    }
+
+    const jsonDir = jsonPath.substring(0, jsonPath.lastIndexOf("/") + 1);
+    const binBuffer = readFileSync(`${jsonDir}${binFilename}`);
+    const combinedWeights = new Float32Array(binBuffer.buffer, binBuffer.byteOffset, binBuffer.byteLength / 4);
+    let weightOffset = 0;
+
+    for (let i = 0; i < this.layers.length; i++) {
+      const layer = this.layers[i] as any;
+      const config = layersConfig[i]?.config ?? {};
+
+      if (layer instanceof Embedding && config.trainable !== undefined) {
+        layer.load({
+          trainable: config.trainable,
+          padTokenId: config.mask_zero ? 0 : layer.padTokenId,
+        });
+      } else if (layer instanceof Dropout && config.rate !== undefined) {
+        layer.load({ rate: config.rate, status: layer.status });
+      }
+
+      if (typeof layer.setWeightsFromBinary !== "function") continue;
+
+      const layerName = config.name;
+      const layerWeights = layerName
+        ? weights.filter((w: any) => w.name.startsWith(`${layerName}/`))
+        : [];
+      if (layerWeights.length === 0) continue;
+
+      const binaryWeights: Record<string, Float32Array> = {};
+      for (const weightInfo of layerWeights) {
+        const weightSize = weightInfo.shape.reduce((a: number, b: number) => a * b, 1);
+        const paramName = weightInfo.name.split("/").pop();
+        binaryWeights[paramName] = combinedWeights.subarray(weightOffset, weightOffset + weightSize);
+        weightOffset += weightSize;
+      }
+
+      layer.setWeightsFromBinary(binaryWeights);
+    }
+
+    this.vocabSize = this.embedding.vocabSize;
+  }
+
   load(path: string) {
     const dataJson = readFileSync(path, "utf-8");
-    const data = JSON.parse(dataJson);
+    let data = JSON.parse(dataJson);
+
+    if (data?.format === "layers-model") {
+      this.loadKerasLayersModel(data, path);
+      return;
+    }
+
+    // Support standardized oxide-v1 format
+    if (data && data.format === "oxide-v1" && data.modelTopology) {
+      data = data.modelTopology.layers;
+    }
 
     if (!Array.isArray(data) || data.length < 11) {
       throw new Error(`Invalid transformer model file: ${path}`);

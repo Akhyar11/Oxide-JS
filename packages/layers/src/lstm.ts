@@ -1,5 +1,5 @@
 import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
-import { mj } from "@oxide-js/core";
+import { mj, engine } from "@oxide-js/core";
 import { isNativeAvailable, lstmForwardNative, lstmBackwardNative } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { setLoss } from "@oxide-js/core";
@@ -179,6 +179,35 @@ export default class LSTM {
     this.params = 4 * (hiddenUnits * units + hiddenUnits * hiddenUnits + hiddenUnits);
     this.h_stateful = mj.zeros([hiddenUnits, 1]);
     this.c_stateful = mj.zeros([hiddenUnits, 1]);
+
+    // Ensure all weight matrices have names for better debugging in Tape
+    this.Wxi.name = "Wxi"; this.Wxf.name = "Wxf"; this.Wxo.name = "Wxo"; this.Wxg.name = "Wxg";
+    this.Whi.name = "Whi"; this.Whf.name = "Whf"; this.Who.name = "Who"; this.Whg.name = "Whg";
+    this.bi.name = "bi"; this.bf.name = "bf"; this.bo.name = "bo"; this.bg.name = "bg";
+  }
+
+  getParams(): Matrix[] {
+    return [
+      this.Wxi, this.Wxf, this.Wxo, this.Wxg,
+      this.Whi, this.Whf, this.Who, this.Whg,
+      this.bi, this.bf, this.bo, this.bg
+    ];
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    this.optimizerWxi.apply(this.Wxi, a);
+    this.optimizerWxf.apply(this.Wxf, a);
+    this.optimizerWxo.apply(this.Wxo, a);
+    this.optimizerWxg.apply(this.Wxg, a);
+    this.optimizerWhi.apply(this.Whi, a);
+    this.optimizerWhf.apply(this.Whf, a);
+    this.optimizerWho.apply(this.Who, a);
+    this.optimizerWhg.apply(this.Whg, a);
+    this.optimizerBi.apply(this.bi, a);
+    this.optimizerBf.apply(this.bf, a);
+    this.optimizerBo.apply(this.bo, a);
+    this.optimizerBg.apply(this.bg, a);
   }
 
   save() {
@@ -212,34 +241,92 @@ export default class LSTM {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "LSTM",
+      config: {
+        units: this.hiddenUnits,
+        activation: "tanh",
+        recurrent_activation: "sigmoid",
+        use_bias: true,
+        unit_forget_bias: true,
+        return_sequences: this.returnSequences,
+        return_state: this.returnState,
+        stateful: this.stateful,
+        name: `lstm_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return [
+      { name: "Wxi", shape: this.Wxi._shape, data: this.Wxi._data },
+      { name: "Whi", shape: this.Whi._shape, data: this.Whi._data },
+      { name: "bi", shape: this.bi._shape, data: this.bi._data },
+      { name: "Wxf", shape: this.Wxf._shape, data: this.Wxf._data },
+      { name: "Whf", shape: this.Whf._shape, data: this.Whf._data },
+      { name: "bf", shape: this.bf._shape, data: this.bf._data },
+      { name: "Wxo", shape: this.Wxo._shape, data: this.Wxo._data },
+      { name: "Who", shape: this.Who._shape, data: this.Who._data },
+      { name: "bo", shape: this.bo._shape, data: this.bo._data },
+      { name: "Wxg", shape: this.Wxg._shape, data: this.Wxg._data },
+      { name: "Whg", shape: this.Whg._shape, data: this.Whg._data },
+      { name: "bg", shape: this.bg._shape, data: this.bg._data },
+    ];
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    const names = ["Wxi", "Whi", "bi", "Wxf", "Whf", "bf", "Wxo", "Who", "bo", "Wxg", "Whg", "bg"];
+    
+    // Check if input units needs to be determined
+    if (this.units === 0 && weights.Wxi) {
+      this.units = weights.Wxi.length / this.hiddenUnits;
+      
+      // Re-initialize all weight shapes
+      this.Wxi._shape = [this.hiddenUnits, this.units]; this.Wxi._data = new Float32Array(this.hiddenUnits * this.units);
+      this.Wxf._shape = [this.hiddenUnits, this.units]; this.Wxf._data = new Float32Array(this.hiddenUnits * this.units);
+      this.Wxo._shape = [this.hiddenUnits, this.units]; this.Wxo._data = new Float32Array(this.hiddenUnits * this.units);
+      this.Wxg._shape = [this.hiddenUnits, this.units]; this.Wxg._data = new Float32Array(this.hiddenUnits * this.units);
+    }
+    
+    for (const name of names) {
+      if (weights[name]) {
+        (this as any)[name]._data.set(weights[name]);
+      }
+    }
+  }
+
   load(data: Record<string, number[][] | number | boolean | undefined>) {
     if (typeof data.forgetBias === "number") {
       this.forgetBias = data.forgetBias;
     }
-    this.assertSerializedMatrix(data.Wxi, "Wxi");
-    this.assertSerializedMatrix(data.Whi, "Whi");
-    this.assertSerializedMatrix(data.bi, "bi");
-    this.assertSerializedMatrix(data.Wxf, "Wxf");
-    this.assertSerializedMatrix(data.Whf, "Whf");
-    this.assertSerializedMatrix(data.bf, "bf");
-    this.assertSerializedMatrix(data.Wxo, "Wxo");
-    this.assertSerializedMatrix(data.Who, "Who");
-    this.assertSerializedMatrix(data.bo, "bo");
-    this.assertSerializedMatrix(data.Wxg, "Wxg");
-    this.assertSerializedMatrix(data.Whg, "Whg");
-    this.assertSerializedMatrix(data.bg, "bg");
-    this.loadMatrix(this.Wxi, data.Wxi as number[][]);
-    this.loadMatrix(this.Whi, data.Whi as number[][]);
-    this.loadMatrix(this.bi, data.bi as number[][]);
-    this.loadMatrix(this.Wxf, data.Wxf as number[][]);
-    this.loadMatrix(this.Whf, data.Whf as number[][]);
-    this.loadMatrix(this.bf, data.bf as number[][]);
-    this.loadMatrix(this.Wxo, data.Wxo as number[][]);
-    this.loadMatrix(this.Who, data.Who as number[][]);
-    this.loadMatrix(this.bo, data.bo as number[][]);
-    this.loadMatrix(this.Wxg, data.Wxg as number[][]);
-    this.loadMatrix(this.Whg, data.Whg as number[][]);
-    this.loadMatrix(this.bg, data.bg as number[][]);
+    if (data.Wxi) {
+      this.assertSerializedMatrix(data.Wxi, "Wxi");
+      this.assertSerializedMatrix(data.Whi, "Whi");
+      this.assertSerializedMatrix(data.bi, "bi");
+      this.assertSerializedMatrix(data.Wxf, "Wxf");
+      this.assertSerializedMatrix(data.Whf, "Whf");
+      this.assertSerializedMatrix(data.bf, "bf");
+      this.assertSerializedMatrix(data.Wxo, "Wxo");
+      this.assertSerializedMatrix(data.Who, "Who");
+      this.assertSerializedMatrix(data.bo, "bo");
+      this.assertSerializedMatrix(data.Wxg, "Wxg");
+      this.assertSerializedMatrix(data.Whg, "Whg");
+      this.assertSerializedMatrix(data.bg, "bg");
+      this.loadMatrix(this.Wxi, data.Wxi as number[][]);
+      this.loadMatrix(this.Whi, data.Whi as number[][]);
+      this.loadMatrix(this.bi, data.bi as number[][]);
+      this.loadMatrix(this.Wxf, data.Wxf as number[][]);
+      this.loadMatrix(this.Whf, data.Whf as number[][]);
+      this.loadMatrix(this.bf, data.bf as number[][]);
+      this.loadMatrix(this.Wxo, data.Wxo as number[][]);
+      this.loadMatrix(this.Who, data.Who as number[][]);
+      this.loadMatrix(this.bo, data.bo as number[][]);
+      this.loadMatrix(this.Wxg, data.Wxg as number[][]);
+      this.loadMatrix(this.Whg, data.Whg as number[][]);
+      this.loadMatrix(this.bg, data.bg as number[][]);
+    }
     if (data.hStateful !== undefined) {
       this.assertSerializedMatrix(data.hStateful, "hStateful");
       this.loadMatrix(this.h_stateful, data.hStateful as number[][]);
@@ -354,6 +441,17 @@ export default class LSTM {
       this.h_stateful._data.set(hLast);
       this.c_stateful._data.set(cLast);
     }
+
+    // RECORD FOR AUTO-DIFF
+    const tape = engine.tape;
+    if (tape) {
+      tape.record(this.getParams().concat([x]), [this.resultBuffer], (grad: Matrix) => {
+        const dx = this.backward(mj.zeros([1, 1]), grad, true); // true = gradOnly
+        if (x.grad) x.grad.addInPlace(dx);
+        else x.grad = dx;
+      });
+    }
+
     return this.resultBuffer;
   }
 
@@ -492,10 +590,21 @@ export default class LSTM {
       this.h_stateful._data.set(this.batchHSeq[seqLen]);
       this.c_stateful._data.set(this.batchCSeq[seqLen]);
     }
+
+    // RECORD FOR AUTO-DIFF
+    const tape = engine.tape;
+    if (tape) {
+      tape.record(this.getParams().concat([x]), [this.resultBuffer], (grad: Matrix) => {
+        const dx = this.backwardBatch(mj.zeros([1, 1]), grad, batchSize, true); // true = gradOnly
+        if (x.grad) x.grad.addInPlace(dx);
+        else x.grad = dx;
+      });
+    }
+
     return this.resultBuffer;
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
     const seqLen = this.inputShape[1];
     if (seqLen <= 0 || this.hSeq.length !== seqLen + 1 || this.cSeq.length !== seqLen + 1) {
       throw new Error("LSTM.backward: forward must be called before backward.");
@@ -604,23 +713,40 @@ export default class LSTM {
     }
 
     this.clipGradientsIfNeeded(dWxi, dWhi, dBi, dWxf, dWhf, dBf, dWxo, dWho, dBo, dWxg, dWhg, dBg);
-    this.Wxi.subInPlace(this.optimizerWxi.calculate(dWxi, this.alpha));
-    this.Whi.subInPlace(this.optimizerWhi.calculate(dWhi, this.alpha));
-    this.bi.subInPlace(this.optimizerBi.calculate(dBi, this.alpha));
-    this.Wxf.subInPlace(this.optimizerWxf.calculate(dWxf, this.alpha));
-    this.Whf.subInPlace(this.optimizerWhf.calculate(dWhf, this.alpha));
-    this.bf.subInPlace(this.optimizerBf.calculate(dBf, this.alpha));
-    this.Wxo.subInPlace(this.optimizerWxo.calculate(dWxo, this.alpha));
-    this.Who.subInPlace(this.optimizerWho.calculate(dWho, this.alpha));
-    this.bo.subInPlace(this.optimizerBo.calculate(dBo, this.alpha));
-    this.Wxg.subInPlace(this.optimizerWxg.calculate(dWxg, this.alpha));
-    this.Whg.subInPlace(this.optimizerWhg.calculate(dWhg, this.alpha));
-    this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
+    
+    // Populate .grad for Tape support
+    if (this.Wxi.grad) this.Wxi.grad.addInPlace(dWxi); else this.Wxi.grad = dWxi;
+    if (this.Whi.grad) this.Whi.grad.addInPlace(dWhi); else this.Whi.grad = dWhi;
+    if (this.bi.grad) this.bi.grad.addInPlace(dBi); else this.bi.grad = dBi;
+    if (this.Wxf.grad) this.Wxf.grad.addInPlace(dWxf); else this.Wxf.grad = dWxf;
+    if (this.Whf.grad) this.Whf.grad.addInPlace(dWhf); else this.Whf.grad = dWhf;
+    if (this.bf.grad) this.bf.grad.addInPlace(dBf); else this.bf.grad = dBf;
+    if (this.Wxo.grad) this.Wxo.grad.addInPlace(dWxo); else this.Wxo.grad = dWxo;
+    if (this.Who.grad) this.Who.grad.addInPlace(dWho); else this.Who.grad = dWho;
+    if (this.bo.grad) this.bo.grad.addInPlace(dBo); else this.bo.grad = dBo;
+    if (this.Wxg.grad) this.Wxg.grad.addInPlace(dWxg); else this.Wxg.grad = dWxg;
+    if (this.Whg.grad) this.Whg.grad.addInPlace(dWhg); else this.Whg.grad = dWhg;
+    if (this.bg.grad) this.bg.grad.addInPlace(dBg); else this.bg.grad = dBg;
+
+    if (!gradOnly) {
+      this.Wxi.subInPlace(this.optimizerWxi.calculate(dWxi, this.alpha));
+      this.Whi.subInPlace(this.optimizerWhi.calculate(dWhi, this.alpha));
+      this.bi.subInPlace(this.optimizerBi.calculate(dBi, this.alpha));
+      this.Wxf.subInPlace(this.optimizerWxf.calculate(dWxf, this.alpha));
+      this.Whf.subInPlace(this.optimizerWhf.calculate(dWhf, this.alpha));
+      this.bf.subInPlace(this.optimizerBf.calculate(dBf, this.alpha));
+      this.Wxo.subInPlace(this.optimizerWxo.calculate(dWxo, this.alpha));
+      this.Who.subInPlace(this.optimizerWho.calculate(dWho, this.alpha));
+      this.bo.subInPlace(this.optimizerBo.calculate(dBo, this.alpha));
+      this.Wxg.subInPlace(this.optimizerWxg.calculate(dWxg, this.alpha));
+      this.Whg.subInPlace(this.optimizerWhg.calculate(dWhg, this.alpha));
+      this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
+    }
 
     return Matrix.fromFlat(dx, [this.units, seqLen]);
   }
 
-  backwardBatch(y: Matrix, err: Matrix, batchSize: number): Matrix {
+  backwardBatch(y: Matrix, err: Matrix, batchSize: number, gradOnly = false): Matrix {
     const totalCols = this.inputShape[1];
     this.assertBatchInputSupportedShape(batchSize, totalCols);
     const seqLen = totalCols / batchSize;
@@ -666,18 +792,35 @@ export default class LSTM {
       )
     ) {
       this.clipGradientsIfNeeded(dWxi, dWhi, dBi, dWxf, dWhf, dBf, dWxo, dWho, dBo, dWxg, dWhg, dBg);
-      this.Wxi.subInPlace(this.optimizerWxi.calculate(dWxi, this.alpha));
-      this.Whi.subInPlace(this.optimizerWhi.calculate(dWhi, this.alpha));
-      this.bi.subInPlace(this.optimizerBi.calculate(dBi, this.alpha));
-      this.Wxf.subInPlace(this.optimizerWxf.calculate(dWxf, this.alpha));
-      this.Whf.subInPlace(this.optimizerWhf.calculate(dWhf, this.alpha));
-      this.bf.subInPlace(this.optimizerBf.calculate(dBf, this.alpha));
-      this.Wxo.subInPlace(this.optimizerWxo.calculate(dWxo, this.alpha));
-      this.Who.subInPlace(this.optimizerWho.calculate(dWho, this.alpha));
-      this.bo.subInPlace(this.optimizerBo.calculate(dBo, this.alpha));
-      this.Wxg.subInPlace(this.optimizerWxg.calculate(dWxg, this.alpha));
-      this.Whg.subInPlace(this.optimizerWhg.calculate(dWhg, this.alpha));
-      this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
+
+      // Populate .grad for Tape support
+      if (this.Wxi.grad) this.Wxi.grad.addInPlace(dWxi); else this.Wxi.grad = dWxi;
+      if (this.Whi.grad) this.Whi.grad.addInPlace(dWhi); else this.Whi.grad = dWhi;
+      if (this.bi.grad) this.bi.grad.addInPlace(dBi); else this.bi.grad = dBi;
+      if (this.Wxf.grad) this.Wxf.grad.addInPlace(dWxf); else this.Wxf.grad = dWxf;
+      if (this.Whf.grad) this.Whf.grad.addInPlace(dWhf); else this.Whf.grad = dWhf;
+      if (this.bf.grad) this.bf.grad.addInPlace(dBf); else this.bf.grad = dBf;
+      if (this.Wxo.grad) this.Wxo.grad.addInPlace(dWxo); else this.Wxo.grad = dWxo;
+      if (this.Who.grad) this.Who.grad.addInPlace(dWho); else this.Who.grad = dWho;
+      if (this.bo.grad) this.bo.grad.addInPlace(dBo); else this.bo.grad = dBo;
+      if (this.Wxg.grad) this.Wxg.grad.addInPlace(dWxg); else this.Wxg.grad = dWxg;
+      if (this.Whg.grad) this.Whg.grad.addInPlace(dWhg); else this.Whg.grad = dWhg;
+      if (this.bg.grad) this.bg.grad.addInPlace(dBg); else this.bg.grad = dBg;
+
+      if (!gradOnly) {
+        this.Wxi.subInPlace(this.optimizerWxi.calculate(dWxi, this.alpha));
+        this.Whi.subInPlace(this.optimizerWhi.calculate(dWhi, this.alpha));
+        this.bi.subInPlace(this.optimizerBi.calculate(dBi, this.alpha));
+        this.Wxf.subInPlace(this.optimizerWxf.calculate(dWxf, this.alpha));
+        this.Whf.subInPlace(this.optimizerWhf.calculate(dWhf, this.alpha));
+        this.bf.subInPlace(this.optimizerBf.calculate(dBf, this.alpha));
+        this.Wxo.subInPlace(this.optimizerWxo.calculate(dWxo, this.alpha));
+        this.Who.subInPlace(this.optimizerWho.calculate(dWho, this.alpha));
+        this.bo.subInPlace(this.optimizerBo.calculate(dBo, this.alpha));
+        this.Wxg.subInPlace(this.optimizerWxg.calculate(dWxg, this.alpha));
+        this.Whg.subInPlace(this.optimizerWhg.calculate(dWhg, this.alpha));
+        this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
+      }
       return dx;
     }
 
@@ -754,18 +897,35 @@ export default class LSTM {
     }
 
     this.clipGradientsIfNeeded(dWxi, dWhi, dBi, dWxf, dWhf, dBf, dWxo, dWho, dBo, dWxg, dWhg, dBg);
-    this.Wxi.subInPlace(this.optimizerWxi.calculate(dWxi, this.alpha));
-    this.Whi.subInPlace(this.optimizerWhi.calculate(dWhi, this.alpha));
-    this.bi.subInPlace(this.optimizerBi.calculate(dBi, this.alpha));
-    this.Wxf.subInPlace(this.optimizerWxf.calculate(dWxf, this.alpha));
-    this.Whf.subInPlace(this.optimizerWhf.calculate(dWhf, this.alpha));
-    this.bf.subInPlace(this.optimizerBf.calculate(dBf, this.alpha));
-    this.Wxo.subInPlace(this.optimizerWxo.calculate(dWxo, this.alpha));
-    this.Who.subInPlace(this.optimizerWho.calculate(dWho, this.alpha));
-    this.bo.subInPlace(this.optimizerBo.calculate(dBo, this.alpha));
-    this.Wxg.subInPlace(this.optimizerWxg.calculate(dWxg, this.alpha));
-    this.Whg.subInPlace(this.optimizerWhg.calculate(dWhg, this.alpha));
-    this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
+    
+    // Populate .grad for Tape support
+    if (this.Wxi.grad) this.Wxi.grad.addInPlace(dWxi); else this.Wxi.grad = dWxi;
+    if (this.Whi.grad) this.Whi.grad.addInPlace(dWhi); else this.Whi.grad = dWhi;
+    if (this.bi.grad) this.bi.grad.addInPlace(dBi); else this.bi.grad = dBi;
+    if (this.Wxf.grad) this.Wxf.grad.addInPlace(dWxf); else this.Wxf.grad = dWxf;
+    if (this.Whf.grad) this.Whf.grad.addInPlace(dWhf); else this.Whf.grad = dWhf;
+    if (this.bf.grad) this.bf.grad.addInPlace(dBf); else this.bf.grad = dBf;
+    if (this.Wxo.grad) this.Wxo.grad.addInPlace(dWxo); else this.Wxo.grad = dWxo;
+    if (this.Who.grad) this.Who.grad.addInPlace(dWho); else this.Who.grad = dWho;
+    if (this.bo.grad) this.bo.grad.addInPlace(dBo); else this.bo.grad = dBo;
+    if (this.Wxg.grad) this.Wxg.grad.addInPlace(dWxg); else this.Wxg.grad = dWxg;
+    if (this.Whg.grad) this.Whg.grad.addInPlace(dWhg); else this.Whg.grad = dWhg;
+    if (this.bg.grad) this.bg.grad.addInPlace(dBg); else this.bg.grad = dBg;
+
+    if (!gradOnly) {
+      this.Wxi.subInPlace(this.optimizerWxi.calculate(dWxi, this.alpha));
+      this.Whi.subInPlace(this.optimizerWhi.calculate(dWhi, this.alpha));
+      this.bi.subInPlace(this.optimizerBi.calculate(dBi, this.alpha));
+      this.Wxf.subInPlace(this.optimizerWxf.calculate(dWxf, this.alpha));
+      this.Whf.subInPlace(this.optimizerWhf.calculate(dWhf, this.alpha));
+      this.bf.subInPlace(this.optimizerBf.calculate(dBf, this.alpha));
+      this.Wxo.subInPlace(this.optimizerWxo.calculate(dWxo, this.alpha));
+      this.Who.subInPlace(this.optimizerWho.calculate(dWho, this.alpha));
+      this.bo.subInPlace(this.optimizerBo.calculate(dBo, this.alpha));
+      this.Wxg.subInPlace(this.optimizerWxg.calculate(dWxg, this.alpha));
+      this.Whg.subInPlace(this.optimizerWhg.calculate(dWhg, this.alpha));
+      this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
+    }
     return dx;
   }
 

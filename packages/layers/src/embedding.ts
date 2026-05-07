@@ -1,4 +1,4 @@
-import { mj } from "@oxide-js/core";
+import { mj, engine } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { Optimizer, OptimizerType, StatusLayer, matrix2d } from "@oxide-js/core";
 import { setOptimizer } from "@oxide-js/core";
@@ -83,6 +83,40 @@ export default class Embedding {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "Embedding",
+      config: {
+        input_dim: this.vocabSize,
+        output_dim: this.embeddingDim,
+        embeddings_initializer: { class_name: "RandomUniform", config: { minval: -0.05, maxval: 0.05 } },
+        embeddings_regularizer: null,
+        activity_regularizer: null,
+        embeddings_constraint: null,
+        mask_zero: this.padTokenId !== null,
+        input_length: null,
+        name: `embedding_${Math.floor(Math.random() * 1000)}`,
+        trainable: this.trainable,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return [
+      { name: "embeddings", shape: this.weight._shape, data: this.weight._data }
+    ];
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.embeddings || weights.weight) {
+      const weightData = weights.embeddings ?? weights.weight;
+      if (this.vocabSize === 0 || this.embeddingDim === 0) {
+        throw new Error("Embedding shape not initialized properly before loading binary weights.");
+      }
+      this.weight._data.set(weightData);
+    }
+  }
+
   load(data: matrix2d | {
     vocabSize?: number;
     embeddingDim?: number;
@@ -91,13 +125,16 @@ export default class Embedding {
     status?: StatusLayer;
     padTokenId?: number | null;
     trainable?: boolean;
-    weight: matrix2d;
+    weight?: matrix2d;
   }): void {
     const resolved = this.resolveLoadPayload(data);
-    this.weight = this.normalizeToMatrix(resolved.weight);
-    this.weight._shape = [resolved.weight.length, resolved.weight[0]?.length ?? 0];
-    this.embeddingDim = this.weight._shape[0];
-    this.vocabSize = this.weight._shape[1];
+    if (resolved.weight) {
+      this.weight = this.normalizeToMatrix(resolved.weight);
+      this.weight._shape = [resolved.weight.length, resolved.weight[0]?.length ?? 0];
+      this.embeddingDim = this.weight._shape[0];
+      this.vocabSize = this.weight._shape[1];
+    }
+    
     this.alpha = resolved.alpha ?? this.alpha;
     this.optimizerName = resolved.optimizer ?? this.optimizerName;
     this.status = resolved.status ?? this.status;
@@ -150,6 +187,15 @@ export default class Embedding {
     }
   }
 
+  getParams(): Matrix[] {
+    return this.trainable ? [this.weight] : [];
+  }
+
+  update(alpha: number): void {
+    if (!this.trainable || !this.weight.grad) return;
+    this.optimizerWeight.apply(this.weight, alpha || this.alpha);
+  }
+
   forward(x: Matrix): Matrix {
     return this.forwardWithLayout(x, "time-major");
   }
@@ -158,7 +204,7 @@ export default class Embedding {
     return this.forwardWithLayout(x, "time-major");
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
     if (!this.trainable) {
       return this.getOrCreateZeroInputGradient();
     }
@@ -166,6 +212,7 @@ export default class Embedding {
     // ── Fast path: fused Rust backward+Adam update (zero JS allocations) ────
     const maybeAdam = this.optimizerWeight as any;
     if (
+      !gradOnly &&
       isNativeAvailable() &&
       this.inputIndices instanceof Int32Array &&
       typeof maybeAdam.updateEmbeddingSparseNative === "function" &&
@@ -234,7 +281,21 @@ export default class Embedding {
     }
 
     // 3. Update only the used embeddings using the sparse optimizer method
-    this.optimizerWeight.updateSparse(this.weight, smallGrad, this.alpha, uniqueIndices);
+    if (!gradOnly) {
+      this.optimizerWeight.updateSparse(this.weight, smallGrad, this.alpha, uniqueIndices);
+    } else {
+      if (!this.weight.grad) this.weight.grad = mj.zeros(this.weight._shape);
+      const wGrad = this.weight.grad._data;
+      const sGrad = smallGrad._data;
+      const vSize = this.vocabSize;
+      const eDim = this.embeddingDim;
+      const uLen = uniqueIndices.length;
+      for (let i = 0; i < eDim; i++) {
+        for (let u = 0; u < uLen; u++) {
+          wGrad[i * vSize + uniqueIndices[u]] += sGrad[i * uLen + u];
+        }
+      }
+    }
 
     return this.getOrCreateZeroInputGradient();
   }
@@ -301,31 +362,12 @@ export default class Embedding {
     status?: StatusLayer;
     padTokenId?: number | null;
     trainable?: boolean;
-    weight: matrix2d;
-  }): {
-    vocabSize?: number;
-    embeddingDim?: number;
-    alpha?: number;
-    optimizer?: Optimizer;
-    status?: StatusLayer;
-    padTokenId?: number | null;
-    trainable?: boolean;
-    weight: matrix2d;
-  } {
+    weight?: matrix2d;
+  }) {
     if (Array.isArray(data)) {
       return { weight: data };
     }
-
-    return {
-      vocabSize: data.vocabSize,
-      embeddingDim: data.embeddingDim,
-      alpha: data.alpha,
-      optimizer: data.optimizer,
-      status: data.status,
-      padTokenId: data.padTokenId,
-      trainable: data.trainable ?? true,
-      weight: data.weight,
-    };
+    return data;
   }
 
   private extractWeightFromFillSource(source: string | Matrix | number[][] | Float32Array | {
@@ -490,6 +532,32 @@ export default class Embedding {
     
     this.outputBuffer = Matrix.fromFlat(outputBufferData.subarray(0, requiredOutputLen), [this.embeddingDim, seqLen]);
     const outputData = this.outputBuffer._data;
+
+    // --- TAPE RECORDING ---
+    const tape = engine.tape;
+    if (tape && this.trainable) {
+      const currentIndices = new Int32Array(this.inputIndices); // Snapshot indices
+      tape.record([this.weight], [this.outputBuffer], (grad: Matrix) => {
+        // Sparse Gradient Accumulation
+        if (!this.weight.grad) {
+          this.weight.grad = mj.zeros([this.weight._shape[0], this.weight._shape[1]]);
+        }
+        
+        const gradData = grad._data;
+        const weightGradData = this.weight.grad._data;
+        const eDim = this.embeddingDim;
+        const vSize = this.vocabSize;
+        const sLen = currentIndices.length;
+
+        for (let j = 0; j < sLen; j++) {
+          const tokenIndex = currentIndices[j];
+          if (this.padTokenId !== null && tokenIndex === this.padTokenId) continue;
+          for (let i = 0; i < eDim; i++) {
+            weightGradData[i * vSize + tokenIndex] += gradData[i * sLen + j];
+          }
+        }
+      });
+    }
 
     if (isNativeAvailable()) {
       embeddingForwardNative(this.inputIndices.subarray(0, totalTokens), this.weight._data, this.vocabSize, this.embeddingDim, this.padTokenId, outputData);

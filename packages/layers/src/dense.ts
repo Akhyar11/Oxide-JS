@@ -1,4 +1,4 @@
-import { mj } from "@oxide-js/core";
+import { mj, engine } from "@oxide-js/core";
 import { softmaxBackward } from "@oxide-js/core";
 import {
   ActivationType,
@@ -138,6 +138,58 @@ export default class Dense {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "Dense",
+      config: {
+        units: this.outputUnits,
+        activation: this.activationName,
+        use_bias: true,
+        kernel_initializer: { class_name: "VarianceScaling", config: { scale: 1.0, mode: "fan_avg", distribution: "uniform" } },
+        bias_initializer: { class_name: "Zeros", config: {} },
+        name: `dense_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  /**
+   * Returns metadata about the weights and their flat data
+   */
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return [
+      { name: "weight", shape: this.weight._shape, data: this.weight._data },
+      { name: "bias", shape: this.bias._shape, data: this.bias._data },
+    ];
+  }
+
+  /**
+   * Sets weights from flat binary data
+   */
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.weight || weights.kernel) {
+      const weightData = weights.weight ?? weights.kernel;
+      if (this.units === 0) {
+        // Calculate units from weight data length and known outputUnits
+        this.units = weightData.length / this.outputUnits;
+        this.weight._shape = [this.outputUnits, this.units];
+        this.weight._data = new Float32Array(this.outputUnits * this.units);
+      }
+      this.weight._data.set(weightData);
+      
+      // Re-initialize buffers if shape changed
+      if (this.outputUnits > 0 && this.units > 0 && this.errWeightBuffer._shape[1] !== this.units) {
+        this.errWeightBuffer = mj.zeros([this.outputUnits, this.units]);
+        this.prevLayerErrBuffer = mj.zeros([this.units, 1]);
+        this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, this.alpha);
+        this.params = this.outputUnits * this.units + this.outputUnits;
+      }
+    }
+    if (weights.bias) {
+      this.bias._data.set(weights.bias);
+    }
+  }
+
   getLossName(): Cost {
     return this.lossName;
   }
@@ -147,26 +199,34 @@ export default class Dense {
   }
 
   load(weight: matrix2d, bias: matrix2d, clipGradient?: number | boolean): void {
-    this.weight._value = weight;
-    this.weight._shape = [weight.length, weight[0]?.length ?? 0];
-    this.bias._value = bias;
-    this.bias._shape = [bias.length, bias[0]?.length ?? 0];
-    this.units = this.weight._shape[1];
-    this.outputUnits = this.weight._shape[0];
-    this.params = this.outputUnits * this.units + this.outputUnits;
-    if (clipGradient !== undefined) {
-        this.clipGradient = clipGradient;
+    if (weight) {
+      this.weight._value = weight;
+      this.weight._shape = [weight.length, weight[0]?.length ?? 0];
+      this.units = this.weight._shape[1];
+      this.outputUnits = this.weight._shape[0];
+      this.params = this.outputUnits * this.units + this.outputUnits;
     }
-    this.z = mj.zeros([this.outputUnits, 1]);
-    this.result = mj.zeros([this.outputUnits, 1]);
-    this.dInput = mj.zeros([this.outputUnits, 1]);
-    this.errWeightBuffer = mj.zeros([this.outputUnits, this.units]);
-    this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
-    this.errActivationBuffer = mj.zeros([this.outputUnits, 1]);
-    this.prevLayerErrBuffer = mj.zeros([this.units, 1]);
-    this.lastTokenProjectBuffer = mj.zeros([this.outputUnits, 1]);
-    this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, 1e-5);
-    this.optimizerBias = setOptimizer(this.optimizerName, this.bias._shape, 1e-5);
+    if (bias) {
+      this.bias._value = bias;
+      this.bias._shape = [bias.length, bias[0]?.length ?? 0];
+    }
+    
+    if (clipGradient !== undefined) {
+      this.clipGradient = clipGradient;
+    }
+
+    if (this.outputUnits > 0 && this.units > 0) {
+      this.z = mj.zeros([this.outputUnits, 1]);
+      this.result = mj.zeros([this.outputUnits, 1]);
+      this.dInput = mj.zeros([this.outputUnits, 1]);
+      this.errWeightBuffer = mj.zeros([this.outputUnits, this.units]);
+      this.errBiasBuffer = mj.zeros([this.outputUnits, 1]);
+      this.errActivationBuffer = mj.zeros([this.outputUnits, 1]);
+      this.prevLayerErrBuffer = mj.zeros([this.units, 1]);
+      this.lastTokenProjectBuffer = mj.zeros([this.outputUnits, 1]);
+      this.optimizerWeight = setOptimizer(this.optimizerName, this.weight._shape, this.alpha);
+      this.optimizerBias = setOptimizer(this.optimizerName, this.bias._shape, this.alpha);
+    }
   }
 
   compile({
@@ -200,94 +260,17 @@ export default class Dense {
     // [outputUnits, units] * [units, seqLen] -> [outputUnits, seqLen]
     mj.dotProduct(this.weight, this.input, this.z);
 
-    // 2. Tambahkan bias secara broadcast (per kolom) - OPTIMIZED WITH NATIVE
+    // 2. Tambahkan bias secara broadcast (per kolom)
     mj.addBias(this.z, this.bias);
 
-    // 3. Activation
-    if (this.activationName === "linear") {
-      // Linear activation is an identity. Reuse the pre-activation buffer directly
-      // to avoid a full output copy on large projector layers.
-      this.result = this.z;
-      return this.result;
-    }
-
-    if (this.activationName === "relu") {
-      if (isNativeAvailable()) {
-        reluNative(this.z._data, this.result._data, this.dInput._data);
-      } else {
-        const zData = this.z._data;
-        const outData = this.result._data;
-        const gradData = this.dInput._data;
-        for (let i = 0; i < zData.length; i++) {
-          const v = zData[i];
-          if (v > 0) {
-            outData[i] = v;
-            gradData[i] = 1;
-          } else {
-            outData[i] = 0;
-            gradData[i] = 0;
-          }
-        }
-      }
-      return this.result;
-    }
-
-    if (this.activationName === "sigmoid") {
-      if (isNativeAvailable()) {
-        sigmoidNative(this.z._data, this.result._data, this.dInput._data);
-      } else {
-        const zData = this.z._data;
-        const outData = this.result._data;
-        const gradData = this.dInput._data;
-        for (let i = 0; i < zData.length; i++) {
-          const sig = 1 / (1 + Math.exp(-zData[i]));
-          outData[i] = sig;
-          gradData[i] = sig * (1 - sig);
-        }
-      }
-      return this.result;
-    }
-
-    if (this.activationName === "tanh") {
-      if (isNativeAvailable()) {
-        tanhNative(this.z._data, this.result._data, this.dInput._data);
-      } else {
-        const zData = this.z._data;
-        const outData = this.result._data;
-        const gradData = this.dInput._data;
-        for (let i = 0; i < zData.length; i++) {
-          const tv = Math.tanh(zData[i]);
-          outData[i] = tv;
-          gradData[i] = 1 - tv * tv;
-        }
-      }
-      return this.result;
-    }
-
-    if (this.activationName === "lRelu") {
-      const zData = this.z._data;
-      const outData = this.result._data;
-      const gradData = this.dInput._data;
-      for (let i = 0; i < zData.length; i++) {
-        const v = zData[i];
-        if (v < 0) {
-          outData[i] = v * 1e-5;
-          gradData[i] = 1e-5;
-        } else {
-          outData[i] = v;
-          gradData[i] = 1;
-        }
-      }
-      return this.result;
-    }
-
+    // 3. Activation (Tape is automatically handled inside core activation functions)
     const [result, dResult] = this.activation(this.z);
     this.dInput = dResult;
     this.result = result;
     return this.result;
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
     const [rows, seqLen] = this.result._shape;
     let e: Matrix = mj.matrix([]);
     let lossValue = 0;
@@ -375,14 +358,33 @@ export default class Dense {
       prevErr = mj.dotProduct(this.weight, errActivation, this.prevLayerErrBuffer, true, false);
     }
 
-    // 4. Dapatkan update dari optimizer
-    const updateWeight = this.optimizerWeight.calculate(gradWeight, this.alpha);
-    const updateBias = this.optimizerBias.calculate(gradBias, this.alpha);
+    // Accumulate gradients to .grad
+    if (this.weight.grad) this.weight.grad.addInPlace(gradWeight);
+    else this.weight.grad = gradWeight.clone();
+    
+    if (this.bias.grad) this.bias.grad.addInPlace(gradBias);
+    else this.bias.grad = gradBias.clone();
 
-    // 5. Update In-Place!
-    this.weight.subInPlace(updateWeight);
-    this.bias.subInPlace(updateBias);
+    if (!gradOnly) {
+      this.update(this.alpha);
+    }
+    
     return prevErr;
+  }
+
+  /**
+   * Mengembalikan daftar parameter yang dapat dilatih dalam layer ini.
+   */
+  getParams(): Matrix[] {
+    return [this.weight, this.bias];
+  }
+
+  /**
+   * Memperbarui bobot secara dinamis menggunakan gradien hasil Tape.
+   */
+  update(alpha: number): void {
+    this.optimizerWeight.apply(this.weight, alpha);
+    this.optimizerBias.apply(this.bias, alpha);
   }
 
   /** @deprecated Use mj.clipGradients instead */

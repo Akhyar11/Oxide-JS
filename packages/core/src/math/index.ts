@@ -28,6 +28,8 @@ import addBias from "./addBias.js";
 import sumAxis from "./sumAxis.js";
 import clipGradients from "./clipGradients.js";
 
+import pow from "./pow.js";
+
 const mj = {
   absm,
   add,
@@ -47,6 +49,7 @@ const mj = {
   mean,
   mul,
   ones,
+  pow,
   random,
   reshape,
   sub,

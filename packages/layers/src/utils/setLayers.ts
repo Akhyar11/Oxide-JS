@@ -30,15 +30,15 @@ export function registerLayer(name: string, factory: LayerFactory): void {
 
 registerLayer("dense layer", (data) => {
   const dense = new Dense({
-    units: data.units,
-    outputUnits: data.outputUnits,
+    units: data.units_input ?? data.units_in ?? 0, // Fallback for input units if not provided
+    outputUnits: data.outputUnits ?? data.units,
     activation: data.activation,
     optimizer: data.optimizer,
     status: data.status,
     loss: data.loss,
     clipGradient: data.clipGradient,
   });
-  dense.load(data.weight, data.bias, data.clipGradient);
+  dense.load(data.weight ?? data.kernel, data.bias, data.clipGradient);
   return dense;
 });
 
@@ -53,9 +53,11 @@ registerLayer("activation layer", (data) => {
 });
 
 registerLayer("convolution layer", (data) => {
+  const kernelSize = data.kernel_size ?? data.kernelSize ?? [3, 3]; // Default fallback if missing
+  const inputShape = data.inputShape ?? data.batch_input_shape?.slice(1) ?? [0, 0];
   const convolution = new Convolution({
-    kernelSize: data.kernelSize,
-    inputShape: data.inputShape,
+    kernelSize,
+    inputShape,
     activation: data.activation,
     loss: data.loss,
     optimizer: data.optimizer,
@@ -68,12 +70,12 @@ registerLayer("convolution layer", (data) => {
 
 registerLayer("embedding layer", (data) => {
   const embedding = new Embedding({
-    vocabSize: data.vocabSize,
-    embeddingDim: data.embeddingDim,
+    vocabSize: data.vocabSize ?? data.input_dim,
+    embeddingDim: data.embeddingDim ?? data.output_dim,
     alpha: data.alpha,
     optimizer: data.optimizer,
     status: data.status,
-    padTokenId: data.padTokenId ?? null,
+    padTokenId: (data.padTokenId !== undefined ? data.padTokenId : (data.mask_zero ? 0 : null)),
     trainable: data.trainable ?? true,
   });
   embedding.load(data);
@@ -133,8 +135,8 @@ registerLayer("dropout layer", (data) => {
 
 registerLayer("rnn layer", (data) => {
   const rnn = new RNN({
-    units: data.units,
-    hiddenUnits: data.hiddenUnits,
+    units: data.units_input ?? data.units_in ?? 0,
+    hiddenUnits: data.hiddenUnits ?? data.units,
     activation: data.activation,
     returnSequences: data.returnSequences,
     returnState: data.returnState,
@@ -151,8 +153,8 @@ registerLayer("rnn layer", (data) => {
 
 registerLayer("lstm layer", (data) => {
   const lstm = new LSTM({
-    units: data.units,
-    hiddenUnits: data.hiddenUnits,
+    units: data.units_input ?? data.units_in ?? 0,
+    hiddenUnits: data.hiddenUnits ?? data.units,
     forgetBias: data.forgetBias,
     returnSequences: data.returnSequences,
     returnState: data.returnState,
@@ -169,8 +171,8 @@ registerLayer("lstm layer", (data) => {
 
 registerLayer("gru layer", (data) => {
   const gru = new GRU({
-    units: data.units,
-    hiddenUnits: data.hiddenUnits,
+    units: data.units_input ?? data.units_in ?? 0,
+    hiddenUnits: data.hiddenUnits ?? data.units,
     returnSequences: data.returnSequences,
     returnState: data.returnState,
     stateful: data.stateful,
@@ -239,8 +241,41 @@ registerLayer("attention pooling layer", (data) => {
   return layer;
 });
 
-registerLayer("flatten", (data) => new Flatten(data.status));
 registerLayer("flatten layer", (data) => new Flatten(data.status));
+
+// Keras/TFJS Compatibility Mapping
+registerLayer("Dense", layerRegistry["dense layer"]);
+registerLayer("Embedding", layerRegistry["embedding layer"]);
+registerLayer("Conv2D", layerRegistry["convolution layer"]);
+registerLayer("Dropout", layerRegistry["dropout layer"]);
+registerLayer("Flatten", layerRegistry["flatten layer"]);
+registerLayer("SimpleRNN", layerRegistry["rnn layer"]);
+registerLayer("LSTM", layerRegistry["lstm layer"]);
+registerLayer("GRU", layerRegistry["gru layer"]);
+registerLayer("LayerNormalization", layerRegistry["layer normalization"]);
+registerLayer("SelfAttention", layerRegistry["self attention layer"]);
+registerLayer("SelfAttention", layerRegistry["self attention layer"]);
+registerLayer("MultiHeadAttention", layerRegistry["multi head attention layer"]);
+registerLayer("AdaptiveMemoryRNN", layerRegistry["adaptive memory rnn layer"]);
+registerLayer("MemoryBank", layerRegistry["memory bank layer"]);
+registerLayer("Activation", layerRegistry["activation layer"]);
+registerLayer("PositionalEncoding", layerRegistry["positional encoding"]);
+
+
+registerLayer("AttentionPooling", (data) => {
+  const pooling = new AttentionPooling({
+    units: data.units ?? data.params,
+    maxTokens: data.maxTokens ?? 1024,
+    status: data.status,
+    alpha: data.alpha,
+    optimizer: data.optimizer,
+    clipGradient: data.clipGradient,
+  });
+  if (data.weight && data.bias) {
+    pooling.load(data);
+  }
+  return pooling;
+});
 
 export default function setLayers(data: any): Layers[] {
   const layers: Layers[] = [];

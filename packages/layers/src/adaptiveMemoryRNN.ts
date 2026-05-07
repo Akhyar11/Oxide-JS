@@ -1,4 +1,4 @@
-import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
+import { Cost, Optimizer, OptimizerType, StatusLayer, engine } from "@oxide-js/core";
 import { mj } from "@oxide-js/core";
 import { adaptiveMemoryRnnBackwardNative, isNativeAvailable } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
@@ -232,6 +232,55 @@ export default class AdaptiveMemoryRNN {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "AdaptiveMemoryRNN",
+      config: {
+        units: this.units,
+        hiddenUnits: this.hiddenUnits,
+        memorySlots: this.memorySlots,
+        memoryDim: this.memoryDim,
+        returnSequences: this.returnSequences,
+        returnState: this.returnState,
+        name: `adaptive_memory_rnn_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return [
+      { name: "Wxh", shape: this.Wxh._shape, data: this.Wxh._data },
+      { name: "Whh", shape: this.Whh._shape, data: this.Whh._data },
+      { name: "bh", shape: this.bh._shape, data: this.bh._data },
+      { name: "Wq", shape: this.Wq._shape, data: this.Wq._data },
+      { name: "Wm", shape: this.Wm._shape, data: this.Wm._data },
+      { name: "Wg", shape: this.Wg._shape, data: this.Wg._data },
+      { name: "bg", shape: this.bg._shape, data: this.bg._data },
+      { name: "memoryKeys", shape: this.memoryKeys._shape, data: this.memoryKeys._data },
+      { name: "memoryValues", shape: this.memoryValues._shape, data: this.memoryValues._data }
+    ];
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.Wxh) {
+      if (this.units === 0) {
+        this.units = weights.Wxh.length / this.hiddenUnits;
+        this.Wxh._shape = [this.hiddenUnits, this.units];
+        this.Wxh._data = new Float32Array(this.hiddenUnits * this.units);
+      }
+      this.Wxh._data.set(weights.Wxh);
+    }
+    if (weights.Whh) this.Whh._data.set(weights.Whh);
+    if (weights.bh) this.bh._data.set(weights.bh);
+    if (weights.Wq) this.Wq._data.set(weights.Wq);
+    if (weights.Wm) this.Wm._data.set(weights.Wm);
+    if (weights.Wg) this.Wg._data.set(weights.Wg);
+    if (weights.bg) this.bg._data.set(weights.bg);
+    if (weights.memoryKeys) this.memoryKeys._data.set(weights.memoryKeys);
+    if (weights.memoryValues) this.memoryValues._data.set(weights.memoryValues);
+  }
+
   load(data: any): void {
     if (data.units !== undefined) this.units = data.units;
     if (data.hiddenUnits !== undefined) this.hiddenUnits = data.hiddenUnits;
@@ -301,6 +350,24 @@ export default class AdaptiveMemoryRNN {
       this.lossFunc = setLoss(error);
     }
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
+  }
+
+  getParams(): Matrix[] {
+    return [
+      this.Wxh, this.Whh, this.bh,
+      this.Wq, this.Wm, this.Wg, this.bg
+    ];
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    this.optimizerWxh.apply(this.Wxh, a);
+    this.optimizerWhh.apply(this.Whh, a);
+    this.optimizerBh.apply(this.bh, a);
+    this.optimizerWq.apply(this.Wq, a);
+    this.optimizerWm.apply(this.Wm, a);
+    this.optimizerWg.apply(this.Wg, a);
+    this.optimizerBg.apply(this.bg, a);
   }
 
   resetState(): void {
@@ -398,7 +465,68 @@ export default class AdaptiveMemoryRNN {
     }
 
     if (this.stateful) this.hStateful._data.set(this.hiddenSequence[seqLen]);
+
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, ...this.getParams()], [this.resultBuffer], (grad: Matrix) => {
+        this.calculateGradients(x, grad);
+      });
+    }
+
     return this.resultBuffer;
+  }
+
+  private calculateGradients(x: Matrix, grad: Matrix): Matrix {
+    const seqLen = x._shape[1];
+    const externalError = this.resolveError(mj.matrix([]), grad, seqLen);
+    this.ensureBackwardBuffers(seqLen);
+    const dWxh = this.dWxhBuffer;
+    const dWhh = this.dWhhBuffer;
+    const dBh = this.dBhBuffer;
+    const dWq = mj.zeros([this.memoryDim, this.units + this.hiddenUnits]);
+    const dWm = mj.zeros([this.memoryDim, this.hiddenUnits]);
+    const dWg = mj.zeros([this.memoryDim, this.units + this.hiddenUnits + this.memoryDim]);
+    const dBg = mj.zeros([this.memoryDim, 1]);
+    dWxh._data.fill(0);
+    dWhh._data.fill(0);
+    dBh._data.fill(0);
+    this.dxBuffer._data.fill(0);
+
+    const nativeOk = this.runNativeBackward(
+      [this.stepCaches],
+      [externalError],
+      dWxh, dWhh, dBh, dWq, dWm, dWg, dBg,
+      this.dxBuffer._data,
+      seqLen,
+      1
+    );
+    if (!nativeOk) {
+      this.backwardThroughStepCaches(
+        this.stepCaches,
+        externalError,
+        dWxh, dWhh, dBh, dWq, dWm, dWg, dBg,
+        this.dxBuffer._data,
+        seqLen,
+        0,
+        1
+      );
+    }
+
+    this.clipGradientsIfNeeded(dWxh, dWhh, dBh, dWq, dWm, dWg, dBg);
+    
+    const accumulate = (p: Matrix, grad: Matrix) => {
+      if (p.grad) p.grad.addInPlace(grad);
+      else p.grad = grad;
+    };
+    accumulate(this.Wxh, dWxh);
+    accumulate(this.Whh, dWhh);
+    accumulate(this.bh, dBh);
+    accumulate(this.Wq, dWq);
+    accumulate(this.Wm, dWm);
+    accumulate(this.Wg, dWg);
+    accumulate(this.bg, dBg);
+
+    return this.dxBuffer;
   }
 
   forwardBatch(x: Matrix, batchSize: number): Matrix {
@@ -511,74 +639,96 @@ export default class AdaptiveMemoryRNN {
       this.memoryValues._data.set(this.batchMemoryValuesBuffer.subarray(0, this.memoryDim * this.memorySlots));
       this.memoryUsage.set(this.batchMemoryUsageBuffer.subarray(0, this.memorySlots));
     }
+
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, ...this.getParams()], [this.resultBuffer], (grad: Matrix) => {
+        this.calculateGradientsBatch(x, grad, batchSize);
+      });
+    }
+
     return this.resultBuffer;
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
+  private calculateGradientsBatch(x: Matrix, grad: Matrix, batchSize: number): Matrix {
+    const totalCols = x._shape[1];
+    const seqLen = totalCols / batchSize;
+    const externalError = this.resolveBatchError(mj.matrix([]), grad, seqLen, batchSize);
+    this.ensureBatchBackwardBuffers(seqLen, batchSize);
+    const dWxh = this.dWxhBuffer;
+    const dWhh = this.dWhhBuffer;
+    const dBh = this.dBhBuffer;
+    const dx = this.batchDxBuffer;
+    const dWq = mj.zeros([this.memoryDim, this.units + this.hiddenUnits]);
+    const dWm = mj.zeros([this.memoryDim, this.hiddenUnits]);
+    const dWg = mj.zeros([this.memoryDim, this.units + this.hiddenUnits + this.memoryDim]);
+    const dBg = mj.zeros([this.memoryDim, 1]);
+    dWxh._data.fill(0);
+    dWhh._data.fill(0);
+    dBh._data.fill(0);
+    dx._data.fill(0);
+
+    const nativeOk = this.runNativeBackward(
+      this.batchStepCaches,
+      this.buildPerSampleExternalErrors(externalError, seqLen, batchSize),
+      dWxh, dWhh, dBh, dWq, dWm, dWg, dBg,
+      dx._data,
+      totalCols,
+      batchSize
+    );
+
+    if (!nativeOk) {
+      for (let sample = 0; sample < batchSize; sample++) {
+        const sampleError = new Array<Float32Array>(seqLen);
+        for (let t = 0; t < seqLen; t++) {
+          const stepError = new Float32Array(this.hiddenUnits);
+          const source = externalError[t];
+          for (let i = 0; i < this.hiddenUnits; i++) {
+            stepError[i] = source[i * batchSize + sample];
+          }
+          sampleError[t] = stepError;
+        }
+        this.backwardThroughStepCaches(
+          this.batchStepCaches[sample],
+          sampleError,
+          dWxh, dWhh, dBh, dWq, dWm, dWg, dBg,
+          dx._data,
+          totalCols,
+          sample,
+          batchSize
+        );
+      }
+    }
+
+    this.clipGradientsIfNeeded(dWxh, dWhh, dBh, dWq, dWm, dWg, dBg);
+    
+    const accumulate = (p: Matrix, grad: Matrix) => {
+      if (p.grad) p.grad.addInPlace(grad);
+      else p.grad = grad;
+    };
+    accumulate(this.Wxh, dWxh);
+    accumulate(this.Whh, dWhh);
+    accumulate(this.bh, dBh);
+    accumulate(this.Wq, dWq);
+    accumulate(this.Wm, dWm);
+    accumulate(this.Wg, dWg);
+    accumulate(this.bg, dBg);
+
+    return dx;
+  }
+
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
     const seqLen = this.inputShape[1];
     if (seqLen <= 0 || this.stepCaches.length !== seqLen) {
       throw new Error("AdaptiveMemoryRNN.backward: forward must be called before backward.");
     }
 
-    const externalError = this.resolveError(y, err, seqLen);
-    this.ensureBackwardBuffers(seqLen);
-    const dWxh = this.dWxhBuffer;
-    const dWhh = this.dWhhBuffer;
-    const dBh = this.dBhBuffer;
-    const dWq = Matrix.fromFlat(new Float32Array(this.memoryDim * (this.units + this.hiddenUnits)), [this.memoryDim, this.units + this.hiddenUnits]);
-    const dWm = Matrix.fromFlat(new Float32Array(this.memoryDim * this.hiddenUnits), [this.memoryDim, this.hiddenUnits]);
-    const dWg = Matrix.fromFlat(new Float32Array(this.memoryDim * (this.units + this.hiddenUnits + this.memoryDim)), [this.memoryDim, this.units + this.hiddenUnits + this.memoryDim]);
-    const dBg = Matrix.fromFlat(new Float32Array(this.memoryDim), [this.memoryDim, 1]);
-    dWxh._data.fill(0);
-    dWhh._data.fill(0);
-    dBh._data.fill(0);
-    this.dxBuffer._data.fill(0);
-
-    const nativeOk = this.runNativeBackward(
-      [this.stepCaches],
-      [externalError],
-      dWxh,
-      dWhh,
-      dBh,
-      dWq,
-      dWm,
-      dWg,
-      dBg,
-      this.dxBuffer._data,
-      seqLen,
-      1
-    );
-    if (!nativeOk) {
-      this.backwardThroughStepCaches(
-        this.stepCaches,
-        externalError,
-        dWxh,
-        dWhh,
-        dBh,
-        dWq,
-        dWm,
-        dWg,
-        dBg,
-        this.dxBuffer._data,
-        seqLen,
-        0,
-        1
-      );
-    }
-
-    this.clipGradientsIfNeeded(dWxh, dWhh, dBh, dWq, dWm, dWg, dBg);
-    this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
-    this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
-    this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
-    this.Wq.subInPlace(this.optimizerWq.calculate(dWq, this.alpha));
-    this.Wm.subInPlace(this.optimizerWm.calculate(dWm, this.alpha));
-    this.Wg.subInPlace(this.optimizerWg.calculate(dWg, this.alpha));
-    this.bg.subInPlace(this.optimizerBg.calculate(dBg, this.alpha));
-
-    return this.dxBuffer;
+    const dx = this.calculateGradients(mj.zeros([this.units, seqLen]), err);
+    if (!gradOnly) this.update(this.alpha);
+    return dx;
   }
 
-  backwardBatch(y: Matrix, err: Matrix, batchSize: number): Matrix {
+  backwardBatch(y: Matrix, err: Matrix, batchSize: number, gradOnly = false): Matrix {
     const totalCols = this.inputShape[1];
     this.assertBatchInputSupportedShape(batchSize, totalCols);
     const seqLen = totalCols / batchSize;
@@ -1606,7 +1756,7 @@ export default class AdaptiveMemoryRNN {
   }
 
   private loadMatrix(name: "Wxh" | "Whh" | "bh" | "Wq" | "Wm" | "Wg" | "bg" | "memoryKeys" | "memoryValues", value: number[][]): void {
-    if (!value) throw new Error(`AdaptiveMemoryRNN.load: expected '${name}' in serialized data.`);
+    if (!value) return;
     this[name]._value = value;
     this[name]._shape = [value.length, value[0]?.length ?? 0];
   }

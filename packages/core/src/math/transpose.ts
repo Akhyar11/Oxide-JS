@@ -1,4 +1,6 @@
 import Matrix from "../matrix/index.js";
+import { engine } from "../autodiff/engine.js";
+import mj from "./index.js";
 
 /**
  * Transposisi matrix [i, j] => [j, i] — DIOPTIMASI
@@ -25,5 +27,18 @@ export default function transpose(a: Matrix, out?: Matrix): Matrix {
     }
   }
 
-  return out ? out : Matrix.fromFlat(resultData, [cols, rows]);
+  const res = out || Matrix.fromFlat(resultData, [cols, rows]);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [res], (grad: Matrix) => {
+      // dL/da = grad^T
+      const gradA = mj.transpose(grad);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
+  return res;
 }

@@ -1,47 +1,106 @@
 import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
 import { isNativeAvailable, softmaxNative, softmaxBackwardNative, sigmoidNative, reluNative, tanhNative } from "../math/rust_backend.js";
+import { engine } from "../autodiff/engine.js";
 
 export function sigmoid(a: Matrix): [Matrix, Matrix] {
+  let result: Matrix;
+  let dResult: Matrix;
+
   if (isNativeAvailable()) {
     const res = new Float32Array(a._data.length);
     const grad = new Float32Array(a._data.length);
     sigmoidNative(a._data, res, grad);
-    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+    result = Matrix.fromFlat(res, a._shape);
+    dResult = Matrix.fromFlat(grad, a._shape);
+  } else {
+    result = mj.map(a, (val) => 1 / (1 + Math.exp(-val)));
+    dResult = mj.map(result, (val) => val * (1 - val));
   }
-  const result = mj.map(a, (val) => 1 / (1 + Math.exp(-val)));
-  const dResult = mj.map(result, (val) => val * (1 - val));
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [result], (grad: Matrix) => {
+      const gradA = mj.mul(grad, dResult);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
   return [result, dResult];
 }
 
 export function tanh(a: Matrix): [Matrix, Matrix] {
+  let result: Matrix;
+  let dResult: Matrix;
+
   if (isNativeAvailable()) {
     const res = new Float32Array(a._data.length);
     const grad = new Float32Array(a._data.length);
     tanhNative(a._data, res, grad);
-    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+    result = Matrix.fromFlat(res, a._shape);
+    dResult = Matrix.fromFlat(grad, a._shape);
+  } else {
+    result = mj.map(a, (val) => Math.tanh(val));
+    dResult = mj.map(result, (val) => 1 - val ** 2);
   }
-  const result = mj.map(a, (val) => Math.tanh(val));
-  const dResult = mj.map(result, (val) => 1 - val ** 2);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [result], (grad: Matrix) => {
+      const gradA = mj.mul(grad, dResult);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
   return [result, dResult];
 }
 
 export function relu(a: Matrix): [Matrix, Matrix] {
+  let result: Matrix;
+  let dResult: Matrix;
+
   if (isNativeAvailable()) {
     const res = new Float32Array(a._data.length);
     const grad = new Float32Array(a._data.length);
     reluNative(a._data, res, grad);
-    return [Matrix.fromFlat(res, a._shape), Matrix.fromFlat(grad, a._shape)];
+    result = Matrix.fromFlat(res, a._shape);
+    dResult = Matrix.fromFlat(grad, a._shape);
+  } else {
+    result = mj.map(a, (val) => (val < 0 ? 0 : val));
+    dResult = mj.map(a, (val) => (val > 0 ? 1 : 0));
   }
-  const result = mj.map(a, (val) => (val < 0 ? 0 : val));
-  // gradient dihitung dari input 'a' asli: 0 jika a<=0, 1 jika a>0
-  const dResult = mj.map(a, (val) => (val > 0 ? 1 : 0));
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [result], (grad: Matrix) => {
+      const gradA = mj.mul(grad, dResult);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
   return [result, dResult];
 }
 
 export function lRelu(a: Matrix): [Matrix, Matrix] {
   const result = mj.map(a, (val) => (val < 0 ? val * 1e-5 : val));
   const dResult = mj.map(a, (val) => (val < 0 ? 1e-5 : 1));
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [result], (grad: Matrix) => {
+      const gradA = mj.mul(grad, dResult);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
   return [result, dResult];
 }
 
@@ -49,6 +108,16 @@ export default function linear(a: Matrix): [Matrix, Matrix] {
   // Buat salinan baru agar tidak terjadi aliasing yang merusak backward pass
   const result = mj.map(a, (val) => val);
   const dResult = mj.ones(a._shape);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [result], (grad: Matrix) => {
+      if (a.grad) a.grad.addInPlace(grad);
+      else a.grad = grad;
+    });
+  }
+
   return [result, dResult];
 }
 
@@ -140,7 +209,20 @@ export function softmaxOnly(a: Matrix, row = false): Matrix {
  */
 export function softmax(a: Matrix, row = false): [Matrix, Matrix] {
   const softmaxMatrix = softmaxOnly(a, row);
-  return [softmaxMatrix, softmaxGradient(softmaxMatrix)];
+  const dSoftmax = softmaxGradient(softmaxMatrix);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [softmaxMatrix], (grad: Matrix) => {
+      // Softmax backward is special: it's a Jacobian-vector product
+      const gradA = softmaxBackward(softmaxMatrix, grad, row);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
+  return [softmaxMatrix, dSoftmax];
 }
 
 /**

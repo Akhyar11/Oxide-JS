@@ -1,5 +1,7 @@
 import Matrix from "../matrix/index.js";
 import { isNativeAvailable, shouldUseNativeElementwise, sumAxisNative } from "./rust_backend.js";
+import { engine } from "../autodiff/engine.js";
+import mj from "./index.js";
 
 /**
  * Menjumlahkan matrix sepanjang axis tertentu
@@ -34,5 +36,31 @@ export default function sumAxis(a: Matrix, axis: number, out?: Matrix): Matrix {
       }
     }
   }
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [result], (grad: Matrix) => {
+      // dL/da = broadcast(grad) ke shape original a
+      const gradA = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+      const gaData = gradA._data;
+      const gData = grad._data;
+      
+      if (axis === 1) {
+        for (let i = 0; i < rows; i++) {
+          const gVal = gData[i];
+          for (let j = 0; j < cols; j++) gaData[i * cols + j] = gVal;
+        }
+      } else {
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j < cols; j++) gaData[i * cols + j] = gData[j];
+        }
+      }
+      
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
   return result;
 }

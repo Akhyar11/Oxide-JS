@@ -1,5 +1,7 @@
 import { MatrixShape } from "../@types/type.js";
 import Matrix from "../matrix/index.js";
+import { engine } from "../autodiff/engine.js";
+import mj from "./index.js";
 
 /**
  * Reshape matrix — DIOPTIMASI
@@ -12,6 +14,20 @@ export default function reshape(a: Matrix, shape: MatrixShape): Matrix {
     );
   }
   // Data sudah flat dan urut — hanya copy dan ubah shape
-  const result = new Float32Array(a._data);
-  return Matrix.fromFlat(result, shape);
+  const originalShape = [...a._shape] as MatrixShape;
+  const resultData = new Float32Array(a._data);
+  const res = Matrix.fromFlat(resultData, shape);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [res], (grad: Matrix) => {
+      // dL/da = reshape(grad) back to originalShape
+      const gradA = mj.reshape(grad, originalShape);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
+  return res;
 }

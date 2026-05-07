@@ -57,6 +57,14 @@ export default class AttentionPooling {
     this.params = this.scorer.params;
   }
 
+  getParams(): Matrix[] {
+    return this.scorer.getParams();
+  }
+
+  update(alpha: number): void {
+    this.scorer.update(alpha);
+  }
+
   setValidLength(validLength: number): void {
     if (!Number.isInteger(validLength) || validLength < 1) {
       throw new Error(`AttentionPooling.setValidLength: invalid validLength=${validLength}`);
@@ -88,7 +96,7 @@ export default class AttentionPooling {
     return out;
   }
 
-  backward(_y: Matrix, err: Matrix): Matrix {
+  backward(_y: Matrix, err: Matrix, gradOnly = false): Matrix {
     if (err._shape[0] !== this.units || err._shape[1] !== 1) {
       throw new Error(`AttentionPooling.backward: expected err [${this.units}, 1], got [${err._shape[0]}, ${err._shape[1]}]`);
     }
@@ -115,7 +123,7 @@ export default class AttentionPooling {
       scoreGrad._data[t] = this.lastWeights[t] * (weightGrad[t] - dot);
     }
 
-    const scorerDx = this.scorer.backward(mj.matrix([]), scoreGrad);
+    const scorerDx = this.scorer.backward(mj.matrix([]), scoreGrad, gradOnly);
     for (let i = 0; i < dx._data.length; i++) {
       dx._data[i] += scorerDx._data[i] ?? 0;
     }
@@ -135,7 +143,6 @@ export default class AttentionPooling {
   }
 
   save() {
-    const scorer = this.scorer.save();
     return {
       name: this.name,
       status: this.status,
@@ -145,9 +152,29 @@ export default class AttentionPooling {
       optimizer: this.optimizerName,
       clipGradient: this.clipGradient,
       validLength: this.validLength,
-      weight: scorer.weight,
-      bias: scorer.bias,
+      weight: this.scorer.weight._value,
+      bias: this.scorer.bias._value,
     };
+  }
+
+  toKerasConfig() {
+    return {
+      class_name: "AttentionPooling",
+      config: {
+        units: this.units,
+        maxTokens: this.maxTokens,
+        name: `attention_pooling_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return this.scorer.getWeightsManifest();
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    this.scorer.setWeightsFromBinary(weights);
   }
 
   load(data: {
@@ -158,8 +185,8 @@ export default class AttentionPooling {
     status?: StatusLayer;
     clipGradient?: number | boolean;
     validLength?: number;
-    weight: number[][];
-    bias: number[][];
+    weight?: number[][];
+    bias?: number[][];
   }): void {
     this.units = data.units ?? this.units;
     this.maxTokens = data.maxTokens ?? this.maxTokens;
@@ -179,7 +206,9 @@ export default class AttentionPooling {
       clipGradient: this.clipGradient,
       status: "train",
     });
-    this.scorer.load(data.weight, data.bias, this.clipGradient);
+    if (data.weight && data.bias) {
+      this.scorer.load(data.weight, data.bias, this.clipGradient);
+    }
     this.scorer.compile({
       alpha: this.alpha,
       optimizer: this.optimizerName,

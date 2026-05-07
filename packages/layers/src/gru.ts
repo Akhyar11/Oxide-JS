@@ -1,4 +1,4 @@
-import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
+import { Cost, Optimizer, OptimizerType, StatusLayer, engine } from "@oxide-js/core";
 import { mj } from "@oxide-js/core";
 import { isNativeAvailable, gruForwardNative, gruBackwardNative } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
@@ -152,21 +152,84 @@ export default class GRU {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "GRU",
+      config: {
+        units: this.hiddenUnits,
+        activation: "tanh",
+        recurrent_activation: "sigmoid",
+        use_bias: true,
+        return_sequences: this.returnSequences,
+        return_state: this.returnState,
+        stateful: this.stateful,
+        name: `gru_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    const manifest: { name: string; shape: [number, number]; data: Float32Array }[] = [];
+    const dirs = [ { prefix: "fwd_", dir: this.forwardDirection } ];
+    if (this.backwardDirection) dirs.push({ prefix: "bwd_", dir: this.backwardDirection });
+    
+    for (const { prefix, dir } of dirs) {
+      const names = ["Wxr", "Whr", "br", "Wxz", "Whz", "bz", "Wxh", "Whh", "bh"];
+      for (const name of names) {
+        manifest.push({
+          name: prefix + name,
+          shape: (dir as any)[name]._shape,
+          data: (dir as any)[name]._data
+        });
+      }
+    }
+    return manifest;
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    const dirs = [ { prefix: "fwd_", dir: this.forwardDirection } ];
+    if (this.backwardDirection) dirs.push({ prefix: "bwd_", dir: this.backwardDirection });
+    
+    // Check if input units needs to be determined
+    if (this.units === 0 && weights["fwd_Wxr"]) {
+      this.units = weights["fwd_Wxr"].length / this.hiddenUnits;
+      
+      for (const { dir } of dirs) {
+        dir.Wxr._shape = [this.hiddenUnits, this.units]; dir.Wxr._data = new Float32Array(this.hiddenUnits * this.units);
+        dir.Wxz._shape = [this.hiddenUnits, this.units]; dir.Wxz._data = new Float32Array(this.hiddenUnits * this.units);
+        dir.Wxh._shape = [this.hiddenUnits, this.units]; dir.Wxh._data = new Float32Array(this.hiddenUnits * this.units);
+      }
+    }
+    
+    for (const { prefix, dir } of dirs) {
+      const names = ["Wxr", "Whr", "br", "Wxz", "Whz", "bz", "Wxh", "Whh", "bh"];
+      for (const name of names) {
+        if (weights[prefix + name]) {
+          (dir as any)[name]._data.set(weights[prefix + name]);
+        }
+      }
+    }
+  }
+
   load(data: Record<string, any>) {
     if (!data || typeof data !== "object") {
-      throw new Error("GRU.load: expected serialized GRU object.");
+      return;
     }
-    if (!data.forward || typeof data.forward !== "object") {
-      throw new Error("GRU.load: expected serialized 'forward' direction.");
-    }
-    this.assertSerializedDirection(data.forward, "forward");
-    this.deserializeDirection(this.forwardDirection, data.forward);
-    if (this.backwardDirection) {
-      if (!data.backward || typeof data.backward !== "object") {
-        throw new Error("GRU.load: expected serialized 'backward' direction for bidirectional GRU.");
+    
+    if (data.forward) {
+      if (typeof data.forward !== "object") {
+        throw new Error("GRU.load: expected serialized 'forward' direction to be an object.");
       }
-      this.assertSerializedDirection(data.backward, "backward");
-      this.deserializeDirection(this.backwardDirection, data.backward);
+      this.assertSerializedDirection(data.forward, "forward");
+      this.deserializeDirection(this.forwardDirection, data.forward);
+      if (this.backwardDirection) {
+        if (!data.backward || typeof data.backward !== "object") {
+          throw new Error("GRU.load: expected serialized 'backward' direction for bidirectional GRU.");
+        }
+        this.assertSerializedDirection(data.backward, "backward");
+        this.deserializeDirection(this.backwardDirection, data.backward);
+      }
     }
     if (typeof data.clipGradient === "number" || typeof data.clipGradient === "boolean") {
       this.clipGradient = data.clipGradient;
@@ -197,6 +260,39 @@ export default class GRU {
       this.lossFunc = setLoss(error);
     }
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
+  }
+
+  getParams(): Matrix[] {
+    const params: Matrix[] = [
+      this.forwardDirection.Wxr, this.forwardDirection.Whr, this.forwardDirection.br,
+      this.forwardDirection.Wxz, this.forwardDirection.Whz, this.forwardDirection.bz,
+      this.forwardDirection.Wxh, this.forwardDirection.Whh, this.forwardDirection.bh,
+    ];
+    if (this.backwardDirection) {
+      params.push(
+        this.backwardDirection.Wxr, this.backwardDirection.Whr, this.backwardDirection.br,
+        this.backwardDirection.Wxz, this.backwardDirection.Whz, this.backwardDirection.bz,
+        this.backwardDirection.Wxh, this.backwardDirection.Whh, this.backwardDirection.bh
+      );
+    }
+    return params;
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    const updateDir = (dir: DirectionParams) => {
+      dir.optimizerWxr.apply(dir.Wxr, a);
+      dir.optimizerWhr.apply(dir.Whr, a);
+      dir.optimizerBr.apply(dir.br, a);
+      dir.optimizerWxz.apply(dir.Wxz, a);
+      dir.optimizerWhz.apply(dir.Whz, a);
+      dir.optimizerBz.apply(dir.bz, a);
+      dir.optimizerWxh.apply(dir.Wxh, a);
+      dir.optimizerWhh.apply(dir.Whh, a);
+      dir.optimizerBh.apply(dir.bh, a);
+    };
+    updateDir(this.forwardDirection);
+    if (this.backwardDirection) updateDir(this.backwardDirection);
   }
 
   resetState() {
@@ -256,7 +352,53 @@ export default class GRU {
       }
     }
 
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, ...this.getParams()], [this.resultBuffer], (grad: Matrix) => {
+        this.calculateGradients(x, grad);
+      });
+    }
+
     return this.resultBuffer;
+  }
+
+  private calculateGradients(x: Matrix, grad: Matrix): Matrix {
+    const seqLen = x._shape[1];
+    
+    // Split error into forward and backward directions
+    const extForward = this.buildErrorViews(this.ensureSplitErrorBuffer("forward", seqLen * this.hiddenUnits), seqLen, this.hiddenUnits);
+    this.splitForwardErrorBuffer.fill(0, 0, seqLen * this.hiddenUnits);
+    const extBackward = this.backwardDirection
+      ? this.buildErrorViews(this.ensureSplitErrorBuffer("backward", seqLen * this.hiddenUnits), seqLen, this.hiddenUnits)
+      : undefined;
+    if (extBackward) this.splitBackwardErrorBuffer.fill(0, 0, seqLen * this.hiddenUnits);
+
+    const gradData = grad._data;
+    if (this.returnSequences) {
+      for (let t = 0; t < seqLen; t++) {
+        for (let i = 0; i < this.hiddenUnits; i++) {
+          extForward[t][i] = gradData[i * seqLen + t];
+          if (extBackward) {
+            extBackward[t][i] = gradData[(i + this.hiddenUnits) * seqLen + t];
+          }
+        }
+      }
+    } else {
+      for (let i = 0; i < this.hiddenUnits; i++) {
+        extForward[seqLen - 1][i] = gradData[i];
+        if (extBackward) {
+          extBackward[0][i] = gradData[i + this.hiddenUnits];
+        }
+      }
+    }
+
+    const dxForward = this.runDirectionBackward(this.forwardDirection, extForward, false);
+    const dx = dxForward.slice();
+    if (this.backwardDirection && extBackward) {
+      const dxBackward = this.runDirectionBackward(this.backwardDirection, extBackward, true);
+      for (let i = 0; i < dx.length; i++) dx[i] += dxBackward[i];
+    }
+    return Matrix.fromFlat(dx, [this.units, seqLen]);
   }
 
   forwardBatch(x: Matrix, batchSize: number): Matrix {
@@ -293,79 +435,41 @@ export default class GRU {
       }
     }
 
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, ...this.getParams()], [this.resultBuffer], (grad: Matrix) => {
+        this.calculateGradientsBatch(x, grad, batchSize);
+      });
+    }
+
     return this.resultBuffer;
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
-    const seqLen = this.inputShape[1];
-    if (seqLen <= 0 || this.forwardDirection.hSeq.length !== seqLen + 1) {
-      throw new Error("GRU.backward: forward must be called before backward.");
-    }
-    const external = this.resolveError(y, err, seqLen);
-    const extForward = this.buildErrorViews(this.ensureSplitErrorBuffer("forward", seqLen * this.hiddenUnits), seqLen, this.hiddenUnits);
-    this.splitForwardErrorBuffer.fill(0, 0, seqLen * this.hiddenUnits);
-    const extBackward = this.backwardDirection
-      ? this.buildErrorViews(this.ensureSplitErrorBuffer("backward", seqLen * this.hiddenUnits), seqLen, this.hiddenUnits)
-      : undefined;
-    if (extBackward) this.splitBackwardErrorBuffer.fill(0, 0, seqLen * this.hiddenUnits);
-
-    if (this.returnSequences) {
-      for (let t = 0; t < seqLen; t++) {
-        for (let i = 0; i < this.hiddenUnits; i++) extForward[t][i] = external[t][i];
-        if (extBackward) {
-          for (let i = 0; i < this.hiddenUnits; i++) extBackward[t][i] = external[t][i + this.hiddenUnits];
-        }
-      }
-    } else {
-      for (let i = 0; i < this.hiddenUnits; i++) extForward[seqLen - 1][i] = external[seqLen - 1][i];
-      if (extBackward) {
-        for (let i = 0; i < this.hiddenUnits; i++) extBackward[0][i] = external[0][i + this.hiddenUnits];
-      }
-    }
-
-    const dxForward = this.runDirectionBackward(this.forwardDirection, extForward, false);
-    const dx = dxForward.slice();
-    if (this.backwardDirection && extBackward) {
-      const dxBackward = this.runDirectionBackward(this.backwardDirection, extBackward, true);
-      for (let i = 0; i < dx.length; i++) dx[i] += dxBackward[i];
-    }
-    return Matrix.fromFlat(dx, [this.units, seqLen]);
-  }
-
-  backwardBatch(y: Matrix, err: Matrix, batchSize: number): Matrix {
-    const totalCols = this.inputShape[1];
-    this.assertBatchInputSupportedShape(batchSize, totalCols);
+  private calculateGradientsBatch(x: Matrix, grad: Matrix, batchSize: number): Matrix {
+    const totalCols = x._shape[1];
     const seqLen = totalCols / batchSize;
-    if (this.forwardDirection.hSeq.length !== seqLen + 1) {
-      throw new Error("GRU.backwardBatch: forwardBatch must be called before backwardBatch.");
-    }
-
-    const external = this.resolveBatchError(y, err, seqLen, batchSize);
+    
+    // Split error into forward and backward directions
     const stepWidth = this.hiddenUnits * batchSize;
-    const extForward = this.buildErrorViews(
-      this.ensureBatchSplitErrorBuffer("forward", seqLen * stepWidth),
-      seqLen,
-      stepWidth
-    );
+    const extForward = this.buildErrorViews(this.ensureBatchSplitErrorBuffer("forward", seqLen * stepWidth), seqLen, stepWidth);
     this.batchSplitForwardErrorBuffer.fill(0, 0, seqLen * stepWidth);
     const extBackward = this.backwardDirection
       ? this.buildErrorViews(this.ensureBatchSplitErrorBuffer("backward", seqLen * stepWidth), seqLen, stepWidth)
       : undefined;
     if (extBackward) this.batchSplitBackwardErrorBuffer.fill(0, 0, seqLen * stepWidth);
 
+    const gradData = grad._data;
     if (this.returnSequences) {
       for (let t = 0; t < seqLen; t++) {
-        for (let i = 0; i < this.hiddenUnits * batchSize; i++) extForward[t][i] = external[t][i];
+        this.copyColumnBlockToArray(grad, t * batchSize, batchSize, extForward[t]);
         if (extBackward) {
-          for (let i = 0; i < this.hiddenUnits * batchSize; i++) {
-            extBackward[t][i] = external[t][i + this.hiddenUnits * batchSize];
-          }
+          this.copyColumnBlockToArrayOffset(grad, t * batchSize, batchSize, this.hiddenUnits, extBackward[t]);
         }
       }
     } else {
-      extForward[seqLen - 1].set(external[seqLen - 1].subarray(0, this.hiddenUnits * batchSize));
+      extForward[seqLen - 1].set(gradData.subarray(0, this.hiddenUnits * batchSize));
       if (extBackward) {
-        extBackward[0].set(external[0].subarray(this.hiddenUnits * batchSize));
+        extBackward[0].set(gradData.subarray(this.hiddenUnits * batchSize), this.hiddenUnits * batchSize);
       }
     }
 
@@ -376,6 +480,29 @@ export default class GRU {
       for (let i = 0; i < dx.length; i++) dx[i] += dxBackward[i];
     }
     return Matrix.fromFlat(dx, [this.units, totalCols]);
+  }
+
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
+    const seqLen = this.inputShape[1];
+    if (seqLen <= 0 || this.forwardDirection.hSeq.length !== seqLen + 1) {
+      throw new Error("GRU.backward: forward must be called before backward.");
+    }
+    const dx = this.calculateGradients(mj.zeros([this.units, seqLen]), err);
+    if (!gradOnly) this.update(this.alpha);
+    return dx;
+  }
+
+  backwardBatch(y: Matrix, err: Matrix, batchSize: number, gradOnly = false): Matrix {
+    const totalCols = this.inputShape[1];
+    this.assertBatchInputSupportedShape(batchSize, totalCols);
+    const seqLen = totalCols / batchSize;
+    if (this.forwardDirection.hSeq.length !== seqLen + 1) {
+      throw new Error("GRU.backwardBatch: forwardBatch must be called before backwardBatch.");
+    }
+
+    const dx = this.calculateGradientsBatch(mj.zeros([this.units, totalCols]), err, batchSize);
+    if (!gradOnly) this.update(this.alpha);
+    return dx;
   }
 
   resetLoss() {
@@ -800,15 +927,19 @@ export default class GRU {
       )
     ) {
         this.clipGradientsIfNeeded(dWxr, dWhr, dBr, dWxz, dWhz, dBz, dWxh, dWhh, dBh);
-        direction.Wxr.subInPlace(direction.optimizerWxr.calculate(dWxr, this.alpha));
-        direction.Whr.subInPlace(direction.optimizerWhr.calculate(dWhr, this.alpha));
-        direction.br.subInPlace(direction.optimizerBr.calculate(dBr, this.alpha));
-        direction.Wxz.subInPlace(direction.optimizerWxz.calculate(dWxz, this.alpha));
-        direction.Whz.subInPlace(direction.optimizerWhz.calculate(dWhz, this.alpha));
-        direction.bz.subInPlace(direction.optimizerBz.calculate(dBz, this.alpha));
-        direction.Wxh.subInPlace(direction.optimizerWxh.calculate(dWxh, this.alpha));
-        direction.Whh.subInPlace(direction.optimizerWhh.calculate(dWhh, this.alpha));
-        direction.bh.subInPlace(direction.optimizerBh.calculate(dBh, this.alpha));
+        const accumulate = (p: Matrix, grad: Matrix) => {
+          if (p.grad) p.grad.addInPlace(grad);
+          else p.grad = grad;
+        };
+        accumulate(direction.Wxr, dWxr);
+        accumulate(direction.Whr, dWhr);
+        accumulate(direction.br, dBr);
+        accumulate(direction.Wxz, dWxz);
+        accumulate(direction.Whz, dWhz);
+        accumulate(direction.bz, dBz);
+        accumulate(direction.Wxh, dWxh);
+        accumulate(direction.Whh, dWhh);
+        accumulate(direction.bh, dBh);
         return dx;
     }
 
@@ -1197,6 +1328,21 @@ export default class GRU {
     for (let row = 0; row < rows; row++) {
       const srcOffset = row * cols + startCol;
       target.set(source._data.subarray(srcOffset, srcOffset + blockCols), row * blockCols);
+    }
+  }
+
+  private copyColumnBlockToArrayOffset(
+    source: Matrix,
+    startCol: number,
+    blockCols: number,
+    rowOffset: number,
+    target: Float32Array
+  ) {
+    const cols = source._shape[1];
+    for (let row = 0; row < this.hiddenUnits; row++) {
+      const srcOffset = (row + rowOffset) * cols + startCol;
+      const dstOffset = row * blockCols;
+      target.set(source._data.subarray(srcOffset, srcOffset + blockCols), dstOffset);
     }
   }
 

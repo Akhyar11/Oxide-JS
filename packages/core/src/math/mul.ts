@@ -1,6 +1,8 @@
 import { MatrixCollection } from "../@types/type.js";
 import Matrix from "../matrix/index.js";
 import { isNativeAvailable, mulNative, shouldUseNativeElementwise } from "./rust_backend.js";
+import { engine } from "../autodiff/engine.js";
+import mj from "./index.js";
 
 /**
  * Perkalian element-wise a dan b — DIOPTIMASI
@@ -39,6 +41,24 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
   } else {
     for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] * bm._data[i];
   }
-  
-  return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+
+  const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([am, bm], [res], (grad: Matrix) => {
+      // dL/da = grad * b
+      const gradA = mj.mul(grad, bm);
+      if (am.grad) am.grad.addInPlace(gradA);
+      else am.grad = gradA;
+
+      // dL/db = grad * a
+      const gradB = mj.mul(grad, am);
+      if (bm.grad) bm.grad.addInPlace(gradB);
+      else bm.grad = gradB;
+    });
+  }
+
+  return res;
 }

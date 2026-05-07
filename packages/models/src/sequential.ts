@@ -64,22 +64,167 @@ export default class Sequential {
     return this;
   }
 
-  save(path: string) {
-    const data = [];
-    for (let layer of this.layers) {
-      data.push(layer.save());
+  /**
+   * Saves model architecture and weights in a Keras-compatible format (model.json + binary weights).
+   */
+  save(basePath: string) {
+    const weightsData: Float32Array[] = [];
+    const weightEntries: any[] = [];
+    const layerConfigs: any[] = [];
+    let currentOffset = 0;
+
+    for (const layer of this.layers) {
+      const layerConfig = (layer as any).toKerasConfig ? (layer as any).toKerasConfig() : {
+        class_name: layer.name,
+        config: (layer as any).save()
+      };
+      layerConfigs.push(layerConfig);
+
+      const manifest = (layer as any).getWeightsManifest ? (layer as any).getWeightsManifest() : [];
+      
+      for (const w of manifest) {
+        const length = w.data.length;
+        // Map "weight" to "kernel" and "bias" to "bias" for Keras naming
+        const kerasName = w.name === "weight" ? "kernel" : w.name;
+        
+        weightEntries.push({
+          name: `${layerConfig.config.name}/${kerasName}`,
+          shape: w.shape,
+          dtype: "float32"
+        });
+        weightsData.push(w.data);
+        currentOffset += length;
+      }
     }
-    const dataJson = JSON.stringify(data);
-    writeFileSync(path, dataJson);
+
+    const jsonPath = basePath.endsWith(".json") ? basePath : `${basePath}.json`;
+    const binPath = basePath.endsWith(".json") ? basePath.replace(/\.json$/, ".weights.bin") : `${basePath}.weights.bin`;
+    const binFilename = binPath.substring(binPath.lastIndexOf("/") + 1);
+    const modelJson = {
+      format: "layers-model",
+      generatedBy: "Oxide-JS v2.3.1",
+      convertedBy: null,
+      modelTopology: {
+        class_name: "Sequential",
+        config: {
+          layers: layerConfigs,
+          name: "sequential_model"
+        },
+        keras_version: "2.8.0",
+        backend: "tensorflow"
+      },
+      weightsManifest: [
+        {
+          paths: [binFilename],
+          weights: weightEntries
+        }
+      ]
+    };
+
+    // Save JSON
+    writeFileSync(jsonPath, JSON.stringify(modelJson, null, 2));
+
+    // Save Binary Weights
+    const combinedBuffer = new Float32Array(currentOffset);
+    let offset = 0;
+    for (const data of weightsData) {
+      combinedBuffer.set(data, offset);
+      offset += data.length;
+    }
+    writeFileSync(binPath, Buffer.from(combinedBuffer.buffer));
+
+    console.log(`[Sequential] Keras-compatible model saved: ${jsonPath} and ${binPath}`);
   }
 
-  load(path: string) {
-    const dataJson = readFileSync(path, "utf-8");
-    const data = JSON.parse(dataJson);
+  /**
+   * Loads model architecture and binary weights from a Keras-compatible model.json.
+   */
+  load(jsonPath: string) {
+    const dataJson = readFileSync(jsonPath, "utf-8");
+    const modelJson = JSON.parse(dataJson);
+    
+    let layersConfig: any[] = [];
+    let weightsManifest: any[] = [];
+
+    // Detect format
+    if (modelJson.format === "layers-model") {
+      // Keras/TFJS format
+      layersConfig = modelJson.modelTopology.config.layers;
+      weightsManifest = modelJson.weightsManifest[0].weights;
+    } else {
+      // Legacy oxide-v1 format (Fallback)
+      layersConfig = modelJson.modelTopology.layers;
+    }
+
+    const binFilename = modelJson.weightsManifest ? modelJson.weightsManifest[0].paths[0] : null;
+    const jsonDir = jsonPath.substring(0, jsonPath.lastIndexOf("/") + 1);
+    const binPath = binFilename ? `${jsonDir}${binFilename}` : jsonPath.replace(".json", ".weights.bin");
+    
+    const binBuffer = readFileSync(binPath);
+    const combinedWeights = new Float32Array(binBuffer.buffer, binBuffer.byteOffset, binBuffer.byteLength / 4);
+
+    // Normalize layersConfig to Oxide-JS format for setLayers
+    const normalizedLayers = layersConfig.map(l => {
+      if (l.class_name && l.config) {
+        // Map Keras class_name to Oxide-JS expected names if necessary
+        return {
+          ...l.config,
+          name: l.class_name
+        };
+      }
+      return l;
+    });
+
     this.layers = [];
-    const layers = setLayers(data);
+    const layers = setLayers(normalizedLayers);
+    
+    // Restore weights
+    let weightOffset = 0;
+    
+    // For Keras format, we use weightsManifest. For Oxide-V1, we use config.weights
+    const isKeras = modelJson.format === "layers-model";
+
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      const rawConfig = layersConfig[i];
+      
+      if ((layer as any).setWeightsFromBinary) {
+        const layerWeights: Record<string, Float32Array> = {};
+        
+        if (isKeras) {
+          // Extract expected weights for this layer based on its Keras name
+          const kerasName = rawConfig.config?.name || rawConfig.name;
+          const layerWeightInfos = weightsManifest.filter((w: any) => 
+            w.name.startsWith(kerasName + "/")
+          );
+          
+          if (layerWeightInfos.length > 0) {
+            for (const wInfo of layerWeightInfos) {
+              // Calculate size from shape
+              const weightSize = wInfo.shape.reduce((a: number, b: number) => a * b, 1);
+              const paramName = wInfo.name.split("/").pop();
+              layerWeights[paramName] = combinedWeights.subarray(weightOffset, weightOffset + weightSize);
+              weightOffset += weightSize;
+            }
+            (layer as any).setWeightsFromBinary(layerWeights);
+          } else {
+            console.warn(`[WARN] No weights found in manifest for ${kerasName}`);
+          }
+        } else {
+          // Legacy oxide-v1 format
+          if (rawConfig.weights) {
+            for (const wInfo of rawConfig.weights) {
+              layerWeights[wInfo.name] = combinedWeights.subarray(wInfo.offset, wInfo.offset + wInfo.length);
+            }
+            (layer as any).setWeightsFromBinary(layerWeights);
+          }
+        }
+      }
+    }
+
     this.assertSequentialCompatibleLayers(layers);
     this.layers = layers;
+    console.log(`[Sequential] Model loaded successfully from ${jsonPath}`);
   }
 
   compile(config: CompileDenseLayers) {
@@ -102,15 +247,27 @@ export default class Sequential {
     return input;
   }
 
-  backward(y: Matrix, batchSize: number = 1) {
+  backward(y: Matrix, batchSize: number = 1, gradOnly = false) {
     let err = mj.matrix([[]]);
     for (let i = this.layers.length - 1; i >= 0; i--) {
-      if (batchSize > 1 && typeof (this.layers[i] as any).backwardBatch === "function") {
-        err = (this.layers[i] as any).backwardBatch(y, err, batchSize);
+      const layer = this.layers[i] as any;
+      if (batchSize > 1 && typeof layer.backwardBatch === "function") {
+        err = layer.backwardBatch(y, err, batchSize, gradOnly);
       } else {
-        err = this.layers[i].backward(y, err);
+        err = layer.backward(y, err, gradOnly);
       }
-      if (this.layers[i].status === "output") this.loss = (this.layers[i] as any).loss;
+      if (layer.status === "output") this.loss = layer.loss;
+    }
+  }
+
+  /**
+   * Menerapkan gradien hasil Tape ke seluruh layer.
+   */
+  applyGradients(alpha: number) {
+    for (const layer of this.layers) {
+      if (typeof (layer as any).update === "function") {
+        (layer as any).update(alpha);
+      }
     }
   }
 

@@ -14,6 +14,9 @@ export default class Matrix {
   /** Internal flat storage — GUNAKAN INI untuk operasi cepat */
   _data: Float32Array;
   _shape: MatrixShape;
+  _version: number = 0; // Pelacakan untuk modifikasi in-place
+  grad: Matrix | null = null;
+  name?: string;
 
   constructor({ array }: { array: matrix2d }) {
     const rows = array.length;
@@ -38,6 +41,8 @@ export default class Matrix {
     const m = Object.create(Matrix.prototype) as Matrix;
     m._data = data instanceof Float32Array ? data : new Float32Array(data);
     m._shape = shape;
+    m._version = 0;
+    m.grad = null;
     return m;
   }
 
@@ -207,6 +212,10 @@ export default class Matrix {
   clone(): Matrix {
     const newData = new Float32Array(this._data);
     return Matrix.fromFlat(newData, [...this._shape]);
+  }
+
+  clearGrad(): void {
+    this.grad = null;
   }
 
   /**

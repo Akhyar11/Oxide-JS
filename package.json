@@ -51,6 +51,8 @@
   "dependencies": {
     "@napi-rs/cli": "^2.18.0",
     "@napi-rs/wasm-runtime": "^0.2.4",
+    "@tensorflow/tfjs-backend-cpu": "^4.22.0",
+    "@tensorflow/tfjs-core": "^4.22.0",
     "ts-node": "^10.9.2"
   }
 }

@@ -1,4 +1,6 @@
 import Matrix from "../matrix/index.js";
+import { engine } from "../autodiff/engine.js";
+import mj from "./index.js";
 
 /**
  * Matrix a => Matrix exp(a) — DIOPTIMASI
@@ -6,10 +8,23 @@ import Matrix from "../matrix/index.js";
  * @returns Matrix
  */
 export default function expm(a: Matrix): Matrix {
-  const result = new Float32Array(a._data.length);
+  const resultData = new Float32Array(a._data.length);
   const data = a._data;
   for (let i = 0; i < data.length; i++) {
-    result[i] = Math.exp(data[i]);
+    resultData[i] = Math.exp(data[i]);
   }
-  return Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
+  const res = Matrix.fromFlat(resultData, [a._shape[0], a._shape[1]]);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([a], [res], (grad: Matrix) => {
+      // dL/da = grad * exp(a)
+      const gradA = mj.mul(grad, res);
+      if (a.grad) a.grad.addInPlace(gradA);
+      else a.grad = gradA;
+    });
+  }
+
+  return res;
 }

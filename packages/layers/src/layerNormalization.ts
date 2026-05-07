@@ -1,5 +1,4 @@
-import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
-import { mj } from "@oxide-js/core";
+import { mj, engine, Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { isNativeAvailable, layerNormNative, layerNormBackwardNative } from "@oxide-js/core";
 import { setOptimizer } from "@oxide-js/core";
@@ -74,16 +73,67 @@ export default class LayerNormalization {
     };
   }
 
-  load(gamma: number[][], beta: number[][], clipGradient?: number | boolean): void {
-    this.gamma._value = gamma;
-    this.gamma._shape = [gamma.length, gamma[0]?.length ?? 0];
-    this.beta._value = beta;
-    this.beta._shape = [beta.length, beta[0]?.length ?? 0];
-    this.units = this.gamma._shape[0];
-    this.params = this.units * 2;
-    if (clipGradient !== undefined) this.clipGradient = clipGradient;
+  toKerasConfig() {
+    return {
+      class_name: "LayerNormalization",
+      config: {
+        axis: -1,
+        epsilon: this.epsilon,
+        center: true,
+        scale: true,
+        name: `layer_normalization_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return [
+      { name: "gamma", shape: this.gamma._shape, data: this.gamma._data },
+      { name: "beta", shape: this.beta._shape, data: this.beta._data },
+    ];
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.gamma) {
+      if (this.gamma._data.length === 0 || this.gamma._data.length !== weights.gamma.length) {
+        this.units = weights.gamma.length;
+        this.gamma._data = new Float32Array(this.units);
+        this.gamma._shape = [this.units, 1];
+      }
+      this.gamma._data.set(weights.gamma);
+    }
+    if (weights.beta) {
+      if (this.beta._data.length === 0 || this.beta._data.length !== weights.beta.length) {
+        this.units = weights.beta.length;
+        this.beta._data = new Float32Array(this.units);
+        this.beta._shape = [this.units, 1];
+      }
+      this.beta._data.set(weights.beta);
+    }
+  }
+
+  load(gamma?: number[][], beta?: number[][], clipGradient?: number | boolean): void {
+    if (gamma) {
+      this.gamma._value = gamma;
+      this.gamma._shape = [gamma.length, gamma[0]?.length ?? 0];
+    }
+    if (beta) {
+      this.beta._value = beta;
+      this.beta._shape = [beta.length, beta[0]?.length ?? 0];
+    }
     this.optimizerGamma = setOptimizer(this.optimizerName, this.gamma._shape, this.alpha);
     this.optimizerBeta = setOptimizer(this.optimizerName, this.beta._shape, this.alpha);
+  }
+
+  getParams(): Matrix[] {
+    return [this.gamma, this.beta];
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    this.optimizerGamma.apply(this.gamma, a);
+    this.optimizerBeta.apply(this.beta, a);
   }
 
   forward(x: Matrix): Matrix {
@@ -106,6 +156,14 @@ export default class LayerNormalization {
         this.mean._data,
         this.std._data
       );
+      
+      const tape = engine.tape;
+      if (tape) {
+        tape.record([x, this.gamma, this.beta], [this.resultBuffer], (grad: Matrix) => {
+          this.calculateGradients(grad);
+        });
+      }
+
       return this.resultBuffer;
     }
 
@@ -148,15 +206,24 @@ export default class LayerNormalization {
       }
     }
 
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, this.gamma, this.beta], [this.resultBuffer], (grad: Matrix) => {
+        this.calculateGradients(grad);
+      });
+    }
+
     return this.resultBuffer;
   }
 
-  backward(_y: Matrix, err: Matrix): Matrix {
+  backward(_y: Matrix, err: Matrix, gradOnly = false): Matrix {
+    const dx = this.calculateGradients(err);
+    if (!gradOnly) this.update(this.alpha);
+    return dx;
+  }
+
+  private calculateGradients(err: Matrix): Matrix {
     const [rows, cols] = err._shape;
-    const [fwdRows, fwdCols] = this.inputShape;
-    if (rows !== fwdRows || cols !== fwdCols) {
-      throw new Error(`LayerNormalization.backward: err shape [${rows}x${cols}] does not match forward input shape [${fwdRows}x${fwdCols}]`);
-    }
     if (this.dGammaBuffer._shape[0] !== this.units) {
       this.dGammaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
       this.dBetaBuffer = Matrix.fromFlat(new Float32Array(this.units), [this.units, 1]);
@@ -219,22 +286,19 @@ export default class LayerNormalization {
       }
     }
 
-    // [Update]: Update gamma dan beta menggunakan optimizer
-    const gGrad = this.dGammaBuffer;
-    const bGrad = this.dBetaBuffer;
-
+    // Accumulate gradients
+    if (!this.gamma.grad) this.gamma.grad = mj.zeros(this.gamma._shape);
+    if (!this.beta.grad) this.beta.grad = mj.zeros(this.beta._shape);
+    
     // Gradient clipping untuk LN parameters
     if (this.clipGradient !== false) {
       const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
-      this.clipGradients(gGrad, limit);
-      this.clipGradients(bGrad, limit);
+      this.clipGradients(this.dGammaBuffer, limit);
+      this.clipGradients(this.dBetaBuffer, limit);
     }
 
-    const gUpdate = this.optimizerGamma.calculate(gGrad, this.alpha);
-    const bUpdate = this.optimizerBeta.calculate(bGrad, this.alpha);
-
-    this.gamma.subInPlace(gUpdate);
-    this.beta.subInPlace(bUpdate);
+    this.gamma.grad.addInPlace(this.dGammaBuffer);
+    this.beta.grad.addInPlace(this.dBetaBuffer);
 
     return this.dxBuffer;
   }

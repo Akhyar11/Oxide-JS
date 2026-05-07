@@ -23,7 +23,7 @@ export {
 
 // === Cost Functions ===
 export {
-  MeanSquerError,
+  MeanSquaredError,
   CategoricalCrossEntropy,
   BinaryCrossEntropy,
   SoftmaxCrossEntropy,
@@ -62,9 +62,27 @@ export {
   trimPaddingBatch,
 } from "./utils/index.js";
 
+// === Auto-Diff ===
+export { default as Tape } from "./autodiff/index.js";
+export { engine } from "./autodiff/engine.js";
+
 // === Native Backend ===
 export * from "./math/rust_backend.js";
 
 // === Types ===
-export * from "./@types/type.js";
-// fitConfig is already exported via type.js
+export type {
+  vector,
+  matrix2d,
+  matrix3d,
+  MatrixCollection,
+  MatrixShape,
+  MatrixFlatData,
+  ActivationType,
+  StatusLayer,
+  Optimizer,
+  OptimizerType,
+  Cost,
+  WorkerData,
+  FitConfig,
+  FitResult,
+} from "./@types/type.js";

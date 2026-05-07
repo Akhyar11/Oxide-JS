@@ -172,4 +172,16 @@ export default class Adam {
     }
     return succeeded;
   }
+
+  /**
+   * Menerapkan gradien ke matrix target secara in-place.
+   * Mengambil gradien dari target.grad.
+   */
+  apply(target: Matrix, alpha: number): void {
+    if (!target.grad) return;
+    const update = this.calculate(target.grad, alpha);
+    target.subInPlace(update);
+    // Reset gradien setelah update
+    target.grad = null;
+  }
 }

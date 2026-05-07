@@ -1,5 +1,4 @@
-import { ActivationType, Cost, StatusLayer } from "@oxide-js/core";
-import { mj } from "@oxide-js/core";
+import { ActivationType, Cost, StatusLayer, engine, mj } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { setActivation } from "@oxide-js/core";
 import { setLoss } from "@oxide-js/core";
@@ -45,28 +44,54 @@ export default class Activation {
     return data;
   }
 
-  load({
-    activation,
-    loss,
-    status,
-  }: {
-    activation: ActivationType;
-    loss: Cost;
-    status: StatusLayer;
-  }) {
-    this.activation = setActivation(activation);
-    this.lossFunc = setLoss(loss);
-    this.activationName = activation;
-    this.lossName = loss;
-    this.status = status;
+  toKerasConfig() {
+    return {
+      class_name: "Activation",
+      config: {
+        activation: this.activationName,
+        name: `activation_${Math.floor(Math.random() * 1000)}`,
+        trainable: false,
+      }
+    };
+  }
+
+  load(data: any) {
+    if (data.activation !== undefined) {
+      this.activation = setActivation(data.activation);
+      this.activationName = data.activation;
+    }
+    if (data.loss !== undefined) {
+      this.lossFunc = setLoss(data.loss);
+      this.lossName = data.loss;
+    }
+    if (data.status !== undefined) {
+      this.status = data.status;
+    }
+  }
+
+  getParams(): Matrix[] {
+    return [];
+  }
+
+  update(_alpha: number): void {
+    // Activation layer has no trainable parameters
   }
 
   forward(x: Matrix) {
     [this.result, this.dResult] = this.activation(x);
+    
+    const tape = engine.tape;
+    if (tape) {
+      // Note: the individual activation functions (sigmoid, relu, etc.) 
+      // in core already record themselves in the tape.
+      // So we don't strictly need to record the Activation LAYER itself
+      // unless we want to handle the 'output' status loss here.
+    }
+    
     return this.result;
   }
 
-  backward(y: Matrix, err: Matrix) {
+  backward(y: Matrix, err: Matrix, gradOnly = false) {
     let e = err;
     let loss;
     if (this.status === "output") {
@@ -76,6 +101,7 @@ export default class Activation {
       this.loss = this.sumLoss / this.index;
     }
     const errActivation = mj.mul(e, this.dResult);
+    if (!gradOnly) this.update(0);
     return errActivation;
   }
 }

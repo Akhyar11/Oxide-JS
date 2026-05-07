@@ -11,10 +11,12 @@ import { runTransformerApiCorrectnessSuite } from "./transformers.api.test.ts";
 import { runTransformerLearningCorrectnessSuite } from "./transformers.learning.test.ts";
 import { runMemoryBankCorrectnessSuite } from "./memoryBank.test.ts";
 import { runMemoryBankRetrievalSuite } from "./memoryBank.retrieval.test.ts";
+import { runAutoDiffGradientSuite } from "./autodiff.gradient.test.ts";
 import { fileURLToPath } from "url";
 
 export function runCorrectnessSuite(): void {
   console.log("\n✅ Running Correctness Suite...");
+  runAutoDiffGradientSuite();
   runAdaptiveMemoryRNNCorrectnessSuite();
   runAttentionPoolingCorrectnessSuite();
   runEmbeddingTrainableCorrectnessSuite();

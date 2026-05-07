@@ -1,4 +1,4 @@
-import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
+import { Cost, Optimizer, OptimizerType, StatusLayer, engine } from "@oxide-js/core";
 import { softmaxBackward, softmaxOnly } from "@oxide-js/core";
 import { mj } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
@@ -102,14 +102,56 @@ export default class SelfAttention {
     };
   }
 
-  load(q: number[][], k: number[][], v: number[][], clipGradient?: number | boolean): void {
-    this.q._value = q;
-    this.q._shape = [q.length, q[0]?.length ?? 0];
-    this.k._value = k;
-    this.k._shape = [k.length, k[0]?.length ?? 0];
-    this.v._value = v;
-    this.v._shape = [v.length, v[0]?.length ?? 0];
+  toKerasConfig() {
+    return {
+      class_name: "SelfAttention",
+      config: {
+        units: this.units,
+        name: `self_attention_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return [
+      { name: "q", shape: this.q._shape, data: this.q._data },
+      { name: "k", shape: this.k._shape, data: this.k._data },
+      { name: "v", shape: this.v._shape, data: this.v._data },
+    ];
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.q) this.q._data.set(weights.q);
+    if (weights.k) this.k._data.set(weights.k);
+    if (weights.v) this.v._data.set(weights.v);
+  }
+
+  load(q?: number[][], k?: number[][], v?: number[][], clipGradient?: number | boolean): void {
+    if (q) {
+      this.q._value = q;
+      this.q._shape = [q.length, q[0]?.length ?? 0];
+    }
+    if (k) {
+      this.k._value = k;
+      this.k._shape = [k.length, k[0]?.length ?? 0];
+    }
+    if (v) {
+      this.v._value = v;
+      this.v._shape = [v.length, v[0]?.length ?? 0];
+    }
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
+  }
+
+  getParams(): Matrix[] {
+    return [this.q, this.k, this.v];
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    this.optimizerQ.apply(this.q, a);
+    this.optimizerK.apply(this.k, a);
+    this.optimizerV.apply(this.v, a);
   }
 
   forward(x: Matrix): Matrix {
@@ -152,26 +194,27 @@ export default class SelfAttention {
 
     this.input = x;
     this.output = output;
+
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, this.q, this.k, this.v], [output], (grad: Matrix) => {
+        this.calculateGradients(grad);
+      });
+    }
+
     return output;
   }
 
-  backward(y: Matrix, err: Matrix) {
-    let backwardInput = err;
-    let loss = 0;
-    if (this.status === "output") {
-      [loss, backwardInput] = this.lossFunc(y, this.output);
-    } else {
-      if (err._shape[1] === 1) {
-        backwardInput = mj.reshape(err, this.output._shape);
-      }
+  private calculateGradients(grad: Matrix): Matrix {
+    let backwardInput = grad;
+    if (grad._shape[1] === 1) {
+      backwardInput = mj.reshape(grad, this.output._shape);
     }
 
     const errV = mj.dotProduct(backwardInput, this.attention, undefined, false, true);
     const errAttention = mj.dotProduct(this.V, backwardInput, undefined, true, false);
 
-    // [CORRECTED] Use centralized Softmax Jacobian Backprop
     const errQKMatrix = softmaxBackward(this.attention, errAttention, false);
-
     const scale = 1 / Math.sqrt(this.outputUnits);
     const errQK = mj.mul(errQKMatrix, scale);
 
@@ -182,20 +225,6 @@ export default class SelfAttention {
     const gradK = mj.dotProduct(errK, this.input, undefined, false, true);
     const gradV = mj.dotProduct(errV, this.input, undefined, false, true);
 
-    // Simpan bobot lama SEBELUM update menggunakan pre-allocated buffer
-    if (!this.oldQBuffer) this.oldQBuffer = mj.zeros(this.q._shape);
-    if (!this.oldKBuffer) this.oldKBuffer = mj.zeros(this.k._shape);
-    if (!this.oldVBuffer) this.oldVBuffer = mj.zeros(this.v._shape);
-    
-    this.oldQBuffer.copyFrom(this.q);
-    this.oldKBuffer.copyFrom(this.k);
-    this.oldVBuffer.copyFrom(this.v);
-
-    const oldQ = this.oldQBuffer;
-    const oldK = this.oldKBuffer;
-    const oldV = this.oldVBuffer;
-
-    // [New] Gradient Clipping
     if (this.clipGradient !== false) {
       const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
       this.clipGradients(gradQ, limit);
@@ -203,21 +232,36 @@ export default class SelfAttention {
       this.clipGradients(gradV, limit);
     }
 
-    // Update bobot In-Place!
-    this.q.subInPlace(this.optimizerQ.calculate(gradQ, this.alpha));
-    this.k.subInPlace(this.optimizerK.calculate(gradK, this.alpha));
-    this.v.subInPlace(this.optimizerV.calculate(gradV, this.alpha));
+    const accumulate = (p: Matrix, g: Matrix) => {
+      if (p.grad) p.grad.addInPlace(g);
+      else p.grad = g;
+    };
+    accumulate(this.q, gradQ);
+    accumulate(this.k, gradK);
+    accumulate(this.v, gradV);
 
-    // Gunakan bobot LAMA untuk meneruskan gradient ke input
-    const gradQOutput = mj.dotProduct(oldQ, errQ, undefined, true, false);
-    const gradKOutput = mj.dotProduct(oldK, errK, undefined, true, false);
-    const gradVOutput = mj.dotProduct(oldV, errV, undefined, true, false);
+    const gradQOutput = mj.dotProduct(this.q, errQ, undefined, true, false);
+    const gradKOutput = mj.dotProduct(this.k, errK, undefined, true, false);
+    const gradVOutput = mj.dotProduct(this.v, errV, undefined, true, false);
 
-    // Gradient ke input adalah jumlah gradient dari ketiga path Q, K, V
     gradQOutput.addInPlace(gradKOutput);
     gradQOutput.addInPlace(gradVOutput);
     
+    if (this.input.grad) this.input.grad.addInPlace(gradQOutput);
+    else this.input.grad = gradQOutput;
+
     return gradQOutput;
+  }
+
+  backward(y: Matrix, err: Matrix, gradOnly = false) {
+    let backwardInput = err;
+    if (this.status === "output") {
+      [, backwardInput] = this.lossFunc(y, this.output);
+    }
+
+    const gradInput = this.calculateGradients(backwardInput);
+    if (!gradOnly) this.update(this.alpha);
+    return gradInput;
   }
 
   private clipGradients(m: Matrix, limit: number) {

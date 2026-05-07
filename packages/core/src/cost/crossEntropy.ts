@@ -1,4 +1,3 @@
-import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
 
 /**

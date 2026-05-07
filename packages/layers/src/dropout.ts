@@ -1,5 +1,4 @@
-import { StatusLayer } from "@oxide-js/core";
-import { mj } from "@oxide-js/core";
+import { mj, engine, StatusLayer } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 
 export default class Dropout {
@@ -28,10 +27,31 @@ export default class Dropout {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "Dropout",
+      config: {
+        rate: this.rate,
+        noise_shape: null,
+        seed: null,
+        name: `dropout_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
   load({ rate, status }: { rate: number; status: StatusLayer }) {
     this.rate = rate;
     this.status = status;
     this.applyStatusTraining(status);
+  }
+
+  getParams(): Matrix[] {
+    return [];
+  }
+
+  update(_alpha: number): void {
+    // Dropout has no trainable parameters
   }
 
   forward(x: Matrix): Matrix {
@@ -63,10 +83,21 @@ export default class Dropout {
       }
     }
 
+    const tape = engine.tape;
+    if (tape && this.training && this.rate > 0) {
+      const currentMask = this.mask.clone();
+      tape.record([x], [this.outputBuffer], (grad: Matrix) => {
+        // dx = grad * mask
+        const dx = mj.mul(grad, currentMask);
+        if (x.grad) x.grad.addInPlace(dx);
+        else x.grad = dx;
+      });
+    }
+
     return this.outputBuffer;
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
+  backward(y: Matrix, err: Matrix, _gradOnly = false): Matrix {
     if (!this.training || this.rate === 0) {
       return err;
     }

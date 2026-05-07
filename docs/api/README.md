@@ -6,6 +6,7 @@ Dokumentasi API Oxide-JS dipisahkan berdasarkan module agar lebih mudah dibaca d
 
 - [Matrix](./matrix.md)
 - [Math Module](./math.md)
+- [Auto-Diff](./autodiff.md)
 
 ## Neural Network Building Blocks
 

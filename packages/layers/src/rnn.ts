@@ -1,5 +1,4 @@
-import { Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
-import { mj } from "@oxide-js/core";
+import { mj, engine, Cost, Optimizer, OptimizerType, StatusLayer } from "@oxide-js/core";
 import { isNativeAvailable, rnnForwardNative, rnnBackwardNative } from "@oxide-js/core";
 import { Matrix } from "@oxide-js/core";
 import { setLoss } from "@oxide-js/core";
@@ -136,24 +135,71 @@ export default class RNN {
     };
   }
 
+  toKerasConfig() {
+    return {
+      class_name: "SimpleRNN",
+      config: {
+        units: this.hiddenUnits,
+        activation: this.activation,
+        use_bias: true,
+        return_sequences: this.returnSequences,
+        return_state: this.returnState,
+        stateful: this.stateful,
+        name: `simple_rnn_${Math.floor(Math.random() * 1000)}`,
+        trainable: true,
+      }
+    };
+  }
+
+  getWeightsManifest(): { name: string; shape: [number, number]; data: Float32Array }[] {
+    return [
+      { name: "kernel", shape: this.Wxh._shape, data: this.Wxh._data },
+      { name: "recurrent_kernel", shape: this.Whh._shape, data: this.Whh._data },
+      { name: "bias", shape: this.bh._shape, data: this.bh._data },
+    ];
+  }
+
+  setWeightsFromBinary(weights: Record<string, Float32Array>): void {
+    if (weights.kernel || weights.Wxh) {
+      const wxhData = weights.kernel ?? weights.Wxh;
+      if (this.units === 0) {
+        this.units = wxhData.length / this.hiddenUnits;
+        this.Wxh._shape = [this.hiddenUnits, this.units];
+        this.Wxh._data = new Float32Array(this.hiddenUnits * this.units);
+      }
+      this.Wxh._data.set(wxhData);
+    }
+    if (weights.recurrent_kernel || weights.Whh) {
+      this.Whh._data.set(weights.recurrent_kernel ?? weights.Whh);
+    }
+    if (weights.bias || weights.bh || weights.by) {
+      this.bh._data.set(weights.bias ?? weights.bh ?? weights.by!);
+    }
+  }
+
   load(data: {
-    Wxh: number[][];
-    Whh: number[][];
+    Wxh?: number[][];
+    Whh?: number[][];
     bh?: number[][];
     by?: number[][];
     hStateful?: number[][];
     clipGradient?: number | boolean;
   }) {
-    this.Wxh._value = data.Wxh;
-    this.Wxh._shape = [data.Wxh.length, data.Wxh[0]?.length ?? 0];
-    this.Whh._value = data.Whh;
-    this.Whh._shape = [data.Whh.length, data.Whh[0]?.length ?? 0];
-    const bias = data.bh ?? data.by;
-    if (!bias) {
-      throw new Error("RNN.load: expected 'bh' (or legacy 'by') in serialized data.");
+    if (data.Wxh) {
+      this.Wxh._value = data.Wxh;
+      this.Wxh._shape = [data.Wxh.length, data.Wxh[0]?.length ?? 0];
     }
-    this.bh._value = bias;
-    this.bh._shape = [bias.length, bias[0]?.length ?? 0];
+    if (data.Whh) {
+      this.Whh._value = data.Whh;
+      this.Whh._shape = [data.Whh.length, data.Whh[0]?.length ?? 0];
+    }
+    
+    const bias = data.bh ?? data.by;
+    if (bias) {
+      this.bh._value = bias;
+      this.bh._shape = [bias.length, bias[0]?.length ?? 0];
+    }
+
     if (data.hStateful) {
       this.h_stateful._value = data.hStateful;
       this.h_stateful._shape = [data.hStateful.length, data.hStateful[0]?.length ?? 0];
@@ -190,6 +236,17 @@ export default class RNN {
       this.lossFunc = setLoss(error);
     }
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
+  }
+
+  getParams(): Matrix[] {
+    return [this.Wxh, this.Whh, this.bh];
+  }
+
+  update(alpha: number): void {
+    const a = alpha || this.alpha;
+    this.optimizerWxh.apply(this.Wxh, a);
+    this.optimizerWhh.apply(this.Whh, a);
+    this.optimizerBh.apply(this.bh, a);
   }
 
   resetState() {
@@ -266,6 +323,15 @@ export default class RNN {
 
     const lastHidden = this.hiddenSequence[seqLen];
     if (this.stateful) this.h_stateful._data.set(lastHidden);
+
+    // --- TAPE RECORDING ---
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, this.Wxh, this.Whh, this.bh], [this.resultBuffer], (grad: Matrix) => {
+        this.calculateGradients(x, grad);
+      });
+    }
+
     return this.resultBuffer;
   }
 
@@ -363,29 +429,62 @@ export default class RNN {
     if (this.stateful && batchSize === 1) {
       this.h_stateful._data.set(this.batchHiddenSequence[seqLen]);
     }
+
+    // --- TAPE RECORDING (BATCH) ---
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([x, this.Wxh, this.Whh, this.bh], [this.resultBuffer], (grad: Matrix) => {
+        this.calculateGradientsBatch(x, grad, batchSize);
+      });
+    }
+
     return this.resultBuffer;
   }
 
-  backward(y: Matrix, err: Matrix): Matrix {
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
     const seqLen = this.inputShape[1];
-    if (seqLen <= 0 || this.hiddenSequence.length !== seqLen + 1) {
-      throw new Error("RNN.backward: forward must be called before backward.");
-    }
-
     const externalError = this.resolveError(y, err, seqLen);
-    const dWxh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.units), [this.hiddenUnits, this.units]);
-    const dWhh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.hiddenUnits), [this.hiddenUnits, this.hiddenUnits]);
-    const dBh = Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]);
+    const dx = this.calculateGradients(this.inputSequenceBufferAsMatrix(seqLen), this.matrixFromStepViews(externalError, seqLen));
+    if (!gradOnly) this.update(this.alpha);
+    return dx;
+  }
+
+  private inputSequenceBufferAsMatrix(seqLen: number): Matrix {
+     return Matrix.fromFlat(this.inputSequenceBuffer.subarray(0, seqLen * this.units), [this.units, seqLen]);
+  }
+
+  private matrixFromStepViews(views: Float32Array[], seqLen: number): Matrix {
+    const data = new Float32Array(this.hiddenUnits * seqLen);
+    for (let t = 0; t < seqLen; t++) {
+      for (let i = 0; i < this.hiddenUnits; i++) {
+        data[i * seqLen + t] = views[t][i];
+      }
+    }
+    return Matrix.fromFlat(data, [this.hiddenUnits, seqLen]);
+  }
+
+  private calculateGradients(x: Matrix, grad: Matrix): Matrix {
+    const seqLen = x._shape[1];
+    
+    const dWxh = mj.zeros(this.Wxh._shape);
+    const dWhh = mj.zeros(this.Whh._shape);
+    const dBh = mj.zeros(this.bh._shape);
     const dxData = new Float32Array(this.units * seqLen);
+    
     let dhNext = new Float32Array(this.hiddenUnits);
     const dhBuffer = new Float32Array(this.hiddenUnits);
     const dzBuffer = new Float32Array(this.hiddenUnits);
     let dhPrevBuffer = new Float32Array(this.hiddenUnits);
 
+    const gradData = grad._data;
+
     for (let t = seqLen - 1; t >= 0; t--) {
       const dh = dhBuffer;
-      dh.set(externalError[t]);
-      for (let i = 0; i < this.hiddenUnits; i++) dh[i] += dhNext[i];
+      // Extract grad at time t
+      for (let i = 0; i < this.hiddenUnits; i++) {
+        dh[i] = (this.returnSequences || t === seqLen - 1) ? gradData[i * (this.returnSequences ? seqLen : 1) + (this.returnSequences ? t : 0)] : 0;
+        dh[i] += dhNext[i];
+      }
 
       const dz = dzBuffer;
       for (let i = 0; i < this.hiddenUnits; i++) dz[i] = dh[i] * this.activationGradients[t][i];
@@ -412,56 +511,83 @@ export default class RNN {
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
-    this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
-    this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
-    this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
+    
+    // Accumulate gradients
+    if (this.Wxh.grad) this.Wxh.grad.addInPlace(dWxh); else this.Wxh.grad = dWxh;
+    if (this.Whh.grad) this.Whh.grad.addInPlace(dWhh); else this.Whh.grad = dWhh;
+    if (this.bh.grad) this.bh.grad.addInPlace(dBh); else this.bh.grad = dBh;
 
     return Matrix.fromFlat(dxData, [this.units, seqLen]);
   }
 
-  backwardBatch(y: Matrix, err: Matrix, batchSize: number): Matrix {
+  backwardBatch(y: Matrix, err: Matrix, batchSize: number, gradOnly = false): Matrix {
     const totalCols = this.inputShape[1];
-    this.assertBatchInputSupportedShape(batchSize, totalCols);
     const seqLen = totalCols / batchSize;
-    if (this.batchHiddenSequence.length !== seqLen + 1) {
-      throw new Error("RNN.backwardBatch: forwardBatch must be called before backwardBatch.");
-    }
-
     const externalError = this.resolveBatchError(y, err, seqLen, batchSize);
-    const dWxh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.units), [this.hiddenUnits, this.units]);
-    const dWhh = Matrix.fromFlat(new Float32Array(this.hiddenUnits * this.hiddenUnits), [this.hiddenUnits, this.hiddenUnits]);
-    const dBh = Matrix.fromFlat(new Float32Array(this.hiddenUnits), [this.hiddenUnits, 1]);
-    const dx = Matrix.fromFlat(new Float32Array(this.units * totalCols), [this.units, totalCols]);
+    const dx = this.calculateGradientsBatch(this.inputSequenceBufferAsMatrixBatch(seqLen, batchSize), this.matrixFromStepViewsBatch(externalError, seqLen, batchSize), batchSize);
+    if (!gradOnly) this.update(this.alpha);
+    return dx;
+  }
+
+  private inputSequenceBufferAsMatrixBatch(seqLen: number, batchSize: number): Matrix {
+    return Matrix.fromFlat(this.batchInputSequenceBuffer.subarray(0, seqLen * this.units * batchSize), [this.units, seqLen * batchSize]);
+  }
+
+  private matrixFromStepViewsBatch(views: Float32Array[], seqLen: number, batchSize: number): Matrix {
+    const data = new Float32Array(this.hiddenUnits * seqLen * batchSize);
+    for (let t = 0; t < seqLen; t++) {
+      const offset = t * this.hiddenUnits * batchSize;
+      data.set(views[t], offset);
+    }
+    return Matrix.fromFlat(data, [this.hiddenUnits, seqLen * batchSize]);
+  }
+
+  private calculateGradientsBatch(x: Matrix, grad: Matrix, batchSize: number): Matrix {
+    const totalCols = x._shape[1];
+    const seqLen = totalCols / batchSize;
+    
+    const dWxh = mj.zeros(this.Wxh._shape);
+    const dWhh = mj.zeros(this.Whh._shape);
+    const dBh = mj.zeros(this.bh._shape);
+    const dx = mj.zeros([this.units, totalCols]);
+    
     let dhNext = new Float32Array(this.hiddenUnits * batchSize);
 
     this.ensureBatchBackwardBuffers(batchSize);
 
+    // Native Path for Batch Gradient Calculation
     if (
       isNativeAvailable() &&
       rnnBackwardNative(
         this.Wxh._data, this.Whh._data,
         this.batchInputSequenceBuffer, this.batchHiddenSequenceBuffer, this.batchActivationGradientBuffer,
-        this.batchErrorStepBuffer,
+        grad._data, // Tape provides the gradient as a flat matrix
         this.hiddenUnits, this.units, seqLen, batchSize,
         dWxh._data, dWhh._data, dBh._data,
         dx._data
       )
     ) {
         this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
-        this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
-        this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
-        this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
+        if (this.Wxh.grad) this.Wxh.grad.addInPlace(dWxh); else this.Wxh.grad = dWxh;
+        if (this.Whh.grad) this.Whh.grad.addInPlace(dWhh); else this.Whh.grad = dWhh;
+        if (this.bh.grad) this.bh.grad.addInPlace(dBh); else this.bh.grad = dBh;
         return dx;
     }
 
+    // Fallback JS Path for Batch Gradient Calculation
     const dhBuffer = new Float32Array(this.hiddenUnits * batchSize);
     const dzBuffer = new Float32Array(this.hiddenUnits * batchSize);
     let dhPrevBuffer = new Float32Array(this.hiddenUnits * batchSize);
+    const gradData = grad._data;
 
     for (let t = seqLen - 1; t >= 0; t--) {
       const dh = dhBuffer;
-      dh.set(externalError[t]);
-      for (let i = 0; i < dh.length; i++) dh[i] += dhNext[i];
+      // Extract grad for step t
+      const gradOffset = t * this.hiddenUnits * batchSize;
+      for (let i = 0; i < dh.length; i++) {
+        dh[i] = (this.returnSequences || t === seqLen - 1) ? gradData[gradOffset + i] : 0;
+        dh[i] += dhNext[i];
+      }
 
       const dz = dzBuffer;
       for (let i = 0; i < dz.length; i++) dz[i] = dh[i] * this.batchActivationGradients[t][i];
@@ -487,9 +613,10 @@ export default class RNN {
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh);
-    this.Wxh.subInPlace(this.optimizerWxh.calculate(dWxh, this.alpha));
-    this.Whh.subInPlace(this.optimizerWhh.calculate(dWhh, this.alpha));
-    this.bh.subInPlace(this.optimizerBh.calculate(dBh, this.alpha));
+    if (this.Wxh.grad) this.Wxh.grad.addInPlace(dWxh); else this.Wxh.grad = dWxh;
+    if (this.Whh.grad) this.Whh.grad.addInPlace(dWhh); else this.Whh.grad = dWhh;
+    if (this.bh.grad) this.bh.grad.addInPlace(dBh); else this.bh.grad = dBh;
+    
     return dx;
   }
 

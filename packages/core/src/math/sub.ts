@@ -1,6 +1,8 @@
 import { MatrixCollection } from "../@types/type.js";
 import Matrix from "../matrix/index.js";
-import { isNativeAvailable, shouldUseNativeElementwise, subNative } from "./rust_backend.js";
+import { isNativeAvailable, subNative, shouldUseNativeElementwise } from "./rust_backend.js";
+import { engine } from "../autodiff/engine.js";
+import mj from "./index.js";
 
 const ensureOutputShape = (out: Matrix, rows: number, cols: number): void => {
   if (out._shape[0] !== rows || out._shape[1] !== cols) {
@@ -49,11 +51,27 @@ export default function sub(a: MatrixCollection, b: MatrixCollection, out?: Matr
   // USE NATIVE IF AVAILABLE
   if (isNativeAvailable() && shouldUseNativeElementwise(am._data.length)) {
     subNative(am._data, bm._data, resultData);
-    return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+  } else {
+    for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] - bm._data[i];
+  }
+  const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+
+  // RECORD FOR AUTO-DIFF
+  const tape = engine.tape;
+  if (tape) {
+    tape.record([am, bm], [res], (grad: Matrix) => {
+      // dL/da = grad
+      if (am.grad) am.grad.addInPlace(grad);
+      else am.grad = grad.clone();
+
+      // dL/db = -grad
+      const negGrad = mj.mul(grad, -1);
+      if (bm.grad) bm.grad.addInPlace(negGrad);
+      else bm.grad = negGrad;
+    });
   }
 
-  for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] - bm._data[i];
-  return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+  return res;
 }
 
 /**

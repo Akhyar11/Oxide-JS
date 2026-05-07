@@ -92,5 +92,15 @@ export default class Momentum {
       padTokenId
     );
   }
+
+  /**
+   * Menerapkan gradien ke matrix target secara in-place.
+   */
+  apply(target: Matrix, alpha: number): void {
+    if (!target.grad) return;
+    const update = this.calculate(target.grad, alpha);
+    target.subInPlace(update);
+    target.grad = null;
+  }
 }
 

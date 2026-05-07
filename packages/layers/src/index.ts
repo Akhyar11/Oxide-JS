@@ -14,7 +14,7 @@ import GRU from "./gru.js";
 import AdaptiveMemoryRNN from "./adaptiveMemoryRNN.js";
 import MemoryBank from "./memoryBank.js";
 import AttentionPooling from "./attentionPooling.js";
-import { CompileDenseLayers } from "./dense.js";
+import type { CompileDenseLayers } from "./dense.js";
 
 export {
   Dense,
