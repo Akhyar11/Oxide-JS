@@ -1,7 +1,7 @@
 # Oxide-JS (formerly ML-V1)
 
 <p align="center">
-  <img src="./OxideJS-logo.png" width="100%" alt="Oxide-JS Banner" />
+  <img src="./OxideJS-logo-benner.png" width="100%" alt="Oxide-JS Banner" />
 </p>
 
 > **Historical Note:** This project was originally published as **ML-V1**. Version [v2.3.0](https://github.com/Akhyar11/ML-V1/releases/tag/v2.3.0) represents the stable research artifact for recurrent network stability evaluations.
