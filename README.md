@@ -159,7 +159,7 @@ console.log(c._shape, d._shape);
 ### BPE Tokenizer
 
 ```ts
-import { BPETokenizer } from "@akhyar11/oxide-js";
+import { BPETokenizer } from "@oxide-js/core";
 
 const tokenizer = new BPETokenizer({ vocabSize: 120, minFrequency: 2 });
 tokenizer.train(["hello world", "hello there"]);
@@ -180,7 +180,7 @@ Supported modes:
 - `script-aware`
 
 ```ts
-import { BPETokenizer } from "@akhyar11/oxide-js";
+import { BPETokenizer } from "@oxide-js/core";
 
 const tokenizer = new BPETokenizer({
   vocabSize: 1000,
@@ -205,7 +205,8 @@ BPE alone is not enough for every writing system. Pre-tokenization is important 
 ### Transformer Causal LM — Training
 
 ```ts
-import { mj, Transformers } from "@akhyar11/oxide-js";
+import { mj } from "@oxide-js/core";
+import { Transformers } from "@oxide-js/models";
 
 const model = new Transformers({ units: 64, seqLen: 8, vocabSize: 500, heads: 8, alpha: 0.001, padTokenId: 0 });
 model.fillEmbeddingWeight("./pretrained-embedding.json");
