@@ -1,5 +1,14 @@
 # @oxide-js/models
 
+## 0.1.1
+
+### Patch Changes
+
+- 143482d: fix: point package exports to compiled JS files to avoid type-stripping errors in Node.js v25+
+- Updated dependencies [143482d]
+  - @oxide-js/layers@0.1.1
+  - @oxide-js/core@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
