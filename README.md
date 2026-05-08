@@ -1,5 +1,9 @@
 # Oxide-JS (formerly ML-V1)
 
+<p align="center">
+  <img src="./OxideJS-logo-benner.png" width="100%" alt="Oxide-JS Banner" />
+</p>
+
 > **Historical Note:** This project was originally published as **ML-V1**. Version [v2.3.0](https://github.com/Akhyar11/ML-V1/releases/tag/v2.3.0) represents the stable research artifact for recurrent network stability evaluations.
 
 > A TypeScript + Rust Native machine learning library — Matrix operations, neural network layers, Transformer models, and a BPE tokenizer, all in one package.
@@ -28,6 +32,8 @@
 - **Math primitives** — `dotProduct`, `add`, `sub`, `sumAxis`, `clipGradients`, and more; automatically dispatched to Rust or JS.
 - **Layers** — `Dense`, `Embedding`, `RNN`, `LSTM`, `GRU`, `SelfAttention`, `MultiHeadAttention`, `LayerNormalization`, `Dropout`, `PositionalEncoding`, `Flatten`, `Convolution`, `MemoryBank`.
 - **Models** — `Sequential`, `Transformers` (causal LM), `RecurrentModel` (RNN/LSTM/GRU many-to-one and aligned many-to-many), `DimentionalityReduction`.
+- **Auto-Diff Engine (Tape)** — record complex mathematical operations on a Gradient Tape and compute gradients automatically with Reverse-Mode Differentiation.
+- **Keras Interoperability** — save and load models using the standardized `model.json` + `weights.bin` format, compatible with the Keras/TensorFlow.js ecosystem.
 - **BPE Tokenizer** — train, incremental update, Unicode-aware pre-tokenization, encode/decode with special tokens, padding, and JSON save/load.
 - **Rust-accelerated ops** — dot-product, activations, LayerNorm, embedding lookup, attention, and optimizer updates; auto-fallback to JS when unavailable.
 - **Dynamic padding trim** (`trimPadding`) — reduces effective sequence length per batch, cutting attention cost from O(seqLen²) to O(effectiveSeqLen²).
@@ -37,7 +43,7 @@
 ## Installation
 
 ```bash
-npm install @akhyar11/oxide-js
+npm install @oxide-js/core @oxide-js/layers @oxide-js/models
 ```
 
 ### Prerequisites for Native Acceleration
@@ -73,7 +79,7 @@ npm run build
 The native backend is loaded by `src/math/rust_backend.ts`. You can check whether it is active at runtime:
 
 ```ts
-import { isNativeAvailable } from "@akhyar11/oxide-js";
+import { isNativeAvailable } from "@oxide-js/core";
 console.log("Native active:", isNativeAvailable());
 ```
 
@@ -90,7 +96,9 @@ ML_DISABLE_NATIVE=1 node your-script.js
 Train a simple XOR classifier in a few lines:
 
 ```ts
-import { Dense, mj, Sequential } from "@akhyar11/oxide-js";
+import { mj } from "@oxide-js/core";
+import { Dense } from "@oxide-js/layers";
+import { Sequential } from "@oxide-js/models";
 
 const model = new Sequential({
   layers: [
@@ -139,7 +147,7 @@ Model split:
 ### Matrix & Math Operations
 
 ```ts
-import { mj } from "@akhyar11/oxide-js";
+import { mj } from "@oxide-js/core";
 
 const a = mj.matrix([[1, 2], [3, 4]]);
 const b = mj.matrix([[5, 6], [7, 8]]);
@@ -151,7 +159,7 @@ console.log(c._shape, d._shape);
 ### BPE Tokenizer
 
 ```ts
-import { BPETokenizer } from "@akhyar11/oxide-js";
+import { BPETokenizer } from "@oxide-js/core";
 
 const tokenizer = new BPETokenizer({ vocabSize: 120, minFrequency: 2 });
 tokenizer.train(["hello world", "hello there"]);
@@ -172,7 +180,7 @@ Supported modes:
 - `script-aware`
 
 ```ts
-import { BPETokenizer } from "@akhyar11/oxide-js";
+import { BPETokenizer } from "@oxide-js/core";
 
 const tokenizer = new BPETokenizer({
   vocabSize: 1000,
@@ -197,7 +205,8 @@ BPE alone is not enough for every writing system. Pre-tokenization is important 
 ### Transformer Causal LM — Training
 
 ```ts
-import { mj, Transformers } from "@akhyar11/oxide-js";
+import { mj } from "@oxide-js/core";
+import { Transformers } from "@oxide-js/models";
 
 const model = new Transformers({ units: 64, seqLen: 8, vocabSize: 500, heads: 8, alpha: 0.001, padTokenId: 0 });
 model.fillEmbeddingWeight("./pretrained-embedding.json");
@@ -215,7 +224,8 @@ console.log("shape", logits._shape, "loss", model.loss);
 ### Transformer — Generation / Inference
 
 ```ts
-import { mj, Transformers } from "@akhyar11/oxide-js";
+import { mj } from "@oxide-js/core";
+import { Transformers } from "@oxide-js/models";
 
 const model = new Transformers({
   units: 64,
@@ -230,10 +240,15 @@ model.eval();
 
 const x = mj.matrix([[0], [0], [10], [20], [30], [40], [50], [60]]);
 
+const nextTokenLogits = model.predict(x); // shape [vocabSize, batch]
+model.setPredictMode("full-sequence");
+const fullSequenceLogits = model.predict(x); // shape [vocabSize, seqLen * batch]
+```
+
 ### RecurrentModel — Many-to-One
 
 ```ts
-import { RecurrentModel } from "@akhyar11/oxide-js";
+import { RecurrentModel } from "@oxide-js/models";
 
 const model = new RecurrentModel({
   kind: "lstm",
@@ -246,10 +261,6 @@ const model = new RecurrentModel({
   mode: "many-to-one",
   loss: "softmaxCrossEntropy",
 });
-```
-const nextTokenLogits = model.predict(x); // shape [vocabSize, batch]
-model.setPredictMode("full-sequence");
-const fullSequenceLogits = model.predict(x); // shape [vocabSize, seqLen * batch]
 ```
 
 ---
@@ -354,7 +365,7 @@ Built-in pre-tokenizer names are saved in tokenizer JSON files. Custom pre-token
 When training a Transformer on long-context sequences (e.g. `seqLen=1024`), enable `trimPadding` to avoid paying the full quadratic attention cost on padding tokens:
 
 ```ts
-import { Transformers } from "@akhyar11/oxide-js";
+import { Transformers } from "@oxide-js/models";
 
 const model = new Transformers({
   units: 64,
@@ -469,7 +480,7 @@ For in-depth guides, see the official documentation:
 
 ## Versioning
 
-This project follows `MAJOR.MINOR.PATCH` semantic versioning. The current version is **`2.3.1`**.
+This project follows `MAJOR.MINOR.PATCH` semantic versioning. The current version is **`2.4.0`**.
 
 - **MAJOR** — breaking changes or major architectural shifts.
 - **MINOR** — new backward-compatible features or improvements.
@@ -479,6 +490,7 @@ This project follows `MAJOR.MINOR.PATCH` semantic versioning. The current versio
 
 | Version | Summary |
 |---|---|
+| `2.4.0` | **Interoperability & Auto-Diff Update**: Introduced Keras-style model serialization (`model.json` + `weights.bin`) and Gradient Tape for dynamic automatic differentiation. |
 | `2.3.1` | **Modularization Milestone**: Monorepo split (`@oxide-js/core`, `@oxide-js/layers`, `@oxide-js/models`), Modular Rust kernels, and ESM-first test suite. |
 | `2.3.0` | Initial Monorepo structure and decoupled Layer Registry. |
 | `2.2.8` | Full Native Optimizer support (Adam, SGD, AdaGrad, Momentum, NAG) and Sparse Embedding native backend. |
