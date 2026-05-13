@@ -1,5 +1,21 @@
 # @oxide-js/layers
 
+## 0.2.0
+
+### Minor Changes
+
+- 7f5e0a4: feat: add external attention inputs, memory bank access hooks, and autodiff tape fixes
+
+  This release adds external query/key/value injection for multi-head attention,
+  external read/write access hooks for memory bank operations, and autodiff fixes
+  for scalar math recording, tape snapshot restore, multi-output gradients, and
+  loss/result access through `engine.grad()`.
+
+### Patch Changes
+
+- Updated dependencies [7f5e0a4]
+  - @oxide-js/core@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes
