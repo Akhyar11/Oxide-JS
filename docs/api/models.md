@@ -273,6 +273,9 @@ If `stateful=true`:
 
 Full Transformer architecture model for causal language modeling. Built on top of `Sequential`, but it uses its **own** `fit()` loop so loss and validation are averaged per valid token rather than per sample.
 
+> Current model-level architecture note:
+> `Transformers` is still the public decoder-only causal LM model. The underlying `MultiHeadAttention` layer now supports external `query` / `key` / `value` sources for custom encoder-decoder or cross-attention loops, but that higher-level encoder-decoder model wrapper is not part of `Transformers` yet.
+
 #### `constructor(config)`
 
 | Parameter | Type | Default | Description |

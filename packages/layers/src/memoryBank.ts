@@ -67,6 +67,20 @@ export interface MemoryBankSequenceConfig {
   maxHistorySteps?: number;
 }
 
+export interface MemoryBankExternalAccess {
+  readQuery?: Matrix;
+  readQueryProjected?: boolean;
+  writeKey?: Matrix;
+  writeKeyProjected?: boolean;
+  writeValue?: Matrix;
+}
+
+export interface MemoryBankExternalGradients {
+  readQuery: Matrix | null;
+  writeKey: Matrix | null;
+  writeValue: Matrix | null;
+}
+
 interface ReadSlotCache {
   slot: number;
   attn: number;
@@ -77,6 +91,8 @@ interface ReadSlotCache {
 
 interface ForwardCacheItem {
   xCol: Vec;
+  readQuerySource: Vec;
+  readQueryProjected: boolean;
   qRaw: Vec;
   q: Vec;
   read: Vec;
@@ -100,6 +116,9 @@ interface ForwardCacheItem {
   writeBestScore: number;
   preWriteKey: Vec;
   preWriteValue: Vec;
+  writeKeySource: Vec;
+  writeKeyProjected: boolean;
+  writeValueSource: Vec;
   newKeyRaw: Vec;
   newKey: Vec;
   newValue: Vec;
@@ -264,6 +283,12 @@ export default class MemoryBank {
   private writeFrozen = false;
   private cache: ForwardCacheItem[] = [];
   private debugTrace: MemoryBankDebugTrace[] = [];
+  private externalAccess: MemoryBankExternalAccess | null = null;
+  private lastExternalGradients: MemoryBankExternalGradients = {
+    readQuery: null,
+    writeKey: null,
+    writeValue: null,
+  };
   private configuredOutputUnits?: number;
   private sequenceActive = false;
   private sequenceMaxHistorySteps: number | null = null;
@@ -606,6 +631,8 @@ export default class MemoryBank {
     this.params = 0;
     this.cache = [];
     this.debugTrace = [];
+    this.externalAccess = null;
+    this.lastExternalGradients = { readQuery: null, writeKey: null, writeValue: null };
     this.lastWriteInfo = null;
     this.sequenceHistory = [];
   }
@@ -616,6 +643,24 @@ export default class MemoryBank {
 
   clearDebugTrace(): void {
     this.debugTrace = [];
+  }
+
+  setExternalAccess(access: MemoryBankExternalAccess): this {
+    this.externalAccess = access;
+    return this;
+  }
+
+  clearExternalAccess(): this {
+    this.externalAccess = null;
+    return this;
+  }
+
+  getLastExternalGradients(): MemoryBankExternalGradients {
+    return {
+      readQuery: this.lastExternalGradients.readQuery ? this.lastExternalGradients.readQuery.clone() : null,
+      writeKey: this.lastExternalGradients.writeKey ? this.lastExternalGradients.writeKey.clone() : null,
+      writeValue: this.lastExternalGradients.writeValue ? this.lastExternalGradients.writeValue.clone() : null,
+    };
   }
 
   getLastWriteInfo(): { committed: boolean; slot: number; writeGate: number; newKey: number[]; newValue: number[] } | null {
@@ -670,6 +715,23 @@ export default class MemoryBank {
     const out = mj.zeros([this.units, 1]);
     out.setCol(0, q);
     return out;
+  }
+
+  private resolveExternalColumn(source: Matrix | undefined, col: number, label: string): Vec | null {
+    if (!source) return null;
+    if (source._shape[0] !== this.units) {
+      throw new Error(`MemoryBank.${label}: expected rows ${this.units}, got ${source._shape[0]}`);
+    }
+    if (source._shape[1] <= col) {
+      throw new Error(`MemoryBank.${label}: expected at least ${col + 1} columns, got ${source._shape[1]}`);
+    }
+    return source.getCol(col);
+  }
+
+  private addGradToColumn(matrix: Matrix | null, col: number, grad: Vec): void {
+    if (!matrix) return;
+    const cols = matrix._shape[1];
+    for (let i = 0; i < this.units; i++) matrix._data[i * cols + col] += grad[i];
   }
 
   writeMemoryForDebug(keyVector: number[], valueVector: number[], slot?: number): void {
@@ -752,15 +814,32 @@ export default class MemoryBank {
     const [rows, cols] = x._shape;
     this.ensureInitializedFromInput(rows);
     if (rows !== this.units) throw new Error(`MemoryBank: input rows ${rows} does not match units ${this.units}`);
+    const externalAccess = this.externalAccess;
+    if (externalAccess?.readQuery && externalAccess.readQuery._shape[1] !== cols) {
+      throw new Error(`MemoryBank.forward: readQuery columns must be ${cols}, got ${externalAccess.readQuery._shape[1]}`);
+    }
+    if (externalAccess?.writeKey && externalAccess.writeKey._shape[1] !== cols) {
+      throw new Error(`MemoryBank.forward: writeKey columns must be ${cols}, got ${externalAccess.writeKey._shape[1]}`);
+    }
+    if (externalAccess?.writeValue && externalAccess.writeValue._shape[1] !== cols) {
+      throw new Error(`MemoryBank.forward: writeValue columns must be ${cols}, got ${externalAccess.writeValue._shape[1]}`);
+    }
 
     const out = this.mode === "concat" ? mj.zeros([this.units + this.units, cols]) : mj.zeros([this.outputUnits, cols]);
     this.cache = [];
     this.debugTrace = [];
     this.lastWriteInfo = null;
+    this.lastExternalGradients = {
+      readQuery: externalAccess?.readQuery ? mj.zeros(externalAccess.readQuery._shape) : null,
+      writeKey: externalAccess?.writeKey ? mj.zeros(externalAccess.writeKey._shape) : null,
+      writeValue: externalAccess?.writeValue ? mj.zeros(externalAccess.writeValue._shape) : null,
+    };
 
     for (let c = 0; c < cols; c++) {
       const xCol = x.getCol(c);
-      const qRaw = this.matVecMul(this.queryKernel, xCol);
+      const readQuerySource = this.resolveExternalColumn(externalAccess?.readQuery, c, "forward.readQuery") ?? xCol;
+      const readQueryProjected = externalAccess?.readQueryProjected ?? false;
+      const qRaw = readQueryProjected ? new Float32Array(readQuerySource) : this.matVecMul(this.queryKernel, readQuerySource);
       const q = this.similarity === "cosine" ? this.normalizeSafe(qRaw) : qRaw;
 
       const scored: Array<{ slot: number; score: number; key: Vec }> = [];
@@ -835,11 +914,14 @@ export default class MemoryBank {
       let softWrite = false;
       let postWriteKeyUnnormalized: Vec = new Float32Array(this.units);
       let postWriteValueUnnormalized: Vec = new Float32Array(this.units);
+      const writeKeySource = this.resolveExternalColumn(externalAccess?.writeKey, c, "forward.writeKey") ?? xCol;
+      const writeKeyProjected = externalAccess?.writeKeyProjected ?? false;
+      const writeValueSource = this.resolveExternalColumn(externalAccess?.writeValue, c, "forward.writeValue") ?? xCol;
 
       if (this.writeEnabled && !this.writeFrozen && this.trainingMode) {
-        newKeyRaw = this.matVecMul(this.queryKernel, xCol);
+        newKeyRaw = writeKeyProjected ? new Float32Array(writeKeySource) : this.matVecMul(this.queryKernel, writeKeySource);
         newKey = this.similarity === "cosine" ? this.normalizeSafe(newKeyRaw) : newKeyRaw;
-        newValue = new Float32Array(xCol);
+        newValue = new Float32Array(writeValueSource);
         const writeScored: Array<{ slot: number; score: number; key: Vec }> = [];
         let firstEmptyFound = false;
         for (let slot = 0; slot < this.memorySlots; slot++) {
@@ -917,9 +999,9 @@ export default class MemoryBank {
           };
         }
       } else if (this.writeEnabled && !this.writeFrozen && writeGate >= 0.5) {
-        newKeyRaw = this.matVecMul(this.queryKernel, xCol);
+        newKeyRaw = writeKeyProjected ? new Float32Array(writeKeySource) : this.matVecMul(this.queryKernel, writeKeySource);
         newKey = this.similarity === "cosine" ? this.normalizeSafe(newKeyRaw) : newKeyRaw;
-        newValue = new Float32Array(xCol);
+        newValue = new Float32Array(writeValueSource);
         const selected = this.selectWriteSlot(writeQuery);
         writeSlot = selected.slot;
         writeAllocatedNewSlot = selected.allocatedNewSlot;
@@ -965,6 +1047,8 @@ export default class MemoryBank {
 
       this.cache.push({
         xCol,
+        readQuerySource,
+        readQueryProjected,
         qRaw,
         q,
         read,
@@ -987,6 +1071,9 @@ export default class MemoryBank {
         writeBestScore,
         preWriteKey,
         preWriteValue,
+        writeKeySource,
+        writeKeyProjected,
+        writeValueSource,
         newKeyRaw,
         newKey,
         newValue,
@@ -996,6 +1083,8 @@ export default class MemoryBank {
         postWriteValueUnnormalized: postWriteValueUnnormalized ?? new Float32Array(this.units),
       });
     }
+
+    this.externalAccess = null;
 
     if (this.sequenceActive && this.cache.length > 0) {
       this.sequenceHistory.push(...this.cache);
@@ -1035,6 +1124,9 @@ export default class MemoryBank {
     const gNeedBias = this.needBias ? mj.zeros(this.needBias._shape) : undefined;
     const gOutput = this.outputKernel ? mj.zeros(this.outputKernel._shape) : undefined;
     const gOutputBias = this.outputBias ? mj.zeros(this.outputBias._shape) : undefined;
+    const gReadQueryExternal = this.lastExternalGradients.readQuery ? mj.zeros(this.lastExternalGradients.readQuery._shape) : null;
+    const gWriteKeyExternal = this.lastExternalGradients.writeKey ? mj.zeros(this.lastExternalGradients.writeKey._shape) : null;
+    const gWriteValueExternal = this.lastExternalGradients.writeValue ? mj.zeros(this.lastExternalGradients.writeValue._shape) : null;
 
     let futureKeyStateGrad = new Float32Array(this.units * this.memorySlots);
     let futureValueStateGrad = new Float32Array(this.units * this.memorySlots);
@@ -1105,7 +1197,8 @@ export default class MemoryBank {
               dGate += (cache.newKey[i] - preKey[i]) * dPostKeySlot[i];
               dGate += (cache.newValue[i] - preValue[i]) * dPostValueSlot[i];
               dNewKey[i] += gateSlot * dPostKeySlot[i];
-              dxDirect[i] += gateSlot * dPostValueSlot[i];
+              if (gWriteValueExternal) gWriteValueExternal._data[i * gWriteValueExternal._shape[1] + c] += gateSlot * dPostValueSlot[i];
+              else dxDirect[i] += gateSlot * dPostValueSlot[i];
             }
             dGateBySlot[slot] = dGate;
             dWriteProb += dGate * (cache.writeAttn[slot] ?? 0);
@@ -1161,9 +1254,15 @@ export default class MemoryBank {
           const dNewKeyRaw = this.similarity === "cosine"
             ? this.normalizeBackward(cache.newKeyRaw, dNewKey)
             : dNewKey;
-          this.addOuter(gQuery, dNewKeyRaw, cache.xCol);
-          const dxWriteKey = this.matTVecMul(this.queryKernel, dNewKeyRaw);
-          for (let i = 0; i < this.units; i++) dxDirect[i] += dxWriteKey[i];
+          if (cache.writeKeyProjected) {
+            if (gWriteKeyExternal) this.addGradToColumn(gWriteKeyExternal, c, dNewKeyRaw);
+            else for (let i = 0; i < this.units; i++) dxDirect[i] += dNewKeyRaw[i];
+          } else {
+            this.addOuter(gQuery, dNewKeyRaw, cache.writeKeySource);
+            const dxWriteKey = this.matTVecMul(this.queryKernel, dNewKeyRaw);
+            if (gWriteKeyExternal) this.addGradToColumn(gWriteKeyExternal, c, dxWriteKey);
+            else for (let i = 0; i < this.units; i++) dxDirect[i] += dxWriteKey[i];
+          }
         } else {
           const slot = cache.writeSlot;
           let dPostKeySlot = this.getStateGrad(futureKeyStateGrad, slot);
@@ -1181,7 +1280,8 @@ export default class MemoryBank {
             dPreValues[i * this.memorySlots + slot] += (1 - cache.writeGate) * dPostValueSlot[i];
             dWriteGate += (cache.newKey[i] - cache.preWriteKey[i]) * dPostKeySlot[i];
             dWriteGate += (cache.newValue[i] - cache.preWriteValue[i]) * dPostValueSlot[i];
-            dxDirect[i] += cache.writeGate * dPostValueSlot[i];
+            if (gWriteValueExternal) gWriteValueExternal._data[i * gWriteValueExternal._shape[1] + c] += cache.writeGate * dPostValueSlot[i];
+            else dxDirect[i] += cache.writeGate * dPostValueSlot[i];
           }
 
           const dNewKey = new Float32Array(this.units);
@@ -1189,9 +1289,15 @@ export default class MemoryBank {
           const dNewKeyRaw = this.similarity === "cosine"
             ? this.normalizeBackward(cache.newKeyRaw, dNewKey)
             : dNewKey;
-          this.addOuter(gQuery, dNewKeyRaw, cache.xCol);
-          const dxWriteKey = this.matTVecMul(this.queryKernel, dNewKeyRaw);
-          for (let i = 0; i < this.units; i++) dxDirect[i] += dxWriteKey[i];
+          if (cache.writeKeyProjected) {
+            if (gWriteKeyExternal) this.addGradToColumn(gWriteKeyExternal, c, dNewKeyRaw);
+            else for (let i = 0; i < this.units; i++) dxDirect[i] += dNewKeyRaw[i];
+          } else {
+            this.addOuter(gQuery, dNewKeyRaw, cache.writeKeySource);
+            const dxWriteKey = this.matTVecMul(this.queryKernel, dNewKeyRaw);
+            if (gWriteKeyExternal) this.addGradToColumn(gWriteKeyExternal, c, dxWriteKey);
+            else for (let i = 0; i < this.units; i++) dxDirect[i] += dxWriteKey[i];
+          }
 
           // Use straight-through estimator (STE) for hard write: pass gradient directly
           // without sigmoid dampening to avoid dead gradient at saturation (gate ≈ 1.0).
@@ -1278,15 +1384,27 @@ export default class MemoryBank {
       }
 
       const gradQueryRaw = this.similarity === "cosine" ? this.normalizeBackward(cache.qRaw, dQuery) : dQuery;
-      this.addOuter(gQuery, gradQueryRaw, cache.xCol);
-      const dxQuery = this.matTVecMul(this.queryKernel, gradQueryRaw);
+      let dxQuery: Vec = new Float32Array(this.units);
+      if (cache.readQueryProjected) {
+        this.addGradToColumn(gReadQueryExternal, c, gradQueryRaw);
+        dxQuery = new Float32Array(gradQueryRaw);
+      } else {
+        this.addOuter(gQuery, gradQueryRaw, cache.readQuerySource);
+        dxQuery = this.matTVecMul(this.queryKernel, gradQueryRaw);
+        if (gReadQueryExternal) this.addGradToColumn(gReadQueryExternal, c, dxQuery);
+      }
 
-      for (let i = 0; i < this.units; i++) dx._data[i * err._shape[1] + c] = dxDirect[i] + dxQuery[i];
+      for (let i = 0; i < this.units; i++) dx._data[i * err._shape[1] + c] = dxDirect[i] + (gReadQueryExternal ? 0 : dxQuery[i]);
       futureKeyStateGrad = dPreKeys;
       futureValueStateGrad = dPreValues;
     }
 
     this.maybeClip(gQuery, gWriteGate, gWriteGateBias, gWriteQuery, gNeed, gNeedBias, gOutput, gOutputBias);
+    this.lastExternalGradients = {
+      readQuery: gReadQueryExternal,
+      writeKey: gWriteKeyExternal,
+      writeValue: gWriteValueExternal,
+    };
     
     // Populate .grad for Tape support
     if (this.queryKernel.grad) this.queryKernel.grad.addInPlace(gQuery); else this.queryKernel.grad = gQuery;

@@ -1,5 +1,7 @@
 import Tape from "./index.js";
 
+export type GradTape<T> = Tape & { result: T };
+
 class Engine {
   private activeTape: Tape | null = null;
 
@@ -24,11 +26,15 @@ class Engine {
   /**
    * Helper untuk menjalankan fungsi dalam konteks tape
    */
-  grad(fn: () => any): Tape {
+  grad<T>(fn: () => T): GradTape<T> {
     const tape = this.startTape();
-    fn();
-    tape.stop();
-    return tape;
+    let result!: T;
+    try {
+      result = fn();
+    } finally {
+      this.endTape();
+    }
+    return Object.assign(tape, { result });
   }
 }
 

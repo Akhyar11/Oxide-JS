@@ -15,13 +15,33 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
         if (bm._data[i] === 0) throw new Error(`Pembagian dengan nol pada indeks [${i}]`);
         result[i] = a / bm._data[i];
     }
-    return Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
+    const res = Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([bm], [res], (grad: Matrix) => {
+        const denomSquared = mj.mul(bm, bm);
+        const scale = mj.div(a * -1, denomSquared);
+        const gradB = mj.mul(grad, scale);
+        if (bm.grad) bm.grad.addInPlace(gradB);
+        else bm.grad = gradB;
+      });
+    }
+    return res;
   }
   if (typeof b === "number") {
     if (b === 0) throw new Error("Pembagian dengan nol (scalar = 0) tidak diizinkan");
     const result = new Float32Array(a._data.length);
     for (let i = 0; i < a._data.length; i++) result[i] = a._data[i] / b;
-    return Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
+    const res = Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([a], [res], (grad: Matrix) => {
+        const gradA = mj.div(grad, b);
+        if ((a as Matrix).grad) (a as Matrix).grad!.addInPlace(gradA);
+        else (a as Matrix).grad = gradA;
+      });
+    }
+    return res;
   }
   const am = a as Matrix;
   const bm = b as Matrix;

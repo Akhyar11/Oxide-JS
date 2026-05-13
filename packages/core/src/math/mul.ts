@@ -12,13 +12,31 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
     const bm = b as Matrix;
     const resultData = out ? out._data : new Float32Array(bm._data.length);
     for (let i = 0; i < bm._data.length; i++) resultData[i] = a * bm._data[i];
-    return out || Matrix.fromFlat(resultData, [bm._shape[0], bm._shape[1]]);
+    const res = out || Matrix.fromFlat(resultData, [bm._shape[0], bm._shape[1]]);
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([bm], [res], (grad: Matrix) => {
+        const gradB = mj.mul(grad, a);
+        if (bm.grad) bm.grad.addInPlace(gradB);
+        else bm.grad = gradB;
+      });
+    }
+    return res;
   }
   if (typeof b === "number") {
     const am = a as Matrix;
     const resultData = out ? out._data : new Float32Array(am._data.length);
     for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] * b;
-    return out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+    const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([am], [res], (grad: Matrix) => {
+        const gradA = mj.mul(grad, b);
+        if (am.grad) am.grad.addInPlace(gradA);
+        else am.grad = gradA;
+      });
+    }
+    return res;
   }
   const am = a as Matrix;
   const bm = b as Matrix;

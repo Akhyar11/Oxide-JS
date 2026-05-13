@@ -13,6 +13,44 @@ interface MultiHeadAttentionLayer {
   clipGradient?: number | boolean;
 }
 
+export interface MultiHeadAttentionExternalInputs {
+  query?: Matrix;
+  key?: Matrix;
+  value?: Matrix;
+  queryProjected?: boolean;
+  keyProjected?: boolean;
+  valueProjected?: boolean;
+  queryPadMask?: boolean[];
+  keyPadMask?: boolean[];
+  querySeqLen?: number;
+  keySeqLen?: number;
+  causal?: boolean;
+}
+
+export interface MultiHeadAttentionInputGradients {
+  query: Matrix | null;
+  key: Matrix | null;
+  value: Matrix | null;
+}
+
+interface ResolvedAttentionContext {
+  querySource: Matrix;
+  keySource: Matrix;
+  valueSource: Matrix;
+  queryProjected: boolean;
+  keyProjected: boolean;
+  valueProjected: boolean;
+  queryPadMask: boolean[];
+  keyPadMask: boolean[];
+  querySeqLen: number;
+  keySeqLen: number;
+  batchSize: number;
+  totalQueryCols: number;
+  totalKeyCols: number;
+  causal: boolean;
+  recordSourceGradients: boolean;
+}
+
 export default class MultiHeadAttention {
   name = "multi head attention layer";
   units: number;
@@ -37,6 +75,13 @@ export default class MultiHeadAttention {
   private padMask: boolean[] = [];
   private hasExternalPadMask: boolean = false;
   private padMaskSourceRef: Float32Array | null = null;
+  private attentionInputs: MultiHeadAttentionExternalInputs | null = null;
+  private lastContext: ResolvedAttentionContext | null = null;
+  private lastInputGradients: MultiHeadAttentionInputGradients = {
+    query: null,
+    key: null,
+    value: null,
+  };
 
   private optimizerQ: OptimizerType;
   private optimizerK: OptimizerType;
@@ -66,7 +111,6 @@ export default class MultiHeadAttention {
   private gradQBuffer: Matrix;
   private gradKBuffer: Matrix;
   private gradVBuffer: Matrix;
-
 
   private attentionBuffer: Float32Array = new Float32Array(0);
   private attentionData: Float32Array = new Float32Array(0);
@@ -126,8 +170,9 @@ export default class MultiHeadAttention {
     this.params = 3 * this.units * this.units + this.wo.params;
     this.errAttentionScratch = new Float32Array(0);
     this.errScoreScratch = new Float32Array(0);
-    this.ensureSequenceBuffersForBatch(seqLen, seqLen);
+    this.ensureAttentionBuffers(seqLen, seqLen, seqLen, seqLen, 1);
   }
+
   compile({ alpha, optimizer, error, clipGradient }: { alpha?: number; optimizer?: Optimizer; error?: Cost; clipGradient?: number | boolean }) {
     if (alpha !== undefined) this.alpha = alpha;
     if (clipGradient !== undefined) this.clipGradient = clipGradient;
@@ -158,112 +203,138 @@ export default class MultiHeadAttention {
     this.padMaskSourceRef = null;
   }
 
-  /**
-   * Override the effective sequence length for the next forward/backward pass.
-   * Use this when the batch has been dynamically trimmed to a shorter sequence.
-   * Call resetEffectiveSeqLen() after backward to restore the default.
-   */
+  setAttentionInputs(inputs: MultiHeadAttentionExternalInputs): this {
+    this.attentionInputs = inputs;
+    return this;
+  }
+
+  clearAttentionInputs(): this {
+    this.attentionInputs = null;
+    return this;
+  }
+
+  getLastInputGradients(): MultiHeadAttentionInputGradients {
+    return {
+      query: this.lastInputGradients.query ? this.lastInputGradients.query.clone() : null,
+      key: this.lastInputGradients.key ? this.lastInputGradients.key.clone() : null,
+      value: this.lastInputGradients.value ? this.lastInputGradients.value.clone() : null,
+    };
+  }
+
   setEffectiveSeqLen(seqLen: number): void {
     this._effectiveSeqLen = seqLen;
   }
 
-  /** Restore the default (configured) sequence length. */
   resetEffectiveSeqLen(): void {
     this._effectiveSeqLen = null;
   }
 
-  forward(x: Matrix): Matrix {
-    const totalCols = x._shape[1];
-    const seqLen = this._effectiveSeqLen ?? this.seqLen;
-    if (totalCols % seqLen !== 0) {
-      throw new Error(`MultiHeadAttention.forward: totalCols (${totalCols}) is not divisible by seqLen (${seqLen})`);
-    }
-    const batchSize = totalCols / seqLen;
+  forward(x?: Matrix): Matrix {
+    const ctx = this.resolveAttentionContext(x);
+    this.lastContext = ctx;
+    this.lastInputGradients = { query: null, key: null, value: null };
+    this.input = ctx.querySource;
+    this.ensureAttentionBuffers(ctx.totalQueryCols, ctx.totalKeyCols, ctx.querySeqLen, ctx.keySeqLen, ctx.batchSize);
 
-    this.ensureSequenceBuffersForBatch(totalCols, seqLen);
-
-    this.input = x;
-    if (this.hasExternalPadMask && this.padMask.length === totalCols) {
-      // Gunakan mask yang sudah divalidasi caller, hindari scan ulang input.
-    } else if (this.padMask.length !== totalCols || this.padMaskSourceRef !== x._data) {
-      this.padMask = MultiHeadAttention.detectPadColumns(x, this.padMask);
-      this.hasExternalPadMask = false;
-      this.padMaskSourceRef = x._data;
-    }
-
-    mj.dotProduct(this.q, x, this.Q);
-    mj.dotProduct(this.k, x, this.K);
-    mj.dotProduct(this.v, x, this.V);
+    this.fillProjected(this.Q, this.q, ctx.querySource, ctx.queryProjected);
+    this.fillProjected(this.K, this.k, ctx.keySource, ctx.keyProjected);
+    this.fillProjected(this.V, this.v, ctx.valueSource, ctx.valueProjected);
 
     const scale = 1 / Math.sqrt(this.headUnits);
+    const canUseNative =
+      isNativeAvailable() &&
+      ctx.causal &&
+      ctx.querySeqLen === ctx.keySeqLen &&
+      ctx.totalQueryCols === ctx.totalKeyCols &&
+      this.areMasksIdentical(ctx.queryPadMask, ctx.keyPadMask);
 
-    if (isNativeAvailable()) {
+    if (canUseNative) {
       multiHeadAttentionForwardNative(
         this.Q._data,
         this.K._data,
         this.V._data,
-        this.padMask,
+        ctx.keyPadMask,
         this.heads,
         this.headUnits,
-        seqLen,
-        batchSize,
+        ctx.querySeqLen,
+        ctx.batchSize,
         scale,
         this.concatenated._data,
         this.attentionData
       );
+      MultiHeadAttention.zeroMaskedColumnsInPlace(this.concatenated, ctx.queryPadMask);
     } else {
       MultiHeadAttention.forwardFallback(
         this.Q._data,
         this.K._data,
         this.V._data,
-        this.padMask,
+        ctx.queryPadMask,
+        ctx.keyPadMask,
         this.heads,
         this.headUnits,
-        seqLen,
-        batchSize,
+        ctx.querySeqLen,
+        ctx.keySeqLen,
+        ctx.batchSize,
         scale,
+        ctx.causal,
         this.concatenated._data,
         this.attentionData
       );
     }
 
-    // --- TAPE RECORDING (Attention Mechanism Only) ---
     const tape = engine.tape;
     if (tape) {
-      const currentPadMask = [...this.padMask]; // Snapshot mask
+      const currentContext = { ...ctx, queryPadMask: [...ctx.queryPadMask], keyPadMask: [...ctx.keyPadMask] };
       const currentScale = scale;
-      const currentBatchSize = batchSize;
-      const currentSeqLen = seqLen;
-
       tape.record([this.Q, this.K, this.V], [this.concatenated], (grad: Matrix) => {
-        this.calculateAttentionGradients(grad, currentPadMask, currentScale, currentBatchSize, currentSeqLen);
+        this.calculateAttentionGradients(grad, currentContext, currentScale);
       });
     }
 
     this.outputShape = [this.concatenated._shape[0], this.concatenated._shape[1]];
+    this.attentionInputs = null;
     return this.wo.forward(this.concatenated);
   }
 
-  private calculateAttentionGradients(grad: Matrix, padMask: boolean[], scale: number, batchSize: number, seqLen: number): void {
-    this.ensureSequenceBuffersForBatch(grad._shape[1], seqLen);
-    
-    if (isNativeAvailable()) {
+  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
+    if (!this.lastContext) {
+      throw new Error("MultiHeadAttention.backward: forward must be called before backward");
+    }
+    const dCat = this.wo.backward(y, err, gradOnly);
+    const scale = 1 / Math.sqrt(this.headUnits);
+    const gradInput = this.calculateGradients(dCat, this.lastContext, scale);
+    if (!gradOnly) this.update(this.alpha);
+    return gradInput;
+  }
+
+  private calculateAttentionGradients(grad: Matrix, ctx: ResolvedAttentionContext, scale: number): void {
+    this.ensureAttentionBuffers(ctx.totalQueryCols, ctx.totalKeyCols, ctx.querySeqLen, ctx.keySeqLen, ctx.batchSize);
+
+    const canUseNative =
+      isNativeAvailable() &&
+      ctx.causal &&
+      ctx.querySeqLen === ctx.keySeqLen &&
+      ctx.totalQueryCols === ctx.totalKeyCols &&
+      this.areMasksIdentical(ctx.queryPadMask, ctx.keyPadMask);
+
+    if (canUseNative) {
       multiHeadAttentionBackwardNative(
         this.Q._data,
         this.K._data,
         this.V._data,
         this.attentionData,
         grad._data,
-        padMask,
+        ctx.keyPadMask,
         this.heads,
         this.headUnits,
-        seqLen,
-        batchSize,
+        ctx.querySeqLen,
+        ctx.batchSize,
         scale,
         this.dQAll._data,
         this.dKAll._data,
         this.dVAll._data
       );
+      MultiHeadAttention.zeroMaskedColumnsInPlace(this.dQAll, ctx.queryPadMask);
     } else {
       MultiHeadAttention.backwardFallback(
         this.Q._data,
@@ -271,12 +342,15 @@ export default class MultiHeadAttention {
         this.V._data,
         this.attentionData,
         grad._data,
-        padMask,
+        ctx.queryPadMask,
+        ctx.keyPadMask,
         this.heads,
         this.headUnits,
-        seqLen,
-        batchSize,
+        ctx.querySeqLen,
+        ctx.keySeqLen,
+        ctx.batchSize,
         scale,
+        ctx.causal,
         this.dQAll._data,
         this.dKAll._data,
         this.dVAll._data,
@@ -285,53 +359,63 @@ export default class MultiHeadAttention {
       );
     }
 
-    // Accumulate gradients for Q, K, V
     if (this.Q.grad) this.Q.grad.addInPlace(this.dQAll); else this.Q.grad = this.dQAll.clone();
     if (this.K.grad) this.K.grad.addInPlace(this.dKAll); else this.K.grad = this.dKAll.clone();
     if (this.V.grad) this.V.grad.addInPlace(this.dVAll); else this.V.grad = this.dVAll.clone();
   }
 
-  backward(y: Matrix, err: Matrix, gradOnly = false): Matrix {
-    const dCat = this.wo.backward(y, err, gradOnly);
-    const totalCols = dCat._shape[1];
-    const seqLen = this._effectiveSeqLen ?? this.seqLen;
-    const batchSize = totalCols / seqLen;
-    const scale = 1 / Math.sqrt(this.headUnits);
+  private calculateGradients(dCat: Matrix, ctx: ResolvedAttentionContext, scale: number): Matrix {
+    this.calculateAttentionGradients(dCat, ctx, scale);
 
-    const gradInput = this.calculateGradients(dCat, this.padMask, scale, batchSize, seqLen, gradOnly);
-    if (!gradOnly) this.update(this.alpha);
-    return gradInput;
-  }
-
-  private calculateGradients(dCat: Matrix, padMask: boolean[], scale: number, batchSize: number, seqLen: number, gradOnly = false): Matrix {
-    this.calculateAttentionGradients(dCat, padMask, scale, batchSize, seqLen);
-
-    // Manual backprop for weights
-    const gradQ = mj.dotProduct(this.dQAll, this.input, this.gradQBuffer, false, true);
-    const gradK = mj.dotProduct(this.dKAll, this.input, this.gradKBuffer, false, true);
-    const gradV = mj.dotProduct(this.dVAll, this.input, this.gradVBuffer, false, true);
+    const gradQ = ctx.queryProjected ? null : mj.dotProduct(this.dQAll, ctx.querySource, this.gradQBuffer, false, true);
+    const gradK = ctx.keyProjected ? null : mj.dotProduct(this.dKAll, ctx.keySource, this.gradKBuffer, false, true);
+    const gradV = ctx.valueProjected ? null : mj.dotProduct(this.dVAll, ctx.valueSource, this.gradVBuffer, false, true);
 
     if (this.clipGradient !== false) {
       const limit = typeof this.clipGradient === "number" ? this.clipGradient : 5.0;
-      this.clipGradients(gradQ, limit);
-      this.clipGradients(gradK, limit);
-      this.clipGradients(gradV, limit);
+      if (gradQ) this.clipGradients(gradQ, limit);
+      if (gradK) this.clipGradients(gradK, limit);
+      if (gradV) this.clipGradients(gradV, limit);
     }
 
-    const gradInput = mj.dotProduct(this.q, this.dQAll, this.gradInputBuffer, true, false);
-    mj.dotProduct(this.k, this.dKAll, this.gradContributionBuffer, true, false);
-    gradInput.addInPlace(this.gradContributionBuffer);
-    mj.dotProduct(this.v, this.dVAll, this.gradContributionBuffer, true, false);
-    gradInput.addInPlace(this.gradContributionBuffer);
+    const querySourceGrad = ctx.queryProjected
+      ? this.dQAll.clone()
+      : mj.dotProduct(this.q, this.dQAll, this.gradInputBuffer, true, false).clone();
+    const keySourceGrad = ctx.keyProjected
+      ? this.dKAll.clone()
+      : mj.dotProduct(this.k, this.dKAll, this.gradContributionBuffer, true, false).clone();
+    const valueSourceGrad = ctx.valueProjected
+      ? this.dVAll.clone()
+      : mj.dotProduct(this.v, this.dVAll, this.gradContributionBuffer, true, false).clone();
 
-    // Add gradients to .grad for Tape compatibility
-    const accumulate = (p: Matrix, g: Matrix) => {
-      if (p.grad) p.grad.addInPlace(g);
-      else p.grad = g.clone();
+    if (gradQ) {
+      if (this.q.grad) this.q.grad.addInPlace(gradQ);
+      else this.q.grad = gradQ.clone();
+    }
+    if (gradK) {
+      if (this.k.grad) this.k.grad.addInPlace(gradK);
+      else this.k.grad = gradK.clone();
+    }
+    if (gradV) {
+      if (this.v.grad) this.v.grad.addInPlace(gradV);
+      else this.v.grad = gradV.clone();
+    }
+
+    this.lastInputGradients = {
+      query: querySourceGrad,
+      key: keySourceGrad,
+      value: valueSourceGrad,
     };
-    accumulate(this.q, gradQ);
-    accumulate(this.k, gradK);
-    accumulate(this.v, gradV);
+
+    if (ctx.recordSourceGradients) {
+      this.accumulateMatrixGrad(ctx.querySource, querySourceGrad);
+      this.accumulateMatrixGrad(ctx.keySource, keySourceGrad);
+      this.accumulateMatrixGrad(ctx.valueSource, valueSourceGrad);
+    }
+
+    const gradInput = querySourceGrad.clone();
+    if (ctx.keySource === ctx.querySource) gradInput.addInPlace(keySourceGrad);
+    if (ctx.valueSource === ctx.querySource) gradInput.addInPlace(valueSourceGrad);
 
     return gradInput;
   }
@@ -371,7 +455,6 @@ export default class MultiHeadAttention {
       { name: "k", shape: this.k._shape, data: this.k._data },
       { name: "v", shape: this.v._shape, data: this.v._data },
     ];
-    // Include dense layer weights
     const woManifest = this.wo.getWeightsManifest();
     for (const item of woManifest) {
       manifest.push({ name: `wo_${item.name}`, shape: item.shape, data: item.data });
@@ -383,8 +466,7 @@ export default class MultiHeadAttention {
     if (weights.q) this.q._data.set(weights.q);
     if (weights.k) this.k._data.set(weights.k);
     if (weights.v) this.v._data.set(weights.v);
-    
-    // Pass prefixed weights to wo
+
     const woWeights: Record<string, Float32Array> = {};
     for (const key of Object.keys(weights)) {
       if (key.startsWith("wo_")) {
@@ -414,33 +496,155 @@ export default class MultiHeadAttention {
     this.optimizerV = setOptimizer(this.optimizerName, this.v._shape, this.alpha);
   }
 
-  private ensureSequenceBuffersForBatch(totalCols: number, seqLen: number) {
-    const batchSize = Math.floor(totalCols / seqLen);
-    const expectedAttentionLen = this.heads * batchSize * seqLen * seqLen;
-    const expectedScratchLen = seqLen * seqLen;
-    // `attentionData` adalah exact-length view ke backing buffer agar native/fallback
-    // tetap menerima panjang yang sesuai tanpa harus realloc setiap kali kapasitas cukup.
-    if (
-      this.Q._shape[1] === totalCols &&
-      this.attentionData.length === expectedAttentionLen &&
-      this.errAttentionScratch.length === expectedScratchLen &&
-      this.errScoreScratch.length === expectedScratchLen
-    ) {
-      return;
+  private resolveAttentionContext(x?: Matrix): ResolvedAttentionContext {
+    const cfg = this.attentionInputs;
+    const querySource = cfg?.query ?? x;
+    const keySource = cfg?.key ?? querySource;
+    const valueSource = cfg?.value ?? keySource;
+
+    if (!querySource || !keySource || !valueSource) {
+      throw new Error("MultiHeadAttention.forward: query/key/value sources are required");
+    }
+    this.assertUnits(querySource, "query");
+    this.assertUnits(keySource, "key");
+    this.assertUnits(valueSource, "value");
+
+    const queryProjected = cfg?.queryProjected ?? false;
+    const keyProjected = cfg?.keyProjected ?? false;
+    const valueProjected = cfg?.valueProjected ?? false;
+    const querySeqLen = this.resolveSeqLen(querySource, cfg?.querySeqLen);
+    const keySeqLen = this.resolveSeqLen(keySource, cfg?.keySeqLen);
+
+    if (querySource._shape[1] % querySeqLen !== 0) {
+      throw new Error(`MultiHeadAttention.forward: query cols (${querySource._shape[1]}) is not divisible by querySeqLen (${querySeqLen})`);
+    }
+    if (keySource._shape[1] % keySeqLen !== 0) {
+      throw new Error(`MultiHeadAttention.forward: key cols (${keySource._shape[1]}) is not divisible by keySeqLen (${keySeqLen})`);
+    }
+    if (valueSource._shape[1] % keySeqLen !== 0) {
+      throw new Error(`MultiHeadAttention.forward: value cols (${valueSource._shape[1]}) is not divisible by keySeqLen (${keySeqLen})`);
     }
 
-    this.inputShape = [this.units, totalCols];
-    this.outputShape = [this.units, totalCols];
-    this.Q = this.bindSequenceMatrix("qBuffer", totalCols);
-    this.K = this.bindSequenceMatrix("kBuffer", totalCols);
-    this.V = this.bindSequenceMatrix("vBuffer", totalCols);
-    this.concatenated = this.bindSequenceMatrix("concatenatedBuffer", totalCols);
+    const batchSize = querySource._shape[1] / querySeqLen;
+    const keyBatchSize = keySource._shape[1] / keySeqLen;
+    const valueBatchSize = valueSource._shape[1] / keySeqLen;
+    if (keyBatchSize !== batchSize || valueBatchSize !== batchSize) {
+      throw new Error(
+        `MultiHeadAttention.forward: batch mismatch query=${batchSize}, key=${keyBatchSize}, value=${valueBatchSize}`
+      );
+    }
 
-    this.gradInputBuffer = this.bindSequenceMatrix("gradInputDataBuffer", totalCols);
-    this.gradContributionBuffer = this.bindSequenceMatrix("gradContributionDataBuffer", totalCols);
-    this.dQAll = this.bindSequenceMatrix("dQAllBuffer", totalCols);
-    this.dKAll = this.bindSequenceMatrix("dKAllBuffer", totalCols);
-    this.dVAll = this.bindSequenceMatrix("dVAllBuffer", totalCols);
+    const queryPadMask = this.resolveQueryPadMask(querySource, cfg?.queryPadMask);
+    const keyPadMask = this.resolveKeyPadMask(querySource, keySource, cfg?.keyPadMask);
+    const causal = cfg?.causal ?? !cfg?.key;
+
+    this.padMask = keyPadMask;
+    return {
+      querySource,
+      keySource,
+      valueSource,
+      queryProjected,
+      keyProjected,
+      valueProjected,
+      queryPadMask,
+      keyPadMask,
+      querySeqLen,
+      keySeqLen,
+      batchSize,
+      totalQueryCols: querySource._shape[1],
+      totalKeyCols: keySource._shape[1],
+      causal,
+      recordSourceGradients: !!engine.tape,
+    };
+  }
+
+  private resolveSeqLen(source: Matrix, explicitSeqLen?: number): number {
+    if (explicitSeqLen !== undefined) return explicitSeqLen;
+    const preferred = this._effectiveSeqLen ?? this.seqLen;
+    if (source._shape[1] % preferred === 0) return preferred;
+    return source._shape[1];
+  }
+
+  private resolveQueryPadMask(querySource: Matrix, explicitPadMask?: boolean[]): boolean[] {
+    const totalCols = querySource._shape[1];
+    if (explicitPadMask) {
+      if (explicitPadMask.length !== totalCols) {
+        throw new Error(`MultiHeadAttention.forward: queryPadMask length must be ${totalCols}, got ${explicitPadMask.length}`);
+      }
+      return explicitPadMask;
+    }
+    return MultiHeadAttention.detectPadColumns(querySource);
+  }
+
+  private resolveKeyPadMask(querySource: Matrix, keySource: Matrix, explicitPadMask?: boolean[]): boolean[] {
+    const totalCols = keySource._shape[1];
+    if (explicitPadMask) {
+      if (explicitPadMask.length !== totalCols) {
+        throw new Error(`MultiHeadAttention.forward: keyPadMask length must be ${totalCols}, got ${explicitPadMask.length}`);
+      }
+      return explicitPadMask;
+    }
+    if (this.hasExternalPadMask && this.padMask.length === totalCols) {
+      return this.padMask;
+    }
+    if (querySource === keySource && (this.padMask.length !== totalCols || this.padMaskSourceRef !== keySource._data)) {
+      this.padMask = MultiHeadAttention.detectPadColumns(keySource, this.padMask);
+      this.padMaskSourceRef = keySource._data;
+      this.hasExternalPadMask = false;
+      return this.padMask;
+    }
+    return MultiHeadAttention.detectPadColumns(keySource);
+  }
+
+  private assertUnits(source: Matrix, label: string): void {
+    if (source._shape[0] !== this.units) {
+      throw new Error(`MultiHeadAttention.forward: ${label} rows must be ${this.units}, got ${source._shape[0]}`);
+    }
+  }
+
+  private fillProjected(target: Matrix, weight: Matrix, source: Matrix, projected: boolean): void {
+    if (projected) {
+      target._data.set(source._data);
+      return;
+    }
+    mj.dotProduct(weight, source, target);
+  }
+
+  private accumulateMatrixGrad(target: Matrix, grad: Matrix): void {
+    if (target.grad) target.grad.addInPlace(grad);
+    else target.grad = grad.clone();
+  }
+
+  private areMasksIdentical(a: boolean[], b: boolean[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+
+  private ensureAttentionBuffers(
+    totalQueryCols: number,
+    totalKeyCols: number,
+    querySeqLen: number,
+    keySeqLen: number,
+    batchSize: number
+  ): void {
+    const expectedAttentionLen = this.heads * batchSize * keySeqLen * querySeqLen;
+    const expectedScratchLen = keySeqLen * querySeqLen;
+
+    this.inputShape = [this.units, totalQueryCols];
+    this.outputShape = [this.units, totalQueryCols];
+    this.Q = this.bindMatrix("qBuffer", this.units, totalQueryCols);
+    this.K = this.bindMatrix("kBuffer", this.units, totalKeyCols);
+    this.V = this.bindMatrix("vBuffer", this.units, totalKeyCols);
+    this.concatenated = this.bindMatrix("concatenatedBuffer", this.units, totalQueryCols);
+
+    this.gradInputBuffer = this.bindMatrix("gradInputDataBuffer", this.units, totalQueryCols);
+    this.gradContributionBuffer = this.bindMatrix("gradContributionDataBuffer", this.units, totalKeyCols);
+    this.dQAll = this.bindMatrix("dQAllBuffer", this.units, totalQueryCols);
+    this.dKAll = this.bindMatrix("dKAllBuffer", this.units, totalKeyCols);
+    this.dVAll = this.bindMatrix("dVAllBuffer", this.units, totalKeyCols);
 
     if (this.attentionBuffer.length < expectedAttentionLen) {
       const nextCapacity = Math.max(expectedAttentionLen, Math.max(1, this.attentionBuffer.length * 2));
@@ -461,7 +665,7 @@ export default class MultiHeadAttention {
     this.errScoreScratch = this.errScoreBuffer.subarray(0, expectedScratchLen);
   }
 
-  private bindSequenceMatrix(
+  private bindMatrix(
     bufferKey:
       | "qBuffer"
       | "kBuffer"
@@ -472,18 +676,17 @@ export default class MultiHeadAttention {
       | "dQAllBuffer"
       | "dKAllBuffer"
       | "dVAllBuffer",
-    totalCols: number
+    rows: number,
+    cols: number
   ): Matrix {
-    const requiredLength = this.units * totalCols;
+    const requiredLength = rows * cols;
     let buffer = this[bufferKey];
-
     if (buffer.length < requiredLength) {
       const nextCapacity = Math.max(requiredLength, Math.max(1, buffer.length * 2));
       buffer = new Float32Array(nextCapacity);
       this[bufferKey] = buffer;
     }
-
-    return Matrix.fromFlat(buffer.subarray(0, requiredLength), [this.units, totalCols]);
+    return Matrix.fromFlat(buffer.subarray(0, requiredLength), [rows, cols]);
   }
 
   private loadLegacyHeads(headsData: Array<{ q: number[][]; k: number[][]; v: number[][] }>) {
@@ -534,62 +737,80 @@ export default class MultiHeadAttention {
     return mask;
   }
 
+  private static zeroMaskedColumnsInPlace(matrix: Matrix, padMask: boolean[]): void {
+    const [rows, cols] = matrix._shape;
+    for (let col = 0; col < cols; col++) {
+      if (!padMask[col]) continue;
+      for (let row = 0; row < rows; row++) {
+        matrix._data[row * cols + col] = 0;
+      }
+    }
+  }
 
   private static forwardFallback(
     qData: Float32Array,
     kData: Float32Array,
     vData: Float32Array,
-    padMask: boolean[],
+    queryPadMask: boolean[],
+    keyPadMask: boolean[],
     heads: number,
     headUnits: number,
-    seqLen: number,
+    querySeqLen: number,
+    keySeqLen: number,
     batchSize: number,
     scale: number,
+    causal: boolean,
     outData: Float32Array,
     attentionData: Float32Array
   ): void {
-    const totalCols = seqLen * batchSize;
+    const totalQueryCols = querySeqLen * batchSize;
+    const totalKeyCols = keySeqLen * batchSize;
+    outData.fill(0);
+
     for (let head = 0; head < heads; head++) {
       const rowStart = head * headUnits;
       for (let batch = 0; batch < batchSize; batch++) {
-        const sampleOffset = batch * seqLen;
-        const attnOffset = (head * batchSize + batch) * seqLen * seqLen;
+        const queryOffset = batch * querySeqLen;
+        const keyOffset = batch * keySeqLen;
+        const attnOffset = (head * batchSize + batch) * keySeqLen * querySeqLen;
 
-        for (let qPos = 0; qPos < seqLen; qPos++) {
-          const qCol = sampleOffset + qPos;
-          if (padMask[qCol]) {
-            for (let kPos = 0; kPos < seqLen; kPos++) {
-              attentionData[attnOffset + kPos * seqLen + qPos] = 0;
-            }
-            for (let i = 0; i < headUnits; i++) {
-              outData[(rowStart + i) * totalCols + qCol] = 0;
+        for (let qPos = 0; qPos < querySeqLen; qPos++) {
+          const qCol = queryOffset + qPos;
+          if (queryPadMask[qCol]) {
+            for (let kPos = 0; kPos < keySeqLen; kPos++) {
+              attentionData[attnOffset + kPos * querySeqLen + qPos] = 0;
             }
             continue;
           }
 
           let maxScore = -Infinity;
-          for (let kPos = 0; kPos < seqLen; kPos++) {
-            const kCol = sampleOffset + kPos;
-            const scoreIdx = attnOffset + kPos * seqLen + qPos;
-            if (padMask[kCol] || kPos > qPos) {
+          for (let kPos = 0; kPos < keySeqLen; kPos++) {
+            const kCol = keyOffset + kPos;
+            const scoreIdx = attnOffset + kPos * querySeqLen + qPos;
+            if (keyPadMask[kCol] || (causal && kPos > qPos)) {
               attentionData[scoreIdx] = Number.NEGATIVE_INFINITY;
               continue;
             }
             let score = 0;
             for (let i = 0; i < headUnits; i++) {
               const row = rowStart + i;
-              score += kData[row * totalCols + kCol] * qData[row * totalCols + qCol];
+              score += kData[row * totalKeyCols + kCol] * qData[row * totalQueryCols + qCol];
             }
             score *= scale;
             attentionData[scoreIdx] = score;
             if (score > maxScore) maxScore = score;
           }
 
-          if (!Number.isFinite(maxScore)) continue;
+          if (!Number.isFinite(maxScore)) {
+            for (let kPos = 0; kPos < keySeqLen; kPos++) {
+              attentionData[attnOffset + kPos * querySeqLen + qPos] = 0;
+            }
+            continue;
+          }
 
           let sumExp = 0;
-          for (let kPos = 0; kPos < seqLen; kPos++) {
-            const scoreIdx = attnOffset + kPos * seqLen + qPos;
+          for (let kPos = 0; kPos < keySeqLen; kPos++) {
+            const scoreIdx = attnOffset + kPos * querySeqLen + qPos;
             const score = attentionData[scoreIdx];
             if (!Number.isFinite(score)) {
               attentionData[scoreIdx] = 0;
@@ -601,24 +822,24 @@ export default class MultiHeadAttention {
           }
 
           if (!Number.isFinite(sumExp) || sumExp <= 0) {
-            for (let kPos = 0; kPos < seqLen; kPos++) {
-              attentionData[attnOffset + kPos * seqLen + qPos] = 0;
+            for (let kPos = 0; kPos < keySeqLen; kPos++) {
+              attentionData[attnOffset + kPos * querySeqLen + qPos] = 0;
             }
             continue;
           }
 
-          for (let kPos = 0; kPos < seqLen; kPos++) {
-            attentionData[attnOffset + kPos * seqLen + qPos] /= sumExp;
+          for (let kPos = 0; kPos < keySeqLen; kPos++) {
+            attentionData[attnOffset + kPos * querySeqLen + qPos] /= sumExp;
           }
 
           for (let i = 0; i < headUnits; i++) {
             const row = rowStart + i;
             let sum = 0;
-            for (let kPos = 0; kPos < seqLen; kPos++) {
-              const kCol = sampleOffset + kPos;
-              sum += vData[row * totalCols + kCol] * attentionData[attnOffset + kPos * seqLen + qPos];
+            for (let kPos = 0; kPos < keySeqLen; kPos++) {
+              const kCol = keyOffset + kPos;
+              sum += vData[row * totalKeyCols + kCol] * attentionData[attnOffset + kPos * querySeqLen + qPos];
             }
-            outData[row * totalCols + qCol] = sum;
+            outData[row * totalQueryCols + qCol] = sum;
           }
         }
       }
@@ -631,19 +852,23 @@ export default class MultiHeadAttention {
     vData: Float32Array,
     attentionData: Float32Array,
     dOutData: Float32Array,
-    padMask: boolean[],
+    queryPadMask: boolean[],
+    keyPadMask: boolean[],
     heads: number,
     headUnits: number,
-    seqLen: number,
+    querySeqLen: number,
+    keySeqLen: number,
     batchSize: number,
     scale: number,
+    causal: boolean,
     dQOut: Float32Array,
     dKOut: Float32Array,
     dVOut: Float32Array,
     errAttention: Float32Array,
     errScore: Float32Array
   ): void {
-    const totalCols = seqLen * batchSize;
+    const totalQueryCols = querySeqLen * batchSize;
+    const totalKeyCols = keySeqLen * batchSize;
     dQOut.fill(0);
     dKOut.fill(0);
     dVOut.fill(0);
@@ -651,50 +876,53 @@ export default class MultiHeadAttention {
     for (let head = 0; head < heads; head++) {
       const rowStart = head * headUnits;
       for (let batch = 0; batch < batchSize; batch++) {
-        const sampleOffset = batch * seqLen;
-        const attnOffset = (head * batchSize + batch) * seqLen * seqLen;
+        const queryOffset = batch * querySeqLen;
+        const keyOffset = batch * keySeqLen;
+        const attnOffset = (head * batchSize + batch) * keySeqLen * querySeqLen;
         errAttention.fill(0);
         errScore.fill(0);
 
-        for (let qPos = 0; qPos < seqLen; qPos++) {
-          const qCol = sampleOffset + qPos;
-          if (padMask[qCol]) {
-            for (let i = 0; i < headUnits; i++) {
-              dQOut[(rowStart + i) * totalCols + qCol] = 0;
-            }
-            continue;
-          }
+        for (let qPos = 0; qPos < querySeqLen; qPos++) {
+          const qCol = queryOffset + qPos;
+          if (queryPadMask[qCol]) continue;
 
           for (let i = 0; i < headUnits; i++) {
             const row = rowStart + i;
-            const dOutVal = dOutData[row * totalCols + qCol];
-            for (let kPos = 0; kPos < seqLen; kPos++) {
-              const attnIdx = attnOffset + kPos * seqLen + qPos;
-              dVOut[row * totalCols + sampleOffset + kPos] += dOutVal * attentionData[attnIdx];
-              errAttention[kPos * seqLen + qPos] += vData[row * totalCols + sampleOffset + kPos] * dOutVal;
+            const dOutVal = dOutData[row * totalQueryCols + qCol];
+            for (let kPos = 0; kPos < keySeqLen; kPos++) {
+              const attnIdx = attnOffset + kPos * querySeqLen + qPos;
+              const kCol = keyOffset + kPos;
+              dVOut[row * totalKeyCols + kCol] += dOutVal * attentionData[attnIdx];
+              errAttention[kPos * querySeqLen + qPos] += vData[row * totalKeyCols + kCol] * dOutVal;
             }
           }
 
           let dot = 0;
-          for (let kPos = 0; kPos < seqLen; kPos++) {
-            const localIdx = kPos * seqLen + qPos;
+          for (let kPos = 0; kPos < keySeqLen; kPos++) {
+            const localIdx = kPos * querySeqLen + qPos;
             dot += attentionData[attnOffset + localIdx] * errAttention[localIdx];
           }
 
-          for (let kPos = 0; kPos < seqLen; kPos++) {
-            const localIdx = kPos * seqLen + qPos;
+          for (let kPos = 0; kPos < keySeqLen; kPos++) {
+            const localIdx = kPos * querySeqLen + qPos;
+            const kCol = keyOffset + kPos;
+            if (keyPadMask[kCol] || (causal && kPos > qPos)) {
+              errScore[localIdx] = 0;
+              continue;
+            }
             errScore[localIdx] = attentionData[attnOffset + localIdx] * (errAttention[localIdx] - dot) * scale;
           }
 
           for (let i = 0; i < headUnits; i++) {
             const row = rowStart + i;
             let dqSum = 0;
-            for (let kPos = 0; kPos < seqLen; kPos++) {
-              const scoreGrad = errScore[kPos * seqLen + qPos];
-              dqSum += kData[row * totalCols + sampleOffset + kPos] * scoreGrad;
-              dKOut[row * totalCols + sampleOffset + kPos] += qData[row * totalCols + qCol] * scoreGrad;
+            for (let kPos = 0; kPos < keySeqLen; kPos++) {
+              const kCol = keyOffset + kPos;
+              const scoreGrad = errScore[kPos * querySeqLen + qPos];
+              dqSum += kData[row * totalKeyCols + kCol] * scoreGrad;
+              dKOut[row * totalKeyCols + kCol] += qData[row * totalQueryCols + qCol] * scoreGrad;
             }
-            dQOut[row * totalCols + qCol] = dqSum;
+            dQOut[row * totalQueryCols + qCol] = dqSum;
           }
         }
       }

@@ -21,7 +21,8 @@ import {
   RNN,
   LSTM,
   GRU,
-  AdaptiveMemoryRNN
+  AdaptiveMemoryRNN,
+  MemoryBank
 } from "@oxide-js/layers"
 ```
 
@@ -149,7 +150,9 @@ Important notes:
 
 ### `MultiHeadAttention`
 
-Causal multi-head self-attention — the core of the Transformer architecture. Allows the model to simultaneously focus on different parts of the input.
+Multi-head attention layer with backward-compatible self-attention defaults and optional external `query` / `key` / `value` injection.
+
+Default behavior is still causal self-attention, so existing `Transformers` and manual loops continue to work unchanged. For encoder-decoder style or custom attention graphs, you can provide external sources through a dedicated method before `forward()`.
 
 #### `constructor(config)`
 
@@ -171,6 +174,70 @@ const attention = new MultiHeadAttention({
   seqLen: 128
 });
 ```
+
+#### Default Self-Attention Path
+
+- `forward(x)` projects `Q`, `K`, and `V` from the same input `x`.
+- By default, when external inputs are not set, the layer behaves as causal self-attention.
+- `setPadMask(mask)` and `setEffectiveSeqLen(n)` still work for the self-attention path.
+
+#### External Attention Inputs
+
+Use `setAttentionInputs(...)` to override the source of `query`, `key`, and `value` for the next `forward()` call.
+
+```ts
+attention.setAttentionInputs({
+  query: denseQ,
+  key: encoderK,
+  value: encoderV,
+  queryProjected: true,
+  keyProjected: true,
+  valueProjected: true,
+  querySeqLen: 32,
+  keySeqLen: 64,
+  causal: false,
+});
+
+const out = attention.forward();
+```
+
+Supported fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `query` | `Matrix` | Query source matrix `[units, queryCols]` |
+| `key` | `Matrix` | Key source matrix `[units, keyCols]` |
+| `value` | `Matrix` | Value source matrix `[units, keyCols]` |
+| `queryProjected` | `boolean` | Treat `query` as already projected into attention space and bypass internal `q` weight |
+| `keyProjected` | `boolean` | Treat `key` as already projected and bypass internal `k` weight |
+| `valueProjected` | `boolean` | Treat `value` as already projected and bypass internal `v` weight |
+| `queryPadMask` | `boolean[]` | Optional per-column pad mask for query columns |
+| `keyPadMask` | `boolean[]` | Optional per-column pad mask for key/value columns |
+| `querySeqLen` | `number` | Sequence length represented by `query` columns |
+| `keySeqLen` | `number` | Sequence length represented by `key` and `value` columns |
+| `causal` | `boolean` | Whether to enforce causal masking over key positions |
+
+Notes:
+- The external input configuration is ephemeral. It is consumed by the next `forward()` call, then cleared automatically.
+- If `queryProjected`, `keyProjected`, or `valueProjected` is `false`, the corresponding internal projection matrix is still used.
+- Cross-attention with `querySeqLen !== keySeqLen` uses the JS fallback path even when the native backend is available.
+
+#### Gradient Access for External Sources
+
+When using external sources, `backward()` still returns the gradient for the query-side path to preserve compatibility with existing layer stacks.
+
+If you also need the gradients flowing into external `query`, `key`, and `value`, call:
+
+```ts
+const grads = attention.getLastInputGradients();
+```
+
+Returned shape contract:
+- `grads.query`: `[units, queryCols]` or `null`
+- `grads.key`: `[units, keyCols]` or `null`
+- `grads.value`: `[units, keyCols]` or `null`
+
+This is useful when a custom loop routes dense-layer output into attention as external `query` / `key` / `value`.
 
 ---
 
@@ -487,7 +554,7 @@ Gradient support:
 
 ### `MemoryBank`
 
-Generic runtime memory layer for custom model loops. `MemoryBank` stores raw input vectors as memory values and uses a trainable `queryKernel` to address memory slots. The simplified implementation only supports `mode="project"` and `mode="concat"`.
+Generic runtime memory layer for custom model loops. `MemoryBank` stores runtime key/value state and supports both the legacy internal addressing path and a new external-access path for dense-projected `readQuery`, `writeKey`, and `writeValue`.
 
 Key properties:
 - Auto-infers `units` from the first `forward()` if omitted.
@@ -500,8 +567,8 @@ Key properties:
   - `needKernel` in `mode="project"`
   - `outputKernel` / `outputBias` in `mode="project"`
 - Every write computes:
-  - `newKey = queryKernel * x`
-  - `newValue = x`
+  - `newKey = queryKernel * x` by default, or external `writeKey`
+  - `newValue = x` by default, or external `writeValue`
   - `memorySummary = AttentionPooling(activeMemoryValues)`
   - `writeContext = [x; memorySummary]`
   - `writeGate = sigmoid(writeGateKernel * writeContext + writeGateBias)`
@@ -515,7 +582,7 @@ Key properties:
   - otherwise replace the least-used slot
 
 How it works:
-- Input `x` is projected by `queryKernel` into a query vector `q`.
+- Input `x` is projected by `queryKernel` into a query vector `q` by default, or `q` can come from external `readQuery`.
 - `q` is compared against all filled `memoryKeys`.
 - Top-`K` slots are read and combined with softmax attention.
 - `AttentionPooling` summarizes only the active memory slots into one `memorySummary` vector.
@@ -541,6 +608,9 @@ API (important methods):
   - `project` => `[outputUnits, cols]`
   - `concat` => `[2 * units, cols]`
 - `backward(y: Matrix, err: Matrix): Matrix`
+- `setExternalAccess({ ... })`
+- `clearExternalAccess()`
+- `getLastExternalGradients()`
 - `beginSequence({ maxHistorySteps? })`
 - `backwardSequence(err: Matrix)`
 - `detachSequence()`
@@ -561,6 +631,52 @@ new MemoryBank({
   readTopK: 1,
 });
 ```
+
+#### External Read/Write Access
+
+Use `setExternalAccess(...)` when you want a dense layer or another encoder path to control how memory is read or written without changing the layer's base input `x`.
+
+```ts
+memory.setExternalAccess({
+  readQuery: denseQ,
+  readQueryProjected: true,
+  writeKey: denseK,
+  writeKeyProjected: true,
+  writeValue: denseV,
+});
+
+const out = memory.forward(x);
+```
+
+Supported fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `readQuery` | `Matrix` | Alternate query source for read addressing |
+| `readQueryProjected` | `boolean` | Treat `readQuery` as already projected and bypass `queryKernel` |
+| `writeKey` | `Matrix` | Alternate source for new memory keys |
+| `writeKeyProjected` | `boolean` | Treat `writeKey` as already projected and bypass `queryKernel` |
+| `writeValue` | `Matrix` | Alternate source for new memory values |
+
+Notes:
+- The external-access configuration is one-shot. It applies to the next `forward()` call and is cleared automatically afterward.
+- Column count must match the current `forward(x)` column count.
+- If a field is omitted, the layer falls back to the default internal behavior for that part.
+
+#### Gradient Access for External Memory Inputs
+
+After `backward(...)` or `backwardSequence(...)`, call:
+
+```ts
+const grads = memory.getLastExternalGradients();
+```
+
+Returned fields:
+- `grads.readQuery`
+- `grads.writeKey`
+- `grads.writeValue`
+
+Each field is either a `Matrix` matching the external source shape or `null` if that external source was not provided on the corresponding forward pass.
 
 #### Mode Summary
 
@@ -695,6 +811,6 @@ Notes & design constraints:
 - `MemoryBank` is intentionally generic — it does not assume sequences, batches, or tokens. Inputs are handled as `[features, columns]`.
 - Slot selection and replacement are non-differentiable runtime operations. The backward pass computes exact gradients through the read/output path using the memory snapshot captured during forward.
 - The current implementation is correctness-first and intentionally simpler than the previous version:
-  raw inputs are always stored as memory values, while memory keys always come from `queryKernel * x`.
+  raw inputs are still the default runtime values and `queryKernel * x` is still the default key path, but both can now be overridden per-forward via `setExternalAccess(...)`.
 - Important limitation:
   this is sequence-level BPTT inside one `forward()` call. It is not an unlimited autograd graph across separate `forward()` calls from different training steps.

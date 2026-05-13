@@ -441,5 +441,75 @@ export function runMemoryBankCorrectnessSuite(): void {
     assertClose(highGateState.memoryValues[0][0], 1, 1e-6, "high gate should overwrite value dim0");
     assertClose(highGateState.memoryValues[1][0], 0, 1e-6, "high gate should overwrite value dim1");
   }
-}
 
+  // 12) external read/write access should use projected dense query/key/value and expose their gradients
+  {
+    const layer = new MemoryBank({
+      units: 2,
+      memorySlots: 2,
+      outputUnits: 2,
+      mode: "project",
+      similarity: "dot",
+      readTopK: 2,
+      writeEnabled: true,
+      optimizer: "sgd",
+      alpha: 0.1,
+    });
+    layer.forward(mj.zeros([2, 1]));
+    layer.eval();
+    (layer as any).queryKernel._data.fill(0);
+    (layer as any).needKernel._data.fill(0);
+    (layer as any).needBias._data[0] = 20;
+    (layer as any).outputKernel._data.fill(0);
+    (layer as any).outputKernel._data[0 * 4 + 2] = 1;
+    (layer as any).outputKernel._data[1 * 4 + 3] = 1;
+    (layer as any).outputBias._data.fill(0);
+    (layer as any).writeGateKernel._data.fill(0);
+    (layer as any).writeGateBias._data[0] = 20;
+    layer.setMemoryState({
+      memoryKeys: [
+        [1, 0],
+        [0, 1],
+      ],
+      memoryValues: [
+        [0.25, 0.75],
+        [0.75, 0.25],
+      ],
+      memoryFilled: [1, 1],
+      memoryUsage: [1, 1],
+      memoryAge: [1, 2],
+      memoryStep: 2,
+      units: 2,
+      memoryDim: 2,
+      memorySlots: 2,
+    });
+
+    const x = mj.matrix([[0], [0]]);
+    const readQuery = mj.matrix([[1], [1]]);
+    const writeKey = mj.matrix([[0], [3]]);
+    const writeValue = mj.matrix([[0.4], [0.6]]);
+    layer.setExternalAccess({
+      readQuery,
+      readQueryProjected: true,
+      writeKey,
+      writeKeyProjected: true,
+      writeValue,
+    });
+
+    const out = layer.forward(x);
+    assert(out._shape[0] === 2 && out._shape[1] === 1, "external access output should preserve project mode shape");
+    assertClose(out._data[0], 0.5, 1e-6, "external projected readQuery should mix both slots dim0");
+    assertClose(out._data[1], 0.5, 1e-6, "external projected readQuery should mix both slots dim1");
+
+    layer.backward(mj.matrix([[]]), mj.matrix([[1], [-1]]));
+    const externalGrads = layer.getLastExternalGradients();
+    assert(externalGrads.readQuery !== null, "external readQuery gradient should be exposed");
+    assert(externalGrads.writeKey !== null, "external writeKey gradient should be exposed");
+    assert(externalGrads.writeValue !== null, "external writeValue gradient should be exposed");
+
+    const gradMagnitude = (m: Matrix | null): number => m ? m._data.reduce((sum, value) => sum + Math.abs(value), 0) : 0;
+    assert(gradMagnitude(externalGrads.readQuery) > 0, "external readQuery should receive non-zero gradient");
+    assert(externalGrads.writeKey !== null, "external writeKey gradient matrix should be exposed even when single-step write path is inactive");
+    assert(externalGrads.writeValue !== null, "external writeValue gradient matrix should be exposed even when single-step write path is inactive");
+  }
+}

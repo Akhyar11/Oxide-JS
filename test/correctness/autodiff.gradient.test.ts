@@ -134,13 +134,10 @@ function checkMultiHeadAttentionGradients(): void {
   const mha = new MultiHeadAttention({ units, heads, seqLen, alpha: 0 });
   const x = mj.xavier([units, seqLen]);
 
-  // 1. Hitung gradien analitik menggunakan Tape
-  const tape = engine.startTape();
+  // 1. Hitung gradien analitik melalui backward layer langsung
   const out = mha.forward(x);
-  
-  // Loss = sum(out)
-  tape.backward(out);
-  engine.endTape();
+  const gradOut = mj.ones(out._shape);
+  mha.backward(mj.matrix([[]]), gradOut, true);
 
   const analyticGradQ = new Float32Array(mha.q.grad!._data);
   const analyticGradK = new Float32Array(mha.k.grad!._data);
@@ -175,11 +172,194 @@ function checkMultiHeadAttentionGradients(): void {
   console.log("    ✅ MultiHeadAttention gradients are correct.");
 }
 
+function checkMultiHeadAttentionExternalInputs(): void {
+  console.log("  - Checking MultiHeadAttention external query/key/value inputs...");
+
+  const mha = new MultiHeadAttention({ units: 4, heads: 2, seqLen: 2, alpha: 0 });
+  const query = mj.matrix([
+    [1, 0],
+    [0, 1],
+    [0, 0],
+    [0, 0],
+  ]);
+  const key = mj.matrix([
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ]);
+  const value = mj.matrix([
+    [2, 0, 1, 0],
+    [0, 3, 0, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ]);
+
+  mha.setAttentionInputs({
+    query,
+    key,
+    value,
+    queryProjected: true,
+    keyProjected: true,
+    valueProjected: true,
+    querySeqLen: 2,
+    keySeqLen: 4,
+    causal: false,
+  });
+  const out = mha.forward();
+  assert(out._shape[0] === 4 && out._shape[1] === 2, "MHA external inputs should produce [units, qCols] output");
+
+  const grad = mj.matrix([
+    [1, -1],
+    [0.5, -0.5],
+    [0, 0],
+    [0, 0],
+  ]);
+  const dx = mha.backward(mj.matrix([[]]), grad, true);
+  const inputGrads = mha.getLastInputGradients();
+
+  assert(dx._shape[0] === 4 && dx._shape[1] === 2, "MHA backward should return query-source gradient shape");
+  assert(inputGrads.query !== null && inputGrads.key !== null && inputGrads.value !== null, "MHA should expose query/key/value gradients");
+
+  const gradMagnitude = (m: Matrix | null): number => m ? m._data.reduce((sum, value) => sum + Math.abs(value), 0) : 0;
+  assert(gradMagnitude(inputGrads.query) > 0, "MHA external query should receive non-zero gradient");
+  assert(gradMagnitude(inputGrads.key) > 0, "MHA external key should receive non-zero gradient");
+  assert(gradMagnitude(inputGrads.value) > 0, "MHA external value should receive non-zero gradient");
+
+  console.log("    ✅ MultiHeadAttention external inputs are correct.");
+}
+
+function checkScalarOpGradients(): void {
+  console.log("  - Checking scalar elementwise op gradients...");
+
+  {
+    const x = mj.matrix([[2], [4]]);
+    const tape = engine.startTape();
+    const y = mj.add(x, 3);
+    const loss = mj.mean(y);
+    tape.backward(loss);
+    engine.endTape();
+    assertGradientClose(x.grad!._data, new Float32Array([0.5, 0.5]), 1e-6, "add(matrix, scalar)");
+  }
+
+  {
+    const x = mj.matrix([[2], [4]]);
+    const tape = engine.startTape();
+    const y = mj.sub(10, x);
+    const loss = mj.mean(y);
+    tape.backward(loss);
+    engine.endTape();
+    assertGradientClose(x.grad!._data, new Float32Array([-0.5, -0.5]), 1e-6, "sub(scalar, matrix)");
+  }
+
+  {
+    const x = mj.matrix([[2], [4]]);
+    const tape = engine.startTape();
+    const y = mj.mul(x, 0.5);
+    const loss = mj.mean(y);
+    tape.backward(loss);
+    engine.endTape();
+    assertGradientClose(x.grad!._data, new Float32Array([0.25, 0.25]), 1e-6, "mul(matrix, scalar)");
+  }
+
+  {
+    const x = mj.matrix([[2], [4]]);
+    const tape = engine.startTape();
+    const y = mj.div(x, 2);
+    const loss = mj.mean(y);
+    tape.backward(loss);
+    engine.endTape();
+    assertGradientClose(x.grad!._data, new Float32Array([0.25, 0.25]), 1e-6, "div(matrix, scalar)");
+  }
+
+  {
+    const x = mj.matrix([[2], [4]]);
+    const tape = engine.startTape();
+    const y = mj.div(2, x);
+    const loss = mj.mean(y);
+    tape.backward(loss);
+    engine.endTape();
+    assertGradientClose(x.grad!._data, new Float32Array([-0.25, -0.0625]), 1e-6, "div(scalar, matrix)");
+  }
+
+  console.log("    ✅ Scalar elementwise op gradients are correct.");
+}
+
+function checkTapeRestoresShapeSnapshots(): void {
+  console.log("  - Checking tape shape snapshot restore...");
+
+  const x = mj.matrix([
+    [1, 2],
+    [3, 4],
+  ]);
+  const tape = engine.startTape();
+  const y = mj.add(x, x);
+  const expectedShape: [number, number] = [2, 2];
+
+  tape.record([x], [y], (_grad) => {
+    assert(
+      y._shape[0] === expectedShape[0] && y._shape[1] === expectedShape[1],
+      `tape should restore output shape snapshot, got [${y._shape[0]}, ${y._shape[1]}]`
+    );
+  });
+
+  y.reshape([4, 1]);
+  tape.backward(y);
+  engine.endTape();
+
+  console.log("    ✅ Tape restores shape snapshots.");
+}
+
+function checkMultiOutputTapeBackward(): void {
+  console.log("  - Checking multi-output tape backward support...");
+
+  const x = mj.matrix([[1], [2]]);
+  const tape = engine.startTape();
+  const y1 = mj.matrix([[3], [4]]);
+  const y2 = mj.matrix([[5], [6]]);
+
+  tape.record([x], [y1, y2], (_grad, outputGrads) => {
+    assert(outputGrads !== undefined && outputGrads.length === 2, "tape should provide grads for every recorded output");
+    const g1 = outputGrads![0];
+    const g2 = outputGrads![1];
+    assert(g1 !== null && g2 !== null, "both output gradients should be visible to backward callback");
+    const total = mj.add(g1!, g2!);
+    if (x.grad) x.grad.addInPlace(total);
+    else x.grad = total;
+  });
+
+  y2.grad = mj.ones(y2._shape);
+  tape.backward(y1);
+  engine.endTape();
+
+  assertGradientClose(x.grad!._data, new Float32Array([2, 2]), 1e-6, "multi-output tape backward");
+  console.log("    ✅ Multi-output tape backward is correct.");
+}
+
+function checkEngineGradLifecycle(): void {
+  console.log("  - Checking engine.grad lifecycle cleanup...");
+
+  const tape = engine.grad(() => {
+    const x = mj.matrix([[1], [2]]);
+    return mj.mean(mj.mul(x, 2));
+  });
+
+  assert(engine.tape === null, "engine.grad should clear active tape after callback");
+  assert(tape.isActive() === false, "engine.grad should stop the returned tape");
+  assert(tape.result._shape[0] === 1 && tape.result._shape[1] === 1, "engine.grad should expose callback result on returned tape");
+  console.log("    ✅ engine.grad lifecycle cleanup is correct.");
+}
+
 export function runAutoDiffGradientSuite(): void {
   console.log("\n🚀 Running Auto-Diff Gradient Checking...");
   checkDenseGradients();
   checkSoftmaxGradients();
   checkMultiHeadAttentionGradients();
+  checkMultiHeadAttentionExternalInputs();
+  checkScalarOpGradients();
+  checkTapeRestoresShapeSnapshots();
+  checkMultiOutputTapeBackward();
+  checkEngineGradLifecycle();
   console.log("✅ Auto-Diff Gradient Checking Passed!");
 }
 

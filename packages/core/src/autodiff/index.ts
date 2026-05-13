@@ -1,7 +1,7 @@
 import Matrix from "../matrix/index.js";
 import ones from "../math/ones.js";
 
-type GradientFunc = (grad: Matrix) => void;
+type GradientFunc = (grad: Matrix, outputGrads?: Array<Matrix | null>) => void;
 
 interface TapeNode {
   inputs: Matrix[];
@@ -9,6 +9,8 @@ interface TapeNode {
   backward: GradientFunc;
   inputSnapshots: Float32Array[];
   outputSnapshots: Float32Array[];
+  inputShapes: [number, number][];
+  outputShapes: [number, number][];
 }
 
 export default class Tape {
@@ -30,6 +32,10 @@ export default class Tape {
     this.active = false;
   }
 
+  isActive(): boolean {
+    return this.active;
+  }
+
   /**
    * Catat sebuah operasi ke dalam tape
    */
@@ -39,13 +45,17 @@ export default class Tape {
     // Simpan snapshot data saat ini agar aman dari modifikasi in-place nantinya
     const inputSnapshots = inputs.map(m => new Float32Array(m._data));
     const outputSnapshots = outputs.map(m => new Float32Array(m._data));
+    const inputShapes = inputs.map(m => [m._shape[0], m._shape[1]] as [number, number]);
+    const outputShapes = outputs.map(m => [m._shape[0], m._shape[1]] as [number, number]);
 
     this.nodes.push({ 
       inputs, 
       outputs, 
       backward,
       inputSnapshots,
-      outputSnapshots
+      outputSnapshots,
+      inputShapes,
+      outputShapes,
     });
   }
 
@@ -64,25 +74,39 @@ export default class Tape {
     // Jalankan nodes secara terbalik (LIFO)
     for (let i = this.nodes.length - 1; i >= 0; i--) {
       const node = this.nodes[i];
-      // Ambil gradien dari output pertama (asumsi mayoritas operasi punya 1 output)
-      const outGrad = node.outputs[0].grad;
-      
+      const outputGrads = node.outputs.map((output) => output.grad);
+      const outGrad = outputGrads.find((grad): grad is Matrix => grad !== null) ?? null;
+
       if (outGrad) {
         // --- DATA SWAPPING (Time Travel) ---
         // Simpan referensi ke data asli (saat ini)
         const currentInputBuffers = node.inputs.map(m => m._data);
         const currentOutputBuffers = node.outputs.map(m => m._data);
+        const currentInputShapes = node.inputs.map(m => [m._shape[0], m._shape[1]] as [number, number]);
+        const currentOutputShapes = node.outputs.map(m => [m._shape[0], m._shape[1]] as [number, number]);
 
         // Pasang data snapshot (saat operasi direkam)
-        node.inputs.forEach((m, idx) => m._data = node.inputSnapshots[idx]);
-        node.outputs.forEach((m, idx) => m._data = node.outputSnapshots[idx]);
+        node.inputs.forEach((m, idx) => {
+          m._data = node.inputSnapshots[idx];
+          m._shape = [...node.inputShapes[idx]] as [number, number];
+        });
+        node.outputs.forEach((m, idx) => {
+          m._data = node.outputSnapshots[idx];
+          m._shape = [...node.outputShapes[idx]] as [number, number];
+        });
 
         // Hitung gradien menggunakan data historis
-        node.backward(outGrad);
+        node.backward(outGrad, outputGrads);
 
         // Kembalikan data ke kondisi asli agar program utama tetap berjalan normal
-        node.inputs.forEach((m, idx) => m._data = currentInputBuffers[idx]);
-        node.outputs.forEach((m, idx) => m._data = currentOutputBuffers[idx]);
+        node.inputs.forEach((m, idx) => {
+          m._data = currentInputBuffers[idx];
+          m._shape = currentInputShapes[idx];
+        });
+        node.outputs.forEach((m, idx) => {
+          m._data = currentOutputBuffers[idx];
+          m._shape = currentOutputShapes[idx];
+        });
       }
     }
     

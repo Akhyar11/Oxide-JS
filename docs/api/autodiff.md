@@ -28,16 +28,22 @@ Starts a new recording session. Returns a `Tape` instance.
 
 Stops the current recording session and cleans up the active tape reference.
 
-### `engine.grad(fn: () => void): Tape`
+### `engine.grad(fn): Tape & { result }`
 
-A convenience helper that starts a tape, executes the provided function, stops the tape, and returns it.
+A convenience helper that starts a tape, executes the provided function, stops the tape, and returns the same `Tape` instance augmented with the callback result on `.result`.
 
 ```ts
 const tape = engine.grad(() => {
   const z = mj.dotProduct(x, w);
-  // ... more operations
+  return mj.mean(z);
 });
+
+tape.backward(tape.result);
 ```
+
+This is useful when the callback itself builds the final loss and you want both:
+- the recorded tape
+- the computed loss/result to pass into `backward()`
 
 ---
 
@@ -47,7 +53,7 @@ const tape = engine.grad(() => {
 
 Calculates gradients starting from the `loss` matrix. It automatically initializes the gradient of the loss to `1.0` if not already set.
 
-- **Note:** During the backward pass, the engine temporarily restores the input/output data as it was when the operation was recorded. This ensures mathematical correctness even if the matrices were modified in-place later.
+- **Note:** During the backward pass, the engine temporarily restores the recorded input/output buffers **and shapes** as they were when the operation was recorded. This keeps gradients correct even if a matrix was later reshaped or otherwise mutated in-place.
 
 ```ts
 const tape = engine.startTape();
@@ -84,7 +90,7 @@ If you are implementing a custom operation or layer and want it to support Auto-
 |---|---|---|
 | `inputs` | `Matrix[]` | List of input matrices |
 | `outputs` | `Matrix[]` | List of output matrices |
-| `backwardFn` | `(grad: Matrix) => void` | Function to compute gradients for inputs given the output gradient |
+| `backwardFn` | `(grad: Matrix, outputGrads?: Array<Matrix \| null>) => void` | Function to compute gradients for inputs given one active output gradient plus optional gradients for all outputs |
 
 **Example:**
 
@@ -98,6 +104,16 @@ if (tape) {
     b.grad = mj.add(b.grad || mj.zeros(b._shape), someGradB);
   });
 }
+```
+
+For multi-output custom ops:
+
+```ts
+tape.record([x], [y1, y2], (_grad, outputGrads) => {
+  const g1 = outputGrads?.[0];
+  const g2 = outputGrads?.[1];
+  // combine gradients from both outputs as needed
+});
 ```
 
 ---
@@ -150,6 +166,7 @@ for (let epoch = 0; epoch < 100; epoch++) {
 - **Dynamic Graphs**: You can use standard JavaScript control flow (`if`, `for`) inside the `engine.grad` block.
 - **Interoperability**: High-level layers like `Dense` or `RNN` can be mixed with low-level matrix math.
 - **Gradient Accumulation**: Simply don't call `clearGrad()` to accumulate gradients over multiple forward passes.
+- **Scalar-Safe Math**: Elementwise matrix-scalar ops such as `mj.add(x, 1)`, `mj.sub(1, x)`, `mj.mul(x, 0.5)`, and `mj.div(x, 2)` are recorded by the tape and participate in autodiff normally.
 
 ---
 
@@ -180,7 +197,7 @@ Inside `dense.forward`, the layer detects the active tape and records its operat
 
 - **Tape Overhead**: The recording overhead is typically **< 3%** for deep models.
 - **Memory**: Each recorded operation stores snapshots of its inputs/outputs. For extremely large models, ensure you call `engine.endTape()` as soon as possible to release memory.
-- **In-Place Operations**: The engine handles in-place modifications (like `addInPlace`) correctly by snapshotting buffers before they are modified.
+- **In-Place Operations**: The engine handles in-place modifications by snapshotting buffers and shapes before they are modified.
 
 ---
 

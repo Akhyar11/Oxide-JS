@@ -26,14 +26,30 @@ export default function add(a: MatrixCollection, b: MatrixCollection, out?: Matr
     const result = out ? out._data : new Float32Array(bm._data.length);
     if (out) ensureOutputShape(out, bm._shape[0], bm._shape[1]);
     for (let i = 0; i < bm._data.length; i++) result[i] = a + bm._data[i];
-    return out || Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
+    const res = out || Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([bm], [res], (grad) => {
+        if (bm.grad) bm.grad.addInPlace(grad);
+        else bm.grad = grad.clone();
+      });
+    }
+    return res;
   }
   if (typeof b === "number") {
     const am = a as Matrix;
     const result = out ? out._data : new Float32Array(am._data.length);
     if (out) ensureOutputShape(out, am._shape[0], am._shape[1]);
     for (let i = 0; i < am._data.length; i++) result[i] = am._data[i] + b;
-    return out || Matrix.fromFlat(result, [am._shape[0], am._shape[1]]);
+    const res = out || Matrix.fromFlat(result, [am._shape[0], am._shape[1]]);
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([am], [res], (grad) => {
+        if (am.grad) am.grad.addInPlace(grad);
+        else am.grad = grad.clone();
+      });
+    }
+    return res;
   }
   const am = a as Matrix;
   const bm = b as Matrix;
