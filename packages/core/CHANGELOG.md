@@ -1,5 +1,15 @@
 # @oxide-js/core
 
+## 0.3.0
+
+### Minor Changes
+
+- 51b34eb: feat: add modular trainer and module abstractions with layer compatibility updates
+
+### Patch Changes
+
+- 9d4fa62: fix: transition to tsx runtime for ESM compatibility and improve AdaptiveMemoryRNN test convergence reliability.
+
 ## 0.2.0
 
 ### Minor Changes

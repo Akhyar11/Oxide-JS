@@ -1,6 +1,6 @@
 {
   "name": "@oxide-js/layers",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Oxide-JS Layers: Neural network components including Dense, RNN, and MemoryBank.",
   "repository": {
