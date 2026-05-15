@@ -1,4 +1,4 @@
-import { mj } from "@oxide-js/core";
+import { mj, Matrix } from "@oxide-js/core";
 import {
   Convolution,
   Dense,
@@ -145,7 +145,7 @@ export function runCustomModuleCorrectnessSuite(): void {
 
   assert(result.history.loss.length === 4, `custom module fit should record 4 losses, got ${result.history.loss.length}`);
   assertAllFinite(result.history.loss, "custom module fit losses must be finite");
-  const pred = model.predict(X[0]);
+  const pred = model.predict<Matrix>(X[0]);
   assert(pred._shape[0] === 1 && pred._shape[1] === 1, `custom module predict returned unexpected shape [${pred._shape[0]}, ${pred._shape[1]}]`);
   assertParamsCleared(model, "custom module zeroGrad should clear all parameter gradients");
 
@@ -159,7 +159,7 @@ export function runCustomModuleCorrectnessSuite(): void {
   const tokenTrainer = new Trainer(tokenModel, "mse");
   const tokenBatch = tokenTrainer.trainBatch(mj.matrix([[1], [2], [3], [4]]), mj.matrix([[1]]), 0.01);
   assert(Number.isFinite(tokenBatch.loss), "token attention module trainBatch loss must be finite");
-  const tokenPred = tokenModel.predict(mj.matrix([[1], [2], [3], [0]]));
+  const tokenPred = tokenModel.predict<Matrix>(mj.matrix([[1], [2], [3], [0]]));
   assert(tokenPred._shape[0] === 1 && tokenPred._shape[1] === 1, `token attention predict returned unexpected shape [${tokenPred._shape[0]}, ${tokenPred._shape[1]}]`);
   assertParamsCleared(tokenModel, "token attention module zeroGrad should clear all parameter gradients");
 
@@ -180,7 +180,7 @@ export function runCustomModuleCorrectnessSuite(): void {
     { batchSize: 1, shuffle: false, verbose: false }
   );
   assertAllFinite(convHistory.history.loss, "conv custom module losses must be finite");
-  const convPred = convModel.predict(mj.matrix([[1, 1, 0], [0, 1, 0], [0, 0, 1]]));
+  const convPred = convModel.predict<Matrix>(mj.matrix([[1, 1, 0], [0, 1, 0], [0, 0, 1]]));
   assert(convPred._shape[0] === 1 && convPred._shape[1] === 1, `conv custom module predict returned unexpected shape [${convPred._shape[0]}, ${convPred._shape[1]}]`);
   assertParamsCleared(convModel, "conv custom module zeroGrad should clear all parameter gradients");
 
@@ -194,7 +194,7 @@ export function runCustomModuleCorrectnessSuite(): void {
     0.01
   );
   assert(Number.isFinite(recurrentBatch.loss), "recurrent custom module trainBatch loss must be finite");
-  const recurrentPred = recurrentModel.predict(mj.matrix([[1, 0, 1], [0, 1, 0]]));
+  const recurrentPred = recurrentModel.predict<Matrix>(mj.matrix([[1, 0, 1], [0, 1, 0]]));
   assert(recurrentPred._shape[0] === 1 && recurrentPred._shape[1] === 1, `recurrent custom module predict returned unexpected shape [${recurrentPred._shape[0]}, ${recurrentPred._shape[1]}]`);
   assertParamsCleared(recurrentModel, "recurrent custom module zeroGrad should clear all parameter gradients");
 

@@ -99,7 +99,7 @@ export default class PositionalEncoding {
     return [];
   }
 
-  update(_alpha: number): void {
+  update(_alpha?: number): void {
     // No trainable parameters
   }
 

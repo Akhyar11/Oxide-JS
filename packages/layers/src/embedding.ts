@@ -191,7 +191,7 @@ export default class Embedding {
     return this.trainable ? [this.weight] : [];
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     if (!this.trainable || !this.weight.grad) return;
     this.optimizerWeight.apply(this.weight, alpha || this.alpha);
   }

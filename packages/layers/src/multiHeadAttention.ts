@@ -189,7 +189,7 @@ export default class MultiHeadAttention {
     return [this.q, this.k, this.v, ...this.wo.getParams()];
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerQ.apply(this.q, a);
     this.optimizerK.apply(this.k, a);

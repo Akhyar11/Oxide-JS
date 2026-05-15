@@ -90,7 +90,7 @@ export function runEpisodeTrainerCorrectnessSuite(): void {
   const sampleTarget = mj.matrix([[1], [0], [1]]);
 
   module.resetCounters();
-  const singleEpisode = trainer.trainEpisode(sampleInput, sampleTarget, ({ module, input, target }) => {
+  const singleEpisode = trainer.trainEpisode(sampleInput, sampleTarget, ({ module, input, target }: { module: EpisodicEncoderDecoderModule; input: any; target: any }) => {
     return module.runEpisode(input, target);
   });
   assert(Number.isFinite(singleEpisode.loss), "EpisodeTrainer single episode loss must be finite");
@@ -112,7 +112,7 @@ export function runEpisodeTrainerCorrectnessSuite(): void {
     episodeInputs,
     episodeTargets,
     4,
-    ({ module, input, target }) => module.runEpisode(input, target),
+    ({ module, input, target }: { module: EpisodicEncoderDecoderModule; input: any; target: any }) => module.runEpisode(input, target),
     { shuffle: false, verbose: false, validationSplit: 0.33 }
   );
 

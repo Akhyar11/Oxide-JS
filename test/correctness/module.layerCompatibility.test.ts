@@ -1,4 +1,4 @@
-import { mj, setLoss } from "@oxide-js/core";
+import { mj, Matrix, setLoss } from "@oxide-js/core";
 import {
   Activation,
   AttentionPooling,
@@ -204,7 +204,7 @@ export function runModuleLayerCompatibilitySuite(): void {
     0.01
   );
   assert(Number.isFinite(attentionBatch.loss), "embedding/self-attention/pooling module loss must be finite");
-  const attentionPred = attentionModel.predict(mj.matrix([[1], [2], [0], [0]]));
+  const attentionPred = attentionModel.predict<Matrix>(mj.matrix([[1], [2], [0], [0]]));
   assertMatrixShape(attentionPred, [1, 1], "embedding/self-attention/pooling predict shape mismatch");
 
   const lstmModel = new LstmModule();

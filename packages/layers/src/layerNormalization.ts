@@ -130,7 +130,7 @@ export default class LayerNormalization {
     return [this.gamma, this.beta];
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerGamma.apply(this.gamma, a);
     this.optimizerBeta.apply(this.beta, a);

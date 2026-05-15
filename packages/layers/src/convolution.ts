@@ -184,7 +184,7 @@ export default class Convolution {
     return [this.kernel, this.bias];
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerKernel.apply(this.kernel, a);
     this.optimizerBias.apply(this.bias, a);

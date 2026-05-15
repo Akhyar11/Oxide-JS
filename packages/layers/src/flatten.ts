@@ -40,7 +40,7 @@ export default class Flatten {
     return [];
   }
 
-  update(_alpha: number): void {
+  update(_alpha?: number): void {
     // No trainable parameters
   }
   

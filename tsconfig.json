@@ -4,7 +4,14 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@oxide-js/core": ["./packages/core/src/index.ts"],
+      "@oxide-js/layers": ["./packages/layers/src/index.ts"],
+      "@oxide-js/models": ["./packages/models/src/index.ts"]
+    }
   },
   "ts-node": {
     "esm": true,

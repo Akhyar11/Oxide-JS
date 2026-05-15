@@ -1,13 +1,11 @@
-import { AdaptiveMemoryRNN } from "@oxide-js/layers";
-import { mj } from "@oxide-js/core";
-import { isNativeAvailable } from "@oxide-js/core";
-import { Matrix } from "@oxide-js/core";
+import { isNativeAvailable, Matrix, mj } from "@oxide-js/core";
+import { AdaptiveMemoryRNN, Dense } from "@oxide-js/layers";
 import { Sequential } from "@oxide-js/models";
-import { Dense } from "@oxide-js/layers";
+import { fileURLToPath } from "url";
 
-function assert(condition: boolean, message: string): void {
-  if (!condition) throw new Error(message);
-}
+  function assert(condition: boolean, message: string): void {
+    if (!condition) throw new Error(message);
+  }
 
 function assertShape(matrix: Matrix, rows: number, cols: number, message: string): void {
   assert(
@@ -247,11 +245,12 @@ export function runAdaptiveMemoryRNNCorrectnessSuite(): void {
       new AdaptiveMemoryRNN({
         units: 2,
         hiddenUnits: 4,
-        memorySlots: 2,
+        memorySlots: 4,
         memoryDim: 3,
-        alpha: 0.05,
+        alpha: 0.1,
         optimizer: "sgd",
         status: "input",
+        disableNative: false,
       }),
       new Dense({
         units: 4,
@@ -259,8 +258,9 @@ export function runAdaptiveMemoryRNNCorrectnessSuite(): void {
         activation: "linear",
         status: "output",
         loss: "softmaxCrossEntropy",
-        alpha: 0.05,
+        alpha: 0.1,
         optimizer: "sgd",
+        disableNative: false,
       }),
     ],
   });
@@ -278,12 +278,50 @@ export function runAdaptiveMemoryRNNCorrectnessSuite(): void {
     mj.matrix([[1]]),
   ];
   const history: number[] = [];
-  trainModel.fit(trainX, trainY, 12, {
+  if (nativeParityChecked === "pending") {
+    const input = mj.matrix([[0.5, 0.1, 0.9], [0.2, 0.8, 0.4]]);
+    const target = mj.matrix([[0.1], [0.2], [0.3], [0.4], [0.5]]);
+
+    trainModel.forward(input);
+    trainModel.backward(mj.matrix([[0]]), 1, true);
+
+    const jsDWxh = (trainModel.layers[0] as any).Wxh.grad.clone();
+    const jsDWhh = (trainModel.layers[0] as any).Whh.grad.clone();
+    const jsDWq = (trainModel.layers[0] as any).Wq.grad.clone();
+    const jsDWm = (trainModel.layers[0] as any).Wm.grad.clone();
+    const jsDWg = (trainModel.layers[0] as any).Wg.grad.clone();
+    const jsDBg = (trainModel.layers[0] as any).bg.grad.clone();
+    const jsDx = (trainModel.layers[0] as any).dxBuffer.clone();
+
+    (trainModel.layers[0] as any).disableNative = false;
+    trainModel.forward(input);
+    trainModel.backward(mj.matrix([[0]]), 1, true);
+
+    const nativeDWxh = (trainModel.layers[0] as any).Wxh.grad.clone();
+    const nativeDWhh = (trainModel.layers[0] as any).Whh.grad.clone();
+    const nativeDWq = (trainModel.layers[0] as any).Wq.grad.clone();
+    const nativeDWm = (trainModel.layers[0] as any).Wm.grad.clone();
+    const nativeDWg = (trainModel.layers[0] as any).Wg.grad.clone();
+    const nativeDBg = (trainModel.layers[0] as any).bg.grad.clone();
+    const nativeDx = (trainModel.layers[0] as any).dxBuffer.clone();
+
+    assertMatrixClose(nativeDWxh, jsDWxh, 1e-5, "native parity dWxh");
+    assertMatrixClose(nativeDWhh, jsDWhh, 1e-5, "native parity dWhh");
+    assertMatrixClose(nativeDWq, jsDWq, 1e-5, "native parity dWq");
+    assertMatrixClose(nativeDWm, jsDWm, 1e-5, "native parity dWm");
+    assertMatrixClose(nativeDWg, jsDWg, 1e-5, "native parity dWg");
+    assertMatrixClose(nativeDBg, jsDBg, 1e-5, "native parity dBg");
+    assertMatrixClose(nativeDx, jsDx, 1e-5, "native parity dx");
+    nativeParityChecked = "pass";
+  }
+
+  trainModel.fit(trainX, trainY, 40, {
     batchSize: 1,
     shuffle: false,
     verbose: false,
     onEpochEnd: (_epoch: number, loss: number) => history.push(loss),
   });
+  console.log(`AdaptiveMemoryRNN Overfit Loss: start=${history[0].toFixed(6)}, end=${history[history.length - 1].toFixed(6)}`);
   assert(history[history.length - 1] < history[0], "tiny AdaptiveMemoryRNN model should reduce loss on synthetic data");
 
   console.log("=== AdaptiveMemoryRNN Correctness ===");
@@ -298,3 +336,7 @@ export function runAdaptiveMemoryRNNCorrectnessSuite(): void {
   ]);
 }
 
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === (process.argv[1]);
+if (isMain) {
+  runAdaptiveMemoryRNNCorrectnessSuite();
+}

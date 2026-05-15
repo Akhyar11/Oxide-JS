@@ -19,6 +19,7 @@ export interface AdaptiveMemoryRNNConfig {
   status?: StatusLayer;
   clipGradient?: number | boolean;
   loss?: Cost;
+  disableNative?: boolean;
 }
 
 type AdaptiveMemoryStepCache = {
@@ -56,6 +57,7 @@ export default class AdaptiveMemoryRNN {
   status: StatusLayer;
   alpha: number;
   clipGradient: number | boolean;
+  disableNative: boolean;
 
   Wxh: Matrix;
   Whh: Matrix;
@@ -79,6 +81,16 @@ export default class AdaptiveMemoryRNN {
   private optimizerName: Optimizer;
   private lossName: Cost;
   private lossFunc: Function;
+  private dWxhBuffer: Matrix = mj.matrix([]);
+  private dWhhBuffer: Matrix = mj.matrix([]);
+  private dBhBuffer: Matrix = mj.matrix([]);
+  private dWqBuffer: Matrix = mj.matrix([]);
+  private dWmBuffer: Matrix = mj.matrix([]);
+  private dWgBuffer: Matrix = mj.matrix([]);
+  private dBgBuffer: Matrix = mj.matrix([]);
+  private dxBuffer: Matrix = mj.matrix([]);
+  private initialMemoryKeys: Float32Array = new Float32Array(0);
+  private initialMemoryValues: Float32Array = new Float32Array(0);
   private sumLoss = 0;
   private lossCount = 0;
 
@@ -133,10 +145,6 @@ export default class AdaptiveMemoryRNN {
   private batchCombinedSampleScratch: Float32Array<ArrayBufferLike> = new Float32Array(0);
   private batchHSampleScratch: Float32Array<ArrayBufferLike> = new Float32Array(0);
   private batchDActSampleScratch: Float32Array<ArrayBufferLike> = new Float32Array(0);
-  private dWxhBuffer: Matrix = mj.matrix([]);
-  private dWhhBuffer: Matrix = mj.matrix([]);
-  private dBhBuffer: Matrix = mj.matrix([]);
-  private dxBuffer: Matrix = mj.matrix([]);
   private dhNextBuffer: Float32Array<ArrayBufferLike> = new Float32Array(0);
   private dhBuffer: Float32Array<ArrayBufferLike> = new Float32Array(0);
   private dzBuffer: Float32Array<ArrayBufferLike> = new Float32Array(0);
@@ -156,6 +164,7 @@ export default class AdaptiveMemoryRNN {
     status = "input",
     clipGradient = 5.0,
     loss = "mse",
+    disableNative = false,
   }: AdaptiveMemoryRNNConfig) {
     this.assertPositiveInteger(units, "units");
     this.assertPositiveInteger(hiddenUnits, "hiddenUnits");
@@ -176,6 +185,7 @@ export default class AdaptiveMemoryRNN {
     this.optimizerName = optimizer;
     this.lossName = loss;
     this.lossFunc = setLoss(loss);
+    this.disableNative = disableNative;
 
     this.Wxh = mj.xavier([hiddenUnits, units + memoryDim]);
     this.Whh = mj.xavier([hiddenUnits, hiddenUnits]);
@@ -183,9 +193,12 @@ export default class AdaptiveMemoryRNN {
     this.Wq = mj.xavier([memoryDim, units + hiddenUnits]);
     this.Wm = mj.xavier([memoryDim, hiddenUnits]);
     this.Wg = mj.xavier([memoryDim, units + hiddenUnits + memoryDim]);
-    this.bg = mj.zeros([memoryDim, 1]);
     this.memoryKeys = mj.zeros([memoryDim, memorySlots]);
     this.memoryValues = mj.zeros([memoryDim, memorySlots]);
+    this.bg = mj.zeros([memoryDim, 1]);
+
+    this.initialMemoryKeys = this.memoryKeys._data.slice();
+    this.initialMemoryValues = this.memoryValues._data.slice();
     this.memoryUsage = new Float32Array(memorySlots);
     this.hStateful = mj.zeros([hiddenUnits, 1]);
 
@@ -196,6 +209,7 @@ export default class AdaptiveMemoryRNN {
     this.optimizerWm = setOptimizer(optimizer, this.Wm._shape, 1e-5);
     this.optimizerWg = setOptimizer(optimizer, this.Wg._shape, 1e-5);
     this.optimizerBg = setOptimizer(optimizer, this.bg._shape, 1e-5);
+    this.dxBuffer = mj.matrix([]);
 
     this.inputShape = [units, 0];
     this.outputShape = [hiddenUnits, returnSequences ? 0 : 1];
@@ -327,6 +341,8 @@ export default class AdaptiveMemoryRNN {
     this.outputShape = [this.hiddenUnits, this.returnSequences ? 0 : 1];
     this.params = this.computeParams();
     this.resetOptimizers(this.optimizerName);
+    this.initialMemoryKeys = this.memoryKeys._data.slice();
+    this.initialMemoryValues = this.memoryValues._data.slice();
   }
 
   compile({
@@ -359,7 +375,7 @@ export default class AdaptiveMemoryRNN {
     ];
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerWxh.apply(this.Wxh, a);
     this.optimizerWhh.apply(this.Whh, a);
@@ -398,8 +414,8 @@ export default class AdaptiveMemoryRNN {
       throw new Error("AdaptiveMemoryRNN.forward: expected a non-empty sequence input.");
     }
     if (!this.stateful) {
-      this.memoryKeys._data.fill(0);
-      this.memoryValues._data.fill(0);
+      this.memoryKeys._data.set(this.initialMemoryKeys);
+      this.memoryValues._data.set(this.initialMemoryValues);
       this.memoryUsage.fill(0);
     }
 
@@ -483,13 +499,17 @@ export default class AdaptiveMemoryRNN {
     const dWxh = this.dWxhBuffer;
     const dWhh = this.dWhhBuffer;
     const dBh = this.dBhBuffer;
-    const dWq = mj.zeros([this.memoryDim, this.units + this.hiddenUnits]);
-    const dWm = mj.zeros([this.memoryDim, this.hiddenUnits]);
-    const dWg = mj.zeros([this.memoryDim, this.units + this.hiddenUnits + this.memoryDim]);
-    const dBg = mj.zeros([this.memoryDim, 1]);
+    const dWq = this.dWqBuffer;
+    const dWm = this.dWmBuffer;
+    const dWg = this.dWgBuffer;
+    const dBg = this.dBgBuffer;
     dWxh._data.fill(0);
     dWhh._data.fill(0);
     dBh._data.fill(0);
+    dWq._data.fill(0);
+    dWm._data.fill(0);
+    dWg._data.fill(0);
+    dBg._data.fill(0);
     this.dxBuffer._data.fill(0);
 
     const nativeOk = this.runNativeBackward(
@@ -513,7 +533,7 @@ export default class AdaptiveMemoryRNN {
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh, dWq, dWm, dWg, dBg);
-    
+
     const accumulate = (p: Matrix, grad: Matrix) => {
       if (p.grad) p.grad.addInPlace(grad);
       else p.grad = grad;
@@ -701,7 +721,7 @@ export default class AdaptiveMemoryRNN {
     }
 
     this.clipGradientsIfNeeded(dWxh, dWhh, dBh, dWq, dWm, dWg, dBg);
-    
+
     const accumulate = (p: Matrix, grad: Matrix) => {
       if (p.grad) p.grad.addInPlace(grad);
       else p.grad = grad;
@@ -966,37 +986,21 @@ export default class AdaptiveMemoryRNN {
   }
 
   private selectWriteSlot(retrievedSlot: number): number {
+    // Fill empty slots one-by-one
     for (let slot = 0; slot < this.memorySlots; slot++) {
       if (this.memoryUsage[slot] === 0) return slot;
     }
-
-    let bestSlot = retrievedSlot;
-    let lowestUsage = this.memoryUsage[retrievedSlot] ?? Infinity;
-    for (let slot = 0; slot < this.memorySlots; slot++) {
-      const usage = this.memoryUsage[slot];
-      if (usage < lowestUsage) {
-        lowestUsage = usage;
-        bestSlot = slot;
-      }
-    }
-    return bestSlot;
+    // If all full, use the most similar slot
+    return retrievedSlot;
   }
 
   private selectWriteSlotFromUsage(retrievedSlot: number, usage: Float32Array, usageOffset: number): number {
+    // Fill empty slots one-by-one
     for (let slot = 0; slot < this.memorySlots; slot++) {
       if (usage[usageOffset + slot] === 0) return slot;
     }
-
-    let bestSlot = retrievedSlot;
-    let lowestUsage = usage[usageOffset + retrievedSlot] ?? Infinity;
-    for (let slot = 0; slot < this.memorySlots; slot++) {
-      const currentUsage = usage[usageOffset + slot];
-      if (currentUsage < lowestUsage) {
-        lowestUsage = currentUsage;
-        bestSlot = slot;
-      }
-    }
-    return bestSlot;
+    // If all full, use the most similar slot
+    return retrievedSlot;
   }
 
   private stableSoftmaxInto(scores: Float32Array): Float32Array {
@@ -1354,7 +1358,7 @@ export default class AdaptiveMemoryRNN {
     dxCols: number,
     batchSize: number
   ): boolean {
-    if (!isNativeAvailable()) return false;
+    if (!isNativeAvailable() || this.disableNative) return false;
     const seqLen = sampleCaches[0]?.length ?? 0;
     if (seqLen === 0) return false;
     const flattened = this.flattenStepCachesForNative(sampleCaches, sampleErrors, seqLen, batchSize);
@@ -1607,6 +1611,18 @@ export default class AdaptiveMemoryRNN {
     }
     if (this.dBhBuffer._shape[0] !== this.hiddenUnits || this.dBhBuffer._shape[1] !== 1) {
       this.dBhBuffer = mj.zeros([this.hiddenUnits, 1]);
+    }
+    if (this.dWqBuffer._shape[0] !== this.memoryDim || this.dWqBuffer._shape[1] !== this.units + this.hiddenUnits) {
+      this.dWqBuffer = mj.zeros([this.memoryDim, this.units + this.hiddenUnits]);
+    }
+    if (this.dWmBuffer._shape[0] !== this.memoryDim || this.dWmBuffer._shape[1] !== this.hiddenUnits) {
+      this.dWmBuffer = mj.zeros([this.memoryDim, this.hiddenUnits]);
+    }
+    if (this.dWgBuffer._shape[0] !== this.memoryDim || this.dWgBuffer._shape[1] !== this.units + this.hiddenUnits + this.memoryDim) {
+      this.dWgBuffer = mj.zeros([this.memoryDim, this.units + this.hiddenUnits + this.memoryDim]);
+    }
+    if (this.dBgBuffer._shape[0] !== this.memoryDim || this.dBgBuffer._shape[1] !== 1) {
+      this.dBgBuffer = mj.zeros([this.memoryDim, 1]);
     }
     if (this.dxBuffer._shape[0] !== this.units || this.dxBuffer._shape[1] !== seqLen) {
       this.dxBuffer = mj.zeros([this.units, seqLen]);

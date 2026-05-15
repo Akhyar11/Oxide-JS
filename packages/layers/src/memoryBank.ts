@@ -262,7 +262,7 @@ export default class MemoryBank {
     return p;
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerQuery.apply(this.queryKernel, a);
     this.optimizerWriteGate.apply(this.writeGateKernel, a);

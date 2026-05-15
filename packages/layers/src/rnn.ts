@@ -242,7 +242,7 @@ export default class RNN {
     return [this.Wxh, this.Whh, this.bh];
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerWxh.apply(this.Wxh, a);
     this.optimizerWhh.apply(this.Whh, a);

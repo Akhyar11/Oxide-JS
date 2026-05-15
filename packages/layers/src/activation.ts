@@ -73,7 +73,7 @@ export default class Activation {
     return [];
   }
 
-  update(_alpha: number): void {
+  update(_alpha?: number): void {
     // Activation layer has no trainable parameters
   }
 

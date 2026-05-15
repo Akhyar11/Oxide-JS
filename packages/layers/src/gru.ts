@@ -278,7 +278,7 @@ export default class GRU {
     return params;
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     const updateDir = (dir: DirectionParams) => {
       dir.optimizerWxr.apply(dir.Wxr, a);

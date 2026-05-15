@@ -61,7 +61,7 @@ export default class AttentionPooling {
     return this.scorer.getParams();
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     this.scorer.update(alpha);
   }
 

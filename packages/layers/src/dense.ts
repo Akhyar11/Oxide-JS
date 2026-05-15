@@ -31,6 +31,7 @@ interface DenseLayers {
   optimizer?: Optimizer;
   status?: StatusLayer;
   clipGradient?: number | boolean;
+  disableNative?: boolean;
 }
 
 export interface CompileDenseLayers {
@@ -51,6 +52,7 @@ export default class Dense {
   outputShape: [number, number];
   status: StatusLayer;
   clipGradient: number | boolean;
+  disableNative: boolean;
   bias: Matrix;
   weight: Matrix;
   private sumLoss: number = 0;
@@ -83,6 +85,7 @@ export default class Dense {
     alpha = 0.1,
     loss = "mse",
     clipGradient = 5.0,
+    disableNative = false,
   }: DenseLayers) {
     // Guard: combining softmax activation with softmaxCrossEntropy loss applies softmax twice,
     // which produces incorrect gradients. Users should set activation='linear' when using
@@ -120,6 +123,7 @@ export default class Dense {
     this.lossFunc = setLoss(loss);
     this.alpha = alpha;
     this.clipGradient = clipGradient;
+    this.disableNative = disableNative;
     this.params = outputUnits * units + outputUnits;
   }
 
@@ -315,6 +319,7 @@ export default class Dense {
     }
 
     const canUseNativeLinearBackward =
+      !this.disableNative &&
       this.activationName === "linear" &&
       isNativeAvailable() &&
       shouldUseNativeDenseLinearBackward(this.outputUnits, this.units, seqLen);
@@ -382,7 +387,7 @@ export default class Dense {
   /**
    * Memperbarui bobot secara dinamis menggunakan gradien hasil Tape.
    */
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerWeight.apply(this.weight, a);
     this.optimizerBias.apply(this.bias, a);

@@ -50,7 +50,7 @@ export default class Dropout {
     return [];
   }
 
-  update(_alpha: number): void {
+  update(_alpha?: number): void {
     // Dropout has no trainable parameters
   }
 

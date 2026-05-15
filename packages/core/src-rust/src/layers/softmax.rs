@@ -88,7 +88,7 @@ pub fn softmax_native_into(
         });
     } else {
         let mut transposed = vec![0.0f32; out.len()];
-        transpose_copy(&out, r, c, &mut transposed);
+        transpose_copy(&data, r, c, &mut transposed);
         if transposed.len() < SOFTMAX_PARALLEL_THRESHOLD {
             for row in transposed.chunks_mut(r) {
                 softmax_row_in_place(row);

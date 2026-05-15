@@ -194,7 +194,7 @@ export default class LSTM {
     ];
   }
 
-  update(alpha: number): void {
+  update(alpha?: number): void {
     const a = alpha || this.alpha;
     this.optimizerWxi.apply(this.Wxi, a);
     this.optimizerWxf.apply(this.Wxf, a);
