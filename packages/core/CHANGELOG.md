@@ -1,5 +1,11 @@
 # @oxide-js/core
 
+## 0.4.0
+
+### Minor Changes
+
+- b1d05cb: Fix native MemoryBank function names and add correctness tests
+
 ## 0.3.0
 
 ### Minor Changes
