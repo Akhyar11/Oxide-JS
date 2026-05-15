@@ -11,6 +11,7 @@ Dokumentasi API Oxide-JS dipisahkan berdasarkan module agar lebih mudah dibaca d
 ## Neural Network Building Blocks
 
 - [Activation Functions](./activation.md)
+- [Custom Architectures](./custom-architectures.md)
 - [Cost Functions](./cost.md)
 - [Optimizers](./optimizer.md)
 - [Layers](./layers.md)

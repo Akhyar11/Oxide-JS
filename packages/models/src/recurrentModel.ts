@@ -202,6 +202,7 @@ export default class RecurrentModel extends Sequential {
     const config = typeof configOrCb === "function" ? {} : configOrCb;
     const {
       batchSize = Math.max(1, Math.floor(X.length / 10)),
+      autodiff = false,
       validationSplit = 0,
       earlyStoppingPatience = Infinity,
       shuffle = true,
@@ -276,11 +277,9 @@ export default class RecurrentModel extends Sequential {
         const currentBatchX = this.buildInputBatch(trainX, trainIndices, start, currentBatchSize);
         const currentBatchY = this.buildTargetBatch(trainY, trainIndices, start, currentBatchSize);
 
-        const pred = this.forward(currentBatchX, currentBatchSize);
-        this.backward(currentBatchY, currentBatchSize);
-        const batchLossState = this.useBackwardLossForTrainingBatch(currentBatchY, pred)
-          ? this.computeLossAndWeightFromBackward(currentBatchY, pred)
-          : this.computeLossAndWeight(currentBatchY, pred);
+        const batchLossState = autodiff
+          ? this.runAutodiffTrainingBatch(currentBatchX, currentBatchY, currentBatchSize)
+          : this.runManualTrainingBatch(currentBatchX, currentBatchY, currentBatchSize);
 
         totalEpochLoss += batchLossState.loss * batchLossState.weight;
         totalEpochWeight += batchLossState.weight;

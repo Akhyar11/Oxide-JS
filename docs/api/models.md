@@ -2,11 +2,18 @@
 
 High-level model compositions in Oxide-JS.
 
+> For new work, prefer [Custom Architectures](./custom-architectures.md) with `Module` + `Trainer`. The model classes in this page remain useful as convenience wrappers and for backward compatibility.
+
 ## Import
 
 ```ts
 import {
+  EpisodeTrainer,
+  Module,
+  ModuleList,
   Sequential,
+  SequentialBlock,
+  Trainer,
   Transformers,
   DimentionalityReduction,
   RecurrentModel
@@ -15,7 +22,17 @@ import {
 
 ## Overview
 
-Oxide-JS provides four model classes:
+Oxide-JS provides one primary custom-model API plus legacy wrapper classes:
+
+| API | Description |
+|---|---|
+| `Module` | Base class for custom topologies with arbitrary `forward(...)` logic. |
+| `ModuleList` | Recursive container for repeated trainable blocks or dynamic stacks. |
+| `SequentialBlock` | Lightweight sequential container inside a larger custom `Module`. |
+| `Trainer` | Generic autodiff training loop for `Module`, including structured input/output with custom loss. |
+| `EpisodeTrainer` | Episodic autodiff training loop for encoder-once / decoder-many / backward-once execution schedules. |
+
+Legacy wrappers:
 
 | Model | Description |
 |---|---|
@@ -29,6 +46,8 @@ Oxide-JS provides four model classes:
 ## API Reference
 
 ### `Sequential`
+
+> Legacy convenience wrapper. Prefer `Module` + `Trainer` for new architecture work.
 
 A wrapper model that stacks layers sequentially for **per-sample supervised learning**. `Sequential.fit()` handles batching, validation, early stopping, and shuffling for targets that are averaged per sample.
 
@@ -180,6 +199,8 @@ pred.print();
 
 ### `DimentionalityReduction`
 
+> Legacy convenience wrapper built on top of `Sequential`.
+
 Extends `Sequential` for autoencoder / encoder-decoder scenarios. Splits the layer list into `layersEncode` and `layersDecode` at the first layer with `status === "outputReduction"`.
 
 #### `constructor({ layers })`
@@ -222,6 +243,8 @@ const result = model.fit(trainX, 50, { batchSize: 8, verbose: true });
 ---
 
 ### `RecurrentModel`
+
+> Legacy convenience wrapper for stacked recurrent training flows.
 
 High-level recurrent model wrapper built on top of the existing `RNN`, `LSTM`, and `GRU` layers. It supports stacked recurrent layers plus:
 - `many-to-one`

@@ -31,7 +31,8 @@
 - **`Matrix`** — flat `Float32Array`-backed tensor with zero-copy hot-path access via `_data`.
 - **Math primitives** — `dotProduct`, `add`, `sub`, `sumAxis`, `clipGradients`, and more; automatically dispatched to Rust or JS.
 - **Layers** — `Dense`, `Embedding`, `RNN`, `LSTM`, `GRU`, `SelfAttention`, `MultiHeadAttention`, `LayerNormalization`, `Dropout`, `PositionalEncoding`, `Flatten`, `Convolution`, `MemoryBank`.
-- **Models** — `Sequential`, `Transformers` (causal LM), `RecurrentModel` (RNN/LSTM/GRU many-to-one and aligned many-to-many), `DimentionalityReduction`.
+- **Custom Architecture API** — define your own trainable model by subclassing `Module`, organize repeated blocks with `ModuleList` / `SequentialBlock`, and train it with `Trainer`.
+- **Legacy High-level Models** — `Sequential`, `Transformers` (causal LM), `RecurrentModel` (RNN/LSTM/GRU many-to-one and aligned many-to-many), `DimentionalityReduction`.
 - **Auto-Diff Engine (Tape)** — record complex mathematical operations on a Gradient Tape and compute gradients automatically with Reverse-Mode Differentiation.
 - **Keras Interoperability** — save and load models using the standardized `model.json` + `weights.bin` format, compatible with the Keras/TensorFlow.js ecosystem.
 - **BPE Tokenizer** — train, incremental update, Unicode-aware pre-tokenization, encode/decode with special tokens, padding, and JSON save/load.
@@ -93,26 +94,33 @@ ML_DISABLE_NATIVE=1 node your-script.js
 
 ## Quick Start
 
-Train a simple XOR classifier in a few lines:
+Build a custom residual XOR classifier in a few lines:
 
 ```ts
 import { mj } from "@oxide-js/core";
 import { Dense } from "@oxide-js/layers";
-import { Sequential } from "@oxide-js/models";
+import { Module, Trainer } from "@oxide-js/models";
 
-const model = new Sequential({
-  layers: [
-    new Dense({ units: 2, outputUnits: 4, activation: "relu", status: "input" }),
-    new Dense({ units: 4, outputUnits: 1, activation: "sigmoid", status: "output", loss: "mse" }),
-  ],
-});
+class ResidualXorModel extends Module {
+  input = new Dense({ units: 2, outputUnits: 6, activation: "relu", status: "input" });
+  hidden = new Dense({ units: 6, outputUnits: 6, activation: "relu", status: "train" });
+  output = new Dense({ units: 6, outputUnits: 1, activation: "linear", status: "output", loss: "mse" });
 
+  forward(x) {
+    const a = this.input.forward(x);
+    const b = this.hidden.forward(a);
+    return this.output.forward(mj.add(a, b));
+  }
+}
+
+const model = new ResidualXorModel();
 model.compile({ alpha: 0.01, optimizer: "adam", error: "mse" });
+const trainer = new Trainer(model, "mse");
 
 const X = [mj.matrix([[0], [0]]), mj.matrix([[0], [1]]), mj.matrix([[1], [0]]), mj.matrix([[1], [1]])];
 const Y = [mj.matrix([[0]]), mj.matrix([[1]]), mj.matrix([[1]]), mj.matrix([[0]])];
 
-const result = model.fit(X, Y, 200, {
+const result = trainer.fit(X, Y, 200, {
   batchSize: 4,
   validationSplit: 0.25,
   earlyStoppingPatience: 10,
@@ -126,10 +134,16 @@ const pred = model.predict(mj.matrix([[1], [0]]));
 pred.print();
 ```
 
-A legacy callback overload is also supported for backward compatibility:
+Primary architecture API for new work:
 
 ```ts
-model.fit(X, Y, 200, (loss) => console.log("loss", loss));
+import { Module, ModuleList, SequentialBlock, Trainer } from "@oxide-js/models";
+```
+
+Legacy high-level wrappers are still available for convenience and backward compatibility:
+
+```ts
+import { Sequential, Transformers, RecurrentModel } from "@oxide-js/models";
 ```
 
 Model split:

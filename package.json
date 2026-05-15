@@ -8,9 +8,10 @@
   "type": "module",
   "description": "Oxide-JS: A modular, high-performance machine learning library for TypeScript with Rust acceleration.",
   "scripts": {
-    "test": "node --loader ts-node/esm test/index.ts",
+    "test": "node -r ts-node/register test/index.ts",
     "build": "npm run build -w packages/core && npm run build -w packages/layers && npm run build -w packages/models",
     "build:rust": "npm run build:rust -w @oxide-js/core",
+    "release:check": "npm run build && npm test && npm pack --dry-run -w packages/core && npm pack --dry-run -w packages/layers && npm pack --dry-run -w packages/models",
     "postinstall": "node -e \"try{require('child_process').execSync('npm run build:rust -w @oxide-js/core',{stdio:'inherit'})}catch(e){console.warn('[oxide-js] Rust build skipped — native acceleration unavailable.')}\""
   },
   "keywords": [

@@ -2,6 +2,9 @@ export type PaddingSide = "left" | "right";
 
 export interface FitConfig {
   batchSize?: number;
+  /** Run training batches through the Gradient Tape instead of the model's
+   *  manual backward path. Default: false */
+  autodiff?: boolean;
   validationSplit?: number;
   earlyStoppingPatience?: number;
   shuffle?: boolean;

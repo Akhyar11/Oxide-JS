@@ -168,6 +168,14 @@ for (let epoch = 0; epoch < 100; epoch++) {
 - **Gradient Accumulation**: Simply don't call `clearGrad()` to accumulate gradients over multiple forward passes.
 - **Scalar-Safe Math**: Elementwise matrix-scalar ops such as `mj.add(x, 1)`, `mj.sub(1, x)`, `mj.mul(x, 0.5)`, and `mj.div(x, 2)` are recorded by the tape and participate in autodiff normally.
 
+For built-in training loops, `Sequential.fit(...)` and `RecurrentModel.fit(...)` now support:
+
+```ts
+model.fit(X, y, epochs, { autodiff: true });
+```
+
+This switches each training batch from the model's manual backward path to Gradient Tape-based backpropagation while keeping the existing optimizer/update pipeline.
+
 ---
 
 ## The `gradOnly` Pattern

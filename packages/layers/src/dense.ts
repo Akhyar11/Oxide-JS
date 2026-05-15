@@ -383,8 +383,9 @@ export default class Dense {
    * Memperbarui bobot secara dinamis menggunakan gradien hasil Tape.
    */
   update(alpha: number): void {
-    this.optimizerWeight.apply(this.weight, alpha);
-    this.optimizerBias.apply(this.bias, alpha);
+    const a = alpha || this.alpha;
+    this.optimizerWeight.apply(this.weight, a);
+    this.optimizerBias.apply(this.bias, a);
   }
 
   /** @deprecated Use mj.clipGradients instead */

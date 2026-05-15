@@ -1,5 +1,8 @@
 import { runAdaptiveMemoryRNNCorrectnessSuite } from "./adaptiveMemoryRNN.test.ts";
 import { runAttentionPoolingCorrectnessSuite } from "./attentionPooling.test.ts";
+import { runCustomModuleCorrectnessSuite } from "./customModule.test.ts";
+import { runEpisodeTrainerCorrectnessSuite } from "./episodeTrainer.test.ts";
+import { runModuleLayerCompatibilitySuite } from "./module.layerCompatibility.test.ts";
 import { runEmbeddingTrainableCorrectnessSuite } from "./embedding.trainable.test.ts";
 import { runLSTMForgetBiasCorrectnessSuite } from "./lstm.forgetBias.test.ts";
 import { runLossScalingCorrectnessSuite } from "./loss.scaling.test.ts";
@@ -19,6 +22,9 @@ export function runCorrectnessSuite(): void {
   runAutoDiffGradientSuite();
   runAdaptiveMemoryRNNCorrectnessSuite();
   runAttentionPoolingCorrectnessSuite();
+  runCustomModuleCorrectnessSuite();
+  runEpisodeTrainerCorrectnessSuite();
+  runModuleLayerCompatibilitySuite();
   runEmbeddingTrainableCorrectnessSuite();
   runLSTMForgetBiasCorrectnessSuite();
   runLossScalingCorrectnessSuite();

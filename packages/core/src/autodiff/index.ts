@@ -63,6 +63,10 @@ export default class Tape {
     options: { saveInput?: boolean; saveOutput?: boolean } = { saveInput: true, saveOutput: true }
   ) {
     if (!this.active) return;
+
+    for (const output of outputs) {
+      output.grad = null;
+    }
     
     // Simpan snapshot hanya jika benar-benar dibutuhkan oleh backward pass
     const inputSnapshots = options.saveInput ? inputs.map(m => new Float32Array(m._data)) : [];

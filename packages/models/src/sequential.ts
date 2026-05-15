@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "fs";
-import { Cost, Matrix, setLoss, splitTrainValidation, shuffleInPlace, formatLoss, formatProgressBar, formatTime, mj } from "@oxide-js/core";
+import { Cost, Matrix, engine, setLoss, splitTrainValidation, shuffleInPlace, formatLoss, formatProgressBar, formatTime, mj } from "@oxide-js/core";
 import { setLayers, Layers, CompileDenseLayers, Embedding, MemoryBank } from "@oxide-js/layers";
 import { FitConfig, FitResult } from "@oxide-js/core";
 
@@ -263,7 +263,7 @@ export default class Sequential {
   /**
    * Menerapkan gradien hasil Tape ke seluruh layer.
    */
-  applyGradients(alpha: number) {
+  applyGradients(alpha?: number) {
     for (const layer of this.layers) {
       if (typeof (layer as any).update === "function") {
         (layer as any).update(alpha);
@@ -328,6 +328,7 @@ export default class Sequential {
     const config = typeof configOrCb === "function" ? {} : configOrCb;
     const {
       batchSize = Math.max(1, Math.floor(X.length / 10)),
+      autodiff = false,
       validationSplit = 0,
       earlyStoppingPatience = Infinity,
       shuffle = true,
@@ -402,11 +403,9 @@ export default class Sequential {
         const currentBatchX = this.buildColumnBatch(trainX, trainIndices, start, currentBatchSize, "input");
         const currentBatchY = this.buildColumnBatch(trainY, trainIndices, start, currentBatchSize, "target");
 
-        const pred = this.forward(currentBatchX, currentBatchSize);
-        this.backward(currentBatchY, currentBatchSize);
-        const batchLossState = this.useBackwardLossForTrainingBatch(currentBatchY, pred)
-          ? this.computeLossAndWeightFromBackward(currentBatchY, pred)
-          : this.computeLossAndWeight(currentBatchY, pred);
+        const batchLossState = autodiff
+          ? this.runAutodiffTrainingBatch(currentBatchX, currentBatchY, currentBatchSize)
+          : this.runManualTrainingBatch(currentBatchX, currentBatchY, currentBatchSize);
         const batchLossValue = batchLossState.loss;
 
         totalEpochLoss += batchLossValue * batchLossState.weight;
@@ -578,6 +577,73 @@ export default class Sequential {
 
   protected computeLossWeight(yTrue: Matrix, _yPred: Matrix): number {
     return yTrue._shape[1];
+  }
+
+  protected iterateTrainableParams(visitor: (param: Matrix) => void): void {
+    for (const layer of this.layers) {
+      if (typeof (layer as any).getParams !== "function") continue;
+      const params = (layer as any).getParams() as Matrix[];
+      for (const param of params) {
+        visitor(param);
+      }
+    }
+  }
+
+  protected clearTrainableGradients(): void {
+    this.iterateTrainableParams((param) => param.clearGrad());
+  }
+
+  protected buildAutodiffLoss(yTrue: Matrix, yPred: Matrix): Matrix {
+    const isSparseTarget = yTrue._shape[0] === 1 && yPred._shape[0] > 1;
+    const lossName = this.resolveLossName();
+    this.assertSparseSoftmaxAutoSwitchSupported(isSparseTarget, lossName);
+    const selectedLoss: Cost = isSparseTarget && lossName === "mse" ? "softmaxCrossEntropy" : lossName;
+    const lossFn = setLoss(selectedLoss);
+    const [lossValue, gradValue] = lossFn(yTrue, yPred);
+    const loss = Matrix.fromFlat(new Float32Array([lossValue]), [1, 1]);
+    const tape = engine.tape;
+    if (tape) {
+      tape.record([yPred], [loss], (grad: Matrix) => {
+        const scale = grad._data[0];
+        const scaledGrad = scale === 1 ? gradValue : mj.mul(gradValue, scale);
+        if (yPred.grad) yPred.grad.addInPlace(scaledGrad);
+        else yPred.grad = scaledGrad;
+      }, { saveInput: false, saveOutput: false });
+    }
+    return loss;
+  }
+
+  protected runAutodiffTrainingBatch(
+    batchX: Matrix,
+    batchY: Matrix,
+    currentBatchSize: number
+  ): { loss: number; weight: number } {
+    this.clearTrainableGradients();
+    const tape = engine.startTape();
+    try {
+      const pred = this.forward(batchX, currentBatchSize);
+      const loss = this.buildAutodiffLoss(batchY, pred);
+      tape.backward(loss);
+      this.applyGradients();
+      return {
+        loss: loss._data[0],
+        weight: this.computeLossWeight(batchY, pred),
+      };
+    } finally {
+      engine.endTape();
+    }
+  }
+
+  protected runManualTrainingBatch(
+    batchX: Matrix,
+    batchY: Matrix,
+    currentBatchSize: number
+  ): { loss: number; weight: number } {
+    const pred = this.forward(batchX, currentBatchSize);
+    this.backward(batchY, currentBatchSize);
+    return this.useBackwardLossForTrainingBatch(batchY, pred)
+      ? this.computeLossAndWeightFromBackward(batchY, pred)
+      : this.computeLossAndWeight(batchY, pred);
   }
 
   protected useBackwardLossForTrainingBatch(_yTrue: Matrix, _yPred: Matrix): boolean {
