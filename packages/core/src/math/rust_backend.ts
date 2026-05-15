@@ -6,12 +6,74 @@ import { MatrixShape } from "../@types/type.js";
 let native: any = null;
 const disableNativeByEnv = process.env.ML_DISABLE_NATIVE === "1";
 
+function isMusl(): boolean {
+  if (!process.report || typeof process.report.getReport !== "function") {
+    try {
+      const lddPath = require("child_process").execSync("which ldd").toString().trim();
+      return require("fs").readFileSync(lddPath, "utf8").includes("musl");
+    } catch {
+      return true;
+    }
+  }
+  const report = process.report.getReport() as {
+    header?: {
+      glibcVersionRuntime?: string;
+    };
+  };
+  return !report.header?.glibcVersionRuntime;
+}
+
+function getLocalNativeCandidates(): string[] {
+  const { platform, arch } = process;
+  if (platform === "linux" && arch === "x64") {
+    return [isMusl() ? "../../oxide-native.linux-x64-musl.node" : "../../oxide-native.linux-x64-gnu.node"];
+  }
+  if (platform === "linux" && arch === "arm64") {
+    return [isMusl() ? "../../oxide-native.linux-arm64-musl.node" : "../../oxide-native.linux-arm64-gnu.node"];
+  }
+  if (platform === "darwin") {
+    return arch === "arm64"
+      ? ["../../oxide-native.darwin-universal.node", "../../oxide-native.darwin-arm64.node"]
+      : ["../../oxide-native.darwin-universal.node", "../../oxide-native.darwin-x64.node"];
+  }
+  if (platform === "win32" && arch === "x64") {
+    return ["../../oxide-native.win32-x64-msvc.node"];
+  }
+  if (platform === "win32" && arch === "arm64") {
+    return ["../../oxide-native.win32-arm64-msvc.node"];
+  }
+  if (platform === "win32" && arch === "ia32") {
+    return ["../../oxide-native.win32-ia32-msvc.node"];
+  }
+  if (platform === "android" && arch === "arm64") {
+    return ["../../oxide-native.android-arm64.node"];
+  }
+  if (platform === "android" && arch === "arm") {
+    return ["../../oxide-native.android-arm-eabi.node"];
+  }
+  if (platform === "freebsd" && arch === "x64") {
+    return ["../../oxide-native.freebsd-x64.node"];
+  }
+  return [];
+}
+
 if (!disableNativeByEnv) {
   try {
-    // Gunakan loader NAPI-RS agar memilih artefak platform yang benar.
-    // Menghindari pemakaian binary stale ketika file *.node lama masih ada di repo root.
-    native = require("../../../index.js");
-  } catch (e) {
+    for (const candidate of getLocalNativeCandidates()) {
+      try {
+        native = require(candidate);
+        break;
+      } catch {
+        native = null;
+      }
+    }
+    if (native == null) {
+      native = require("../../index.js");
+      if (native != null && Object.keys(native).length === 0) {
+        native = null;
+      }
+    }
+  } catch {
     // console.warn("Rust Backend: Native module failed to load.");
   }
 }
