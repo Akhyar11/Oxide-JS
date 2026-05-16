@@ -16,14 +16,7 @@ export default function tanh(a: Matrix): Matrix {
   }
   const dResult = mj.sub(1, mj.mul(result, result));
 
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [result], (grad: Matrix) => {
-      const gradA = mj.mul(grad, dResult);
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: false, saveOutput: true });
-  }
+  engine.record([a], [result], (grad: Matrix) => [mj.mul(grad, dResult)], { saveInput: false, saveOutput: true });
 
   return result;
 }

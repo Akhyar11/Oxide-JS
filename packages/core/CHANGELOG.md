@@ -1,5 +1,21 @@
 # @oxide-js/core
 
+## 0.4.2
+
+### Patch Changes
+
+- Add scalar Matrix reducer wrappers with autodiff support: `dotSumScalar`, `dotSubScalar`, `dotMulScalar`, `dotDivScalar`, and `normScalar`.
+- Preserve existing numeric reducer APIs to avoid breaking runtime behavior.
+- Add autodiff regression tests for the new scalar wrappers.
+
+## 0.4.1
+
+### Patch Changes
+
+- Migrate all math/activation ops to engine-side `engine.record(...)` with return-grad backward callbacks.
+- Add `Tape.backward(loss, upstreamGrad?)` to support explicit upstream gradients.
+- Refine autodiff stability handling by removing unnecessary live-input dependency in backward paths where snapshots are not required.
+
 ## 0.4.0
 
 ### Minor Changes

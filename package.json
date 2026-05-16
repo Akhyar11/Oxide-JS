@@ -4,7 +4,7 @@
   "workspaces": [
     "packages/*"
   ],
-  "version": "2.3.1",
+  "version": "2.3.3",
   "type": "module",
   "description": "Oxide-JS: A modular, high-performance machine learning library for TypeScript with Rust acceleration.",
   "scripts": {

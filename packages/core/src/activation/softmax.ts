@@ -134,13 +134,10 @@ export default function softmax(a: Matrix, row = false): Matrix {
 
   softmaxInto(a, out, row);
 
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [out], (grad: Matrix) => [softmaxBackward(out, grad, row)], {
-      saveInput: false,
-      saveOutput: true,
-    });
-  }
+  engine.record([a], [out], (grad: Matrix) => [softmaxBackward(out, grad, row)], {
+    saveInput: false,
+    saveOutput: true,
+  });
 
   return out;
 }

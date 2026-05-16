@@ -28,15 +28,10 @@ export default function addBias(a: Matrix, bias: Matrix): void {
     }
   }
 
-  // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a, bias], [a], (grad: Matrix) => {
-      // dL/da = grad * 1 (sudah di a.grad)
-      // dL/dbias = sum(grad over columns)
-      const gradBias = mj.sumAxis(grad, 1);
-      if (bias.grad) bias.grad.addInPlace(gradBias);
-      else bias.grad = gradBias;
-    }, { saveInput: false, saveOutput: false });
-  }
+  engine.record([a, bias], [a], (grad: Matrix) => {
+    const gradBias = mj.sumAxis(grad, 1);
+    // `a` adalah input sekaligus output (in-place), grad untuk `a`
+    // sudah tersimpan sebagai output grad di tensor yang sama.
+    return [null, gradBias];
+  }, { saveInput: false, saveOutput: false });
 }

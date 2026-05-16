@@ -3,11 +3,11 @@ import Matrix from "../matrix/index.js";
 import add, { addInto } from "./add.js";
 import concat from "./concat.js";
 import div from "./div.js";
-import dotDiv from "./dotDiv.js";
-import dotMul from "./dotMul.js";
+import dotDiv, { dotDivScalar } from "./dotDiv.js";
+import dotMul, { dotMulScalar } from "./dotMul.js";
 import dotProduct from "./dotProduct.js";
-import dotSub from "./dotSub.js";
-import dotSum from "./dotSum.js";
+import dotSub, { dotSubScalar } from "./dotSub.js";
+import dotSum, { dotSumScalar } from "./dotSum.js";
 import expm from "./expm.js";
 import flatten from "./flatten.js";
 import logm from "./logm.js";
@@ -22,7 +22,7 @@ import sub, { subInto } from "./sub.js";
 import transpose from "./transpose.js";
 import zeros from "./zeros.js";
 import convolution from "./convolution.js";
-import norm from "./norm.js";
+import norm, { normScalar } from "./norm.js";
 import xavier from "./xavier.js";
 import he from "./he.js";
 import addBias from "./addBias.js";
@@ -59,10 +59,14 @@ const mj = {
   concat,
   div,
   dotDiv,
+  dotDivScalar,
   dotMul,
+  dotMulScalar,
   dotProduct,
   dotSub,
+  dotSubScalar,
   dotSum,
+  dotSumScalar,
   expm,
   flatten,
   logm,
@@ -80,6 +84,7 @@ const mj = {
   zeros,
   convolution,
   norm,
+  normScalar,
   xavier,
   he,
   addBias,

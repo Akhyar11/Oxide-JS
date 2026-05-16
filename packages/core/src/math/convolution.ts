@@ -41,41 +41,30 @@ export default function convolution(a: Matrix, kernel: Matrix): Matrix {
     }
   }
 
-  // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a, kernel], [matrix], (grad: Matrix) => {
-      // dL/dKernel = convolution(input, grad)
-      const dKernel = convolution(a, grad);
-      if (kernel.grad) kernel.grad.addInPlace(dKernel);
-      else kernel.grad = dKernel;
+  engine.record([a, kernel], [matrix], (grad: Matrix) => {
+    const dKernel = convolution(a, grad);
 
-      // dL/dInput = "full" convolution(grad, flipped_kernel)
-      const flippedK = Matrix.fromFlat(new Float32Array(kRows * kCols), [kRows, kCols]);
-      for (let i = 0; i < kRows; i++) {
-        for (let j = 0; j < kCols; j++) {
-          flippedK._data[(kRows - 1 - i) * kCols + (kCols - 1 - j)] = kernel._data[i * kCols + j];
-        }
+    const flippedK = Matrix.fromFlat(new Float32Array(kRows * kCols), [kRows, kCols]);
+    for (let i = 0; i < kRows; i++) {
+      for (let j = 0; j < kCols; j++) {
+        flippedK._data[(kRows - 1 - i) * kCols + (kCols - 1 - j)] = kernel._data[i * kCols + j];
       }
+    }
 
-      // dInput = full convolution of grad with flipped kernel
-      // "Full" convolution = padding grad with (kRows-1, kCols-1) on each side
-      const pGrad = mj.zeros([outRows + 2 * (kRows - 1), outCols + 2 * (kCols - 1)]);
-      const pgData = pGrad._data;
-      const pgCols = pGrad._shape[1];
-      const gData = grad._data;
-      const gCols = grad._shape[1];
-      for (let i = 0; i < outRows; i++) {
-        for (let j = 0; j < outCols; j++) {
-          pgData[(i + kRows - 1) * pgCols + (j + kCols - 1)] = gData[i * gCols + j];
-        }
+    const pGrad = mj.zeros([outRows + 2 * (kRows - 1), outCols + 2 * (kCols - 1)]);
+    const pgData = pGrad._data;
+    const pgCols = pGrad._shape[1];
+    const gData = grad._data;
+    const gCols = grad._shape[1];
+    for (let i = 0; i < outRows; i++) {
+      for (let j = 0; j < outCols; j++) {
+        pgData[(i + kRows - 1) * pgCols + (j + kCols - 1)] = gData[i * gCols + j];
       }
+    }
 
-      const gradA = convolution(pGrad, flippedK);
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: true, saveOutput: false });
-  }
+    const gradA = convolution(pGrad, flippedK);
+    return [gradA, dKernel];
+  }, { saveInput: true, saveOutput: false });
 
   return matrix;
 }

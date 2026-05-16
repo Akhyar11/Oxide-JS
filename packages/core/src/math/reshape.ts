@@ -19,15 +19,7 @@ export default function reshape(a: Matrix, shape: MatrixShape): Matrix {
   const res = Matrix.fromFlat(resultData, shape);
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [res], (grad: Matrix) => {
-      // dL/da = reshape(grad) back to originalShape
-      const gradA = mj.reshape(grad, originalShape);
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: false, saveOutput: false });
-  }
+  engine.record([a], [res], (grad: Matrix) => [mj.reshape(grad, originalShape)], { saveInput: false, saveOutput: false });
 
   return res;
 }

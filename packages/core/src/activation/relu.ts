@@ -20,20 +20,12 @@ export default function relu(a: Matrix): Matrix {
     dResult = mj.map(a, (val) => (val < 0 ? 0 : 1));
   }
 
-  const tape = engine.tape;
-  if (tape) {
-    tape.record(
-      [a],
-      [result],
-      (grad: Matrix) => {
-        const gradA = mj.mul(grad, dResult);
-
-        if (a.grad) a.grad.addInPlace(gradA);
-        else a.grad = gradA;
-      },
-      { saveInput: false, saveOutput: false }
-    );
-  }
+  engine.record(
+    [a],
+    [result],
+    (grad: Matrix) => [mj.mul(grad, dResult)],
+    { saveInput: false, saveOutput: false }
+  );
 
   return result;
 }

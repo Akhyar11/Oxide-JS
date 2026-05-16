@@ -1,4 +1,5 @@
-import Tape from "./index.js";
+import Matrix from "../matrix/index.js";
+import Tape, { GradientFunc, TapeRecordOptions } from "./index.js";
 
 export type GradTape<T> = Tape & { result: T };
 
@@ -21,6 +22,18 @@ class Engine {
 
   get tape(): Tape | null {
     return this.tapeStack[this.tapeStack.length - 1] ?? null;
+  }
+
+  /**
+   * Catat operasi ke tape aktif jika ada.
+   */
+  record(
+    inputs: Matrix[],
+    outputs: Matrix[],
+    backward: GradientFunc,
+    options?: TapeRecordOptions
+  ): void {
+    this.tape?.record(inputs, outputs, backward, options);
   }
 
   /**

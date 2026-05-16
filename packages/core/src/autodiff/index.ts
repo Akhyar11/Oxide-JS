@@ -1,8 +1,15 @@
 import Matrix from "../matrix/index.js";
 import ones from "../math/ones.js";
 
-type GradientResult = Array<Matrix | null | undefined> | void;
-type GradientFunc = (grad: Matrix, outputGrads?: Array<Matrix | null>) => GradientResult;
+export type GradientResult = Array<Matrix | null | undefined> | void;
+export type GradientFunc = (grad: Matrix, outputGrads?: Array<Matrix | null>) => GradientResult;
+
+export interface TapeRecordOptions {
+  saveInput?: boolean;
+  saveOutput?: boolean;
+  requireInputStability?: boolean;
+  requireOutputStability?: boolean;
+}
 
 interface TapeNode {
   inputs: Matrix[];
@@ -62,15 +69,10 @@ export default class Tape {
    * @param options Opsi snapshot untuk efisiensi
    */
   record(
-    inputs: Matrix[], 
-    outputs: Matrix[], 
+    inputs: Matrix[],
+    outputs: Matrix[],
     backward: GradientFunc,
-    options: {
-      saveInput?: boolean;
-      saveOutput?: boolean;
-      requireInputStability?: boolean;
-      requireOutputStability?: boolean;
-    } = { saveInput: true, saveOutput: true }
+    options: TapeRecordOptions = { saveInput: true, saveOutput: true }
   ) {
     if (!this.active) return;
     const shouldTrack = inputs.some((matrix) => matrix.requiresGrad);
@@ -91,9 +93,9 @@ export default class Tape {
     const inputVersions = inputs.map((m) => m._version);
     const outputVersions = outputs.map((m) => m._version);
 
-    this.nodes.push({ 
-      inputs, 
-      outputs, 
+    this.nodes.push({
+      inputs,
+      outputs,
       backward,
       inputSnapshots,
       outputSnapshots,
@@ -109,12 +111,19 @@ export default class Tape {
   /**
    * Jalankan backpropagation dari sebuah matrix output (loss)
    */
-  backward(loss: Matrix) {
-    const wasActive = this.active;
+  backward(loss: Matrix, upstreamGrad?: Matrix) {
     this.active = false; // Nonaktifkan agar operasi gradien tidak terekam
 
-    // Inisialisasi gradien loss dengan 1.0 (jika scalar) atau matrix ones
-    if (!loss.grad) {
+    // Inisialisasi gradien loss dengan upstream custom atau ones(loss.shape)
+    if (upstreamGrad) {
+      if (upstreamGrad._shape[0] !== loss._shape[0] || upstreamGrad._shape[1] !== loss._shape[1]) {
+        throw new Error(
+          `Tape.backward: upstreamGrad shape mismatch, expected [${loss._shape[0]}x${loss._shape[1]}], got [${upstreamGrad._shape[0]}x${upstreamGrad._shape[1]}]`
+        );
+      }
+      if (loss.grad) loss.grad.addInPlace(upstreamGrad);
+      else loss.grad = upstreamGrad.clone();
+    } else if (!loss.grad) {
       loss.grad = ones(loss._shape);
     }
 

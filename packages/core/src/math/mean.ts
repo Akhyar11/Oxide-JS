@@ -11,6 +11,7 @@ export default function mean(a: Matrix): Matrix {
   let value: number = 0;
   const data = a._data;
   const n = data.length;
+  const aShape: [number, number] = [a._shape[0], a._shape[1]];
   
   for (let i = 0; i < n; i++) {
     value += data[i];
@@ -19,20 +20,14 @@ export default function mean(a: Matrix): Matrix {
   const res = mj.matrix([[value / n]]);
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [res], (grad: Matrix) => {
-      // dL/da = grad * (1/n) untuk setiap elemen
-      const gradVal = grad._data[0] / n;
-      const gradA = mj.ones(a._shape);
-      for (let i = 0; i < gradA._data.length; i++) {
-        gradA._data[i] *= gradVal;
-      }
-      
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: false, saveOutput: false });
-  }
+  engine.record([a], [res], (grad: Matrix) => {
+    const gradVal = grad._data[0] / n;
+    const gradA = mj.ones(aShape);
+    for (let i = 0; i < gradA._data.length; i++) {
+      gradA._data[i] *= gradVal;
+    }
+    return [gradA];
+  }, { saveInput: false, saveOutput: false });
 
   return res;
 }

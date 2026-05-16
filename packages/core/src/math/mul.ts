@@ -13,14 +13,7 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
     const resultData = out ? out._data : new Float32Array(bm._data.length);
     for (let i = 0; i < bm._data.length; i++) resultData[i] = a * bm._data[i];
     const res = out || Matrix.fromFlat(resultData, [bm._shape[0], bm._shape[1]]);
-    const tape = engine.tape;
-    if (tape) {
-      tape.record([bm], [res], (grad: Matrix) => {
-        const gradB = mj.mul(grad, a);
-        if (bm.grad) bm.grad.addInPlace(gradB);
-        else bm.grad = gradB;
-      });
-    }
+    engine.record([bm], [res], (grad: Matrix) => [mj.mul(grad, a)]);
     return res;
   }
   if (typeof b === "number") {
@@ -28,14 +21,7 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
     const resultData = out ? out._data : new Float32Array(am._data.length);
     for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] * b;
     const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
-    const tape = engine.tape;
-    if (tape) {
-      tape.record([am], [res], (grad: Matrix) => {
-        const gradA = mj.mul(grad, b);
-        if (am.grad) am.grad.addInPlace(gradA);
-        else am.grad = gradA;
-      });
-    }
+    engine.record([am], [res], (grad: Matrix) => [mj.mul(grad, b)]);
     return res;
   }
   const am = a as Matrix;
@@ -63,20 +49,12 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
   const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([am, bm], [res], (grad: Matrix) => {
-      // dL/da = grad * b
-      const gradA = mj.mul(grad, bm);
-      if (am.grad) am.grad.addInPlace(gradA);
-      else am.grad = gradA;
-
-      // dL/db = grad * a
-      const gradB = mj.mul(grad, am);
-      if (bm.grad) bm.grad.addInPlace(gradB);
-      else bm.grad = gradB;
-    }, { saveInput: true, saveOutput: false });
-  }
+  engine.record(
+    [am, bm],
+    [res],
+    (grad: Matrix) => [mj.mul(grad, bm), mj.mul(grad, am)],
+    { saveInput: true, saveOutput: false }
+  );
 
   return res;
 }

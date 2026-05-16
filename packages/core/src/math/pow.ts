@@ -16,18 +16,10 @@ export default function pow(a: Matrix, n: number, out?: Matrix): Matrix {
   const res = out || Matrix.fromFlat(resultData, [...a._shape]);
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [res], (grad: Matrix) => {
-      // dL/da = grad * (n * a^(n-1))
-      // Kita hitung n * a^(n-1)
-      const gradA_base = mj.map(a, (val) => n * Math.pow(val, n - 1));
-      const gradA = mj.mul(grad, gradA_base);
-      
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: true, saveOutput: false });
-  }
+  engine.record([a], [res], (grad: Matrix) => {
+    const gradABase = mj.map(a, (val) => n * Math.pow(val, n - 1));
+    return [mj.mul(grad, gradABase)];
+  }, { saveInput: true, saveOutput: false });
 
   return res;
 }

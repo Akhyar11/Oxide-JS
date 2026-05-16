@@ -17,15 +17,7 @@ export default function logm(a: Matrix): Matrix {
   const res = Matrix.fromFlat(resultData, [a._shape[0], a._shape[1]]);
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [res], (grad: Matrix) => {
-      // dL/da = grad / a
-      const gradA = mj.div(grad, a);
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: true, saveOutput: false });
-  }
+  engine.record([a], [res], (grad: Matrix) => [mj.div(grad, a)], { saveInput: true, saveOutput: false });
 
   return res;
 }

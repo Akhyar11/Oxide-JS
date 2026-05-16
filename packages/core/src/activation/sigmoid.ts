@@ -16,14 +16,7 @@ export default function sigmoid(a: Matrix): Matrix {
   }
   const dResult = mj.mul(result, mj.sub(1, result));
 
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [result], (grad: Matrix) => {
-      const gradA = mj.mul(grad, dResult);
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: false, saveOutput: true });
-  }
+  engine.record([a], [result], (grad: Matrix) => [mj.mul(grad, dResult)], { saveInput: false, saveOutput: true });
 
   return result;
 }

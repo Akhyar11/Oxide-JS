@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.3.3 - 2026-05-16
+
+### Added
+
+- Added autodiff-capable scalar reducer wrappers in core math API: `dotSumScalar`, `dotSubScalar`, `dotMulScalar`, `dotDivScalar`, and `normScalar`.
+- Kept existing reducer APIs (`dotSum`, `dotSub`, `dotMul`, `dotDiv`, `norm`) returning `number` for backward compatibility.
+
+### Tests
+
+- Added gradient coverage for scalar reducer wrappers in autodiff tests.
+
+## 2.3.2 - 2026-05-16
+
+### Changed
+
+- Migrated all core ops from direct `tape.record(...)` calls to engine-side `engine.record(...)` to centralize autodiff recording behavior.
+- Standardized op backward callbacks to return input gradients (return-grad mode), with accumulation handled consistently by the tape engine.
+- Added `Tape.backward(loss, upstreamGrad?)` support for custom upstream gradients on non-scalar or externally weighted losses.
+- Audited autodiff stability guards and removed live-input metadata dependence in selected ops (`mean`, `concat`) to tighten correctness without introducing false positives.
+
 ## 2.3.1 - 2026-05-06
 
 ### Rebranding & Modularization Milestone

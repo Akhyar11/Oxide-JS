@@ -30,6 +30,47 @@ describe("autodiff", () => {
     expect(b.grad?._value).toEqual([[3, 3]]);
   });
 
+  it("supports custom upstream gradients in Tape.backward", () => {
+    const x = mj.matrix([[2]]);
+    const tape = engine.grad(() => mj.mul(x, x));
+
+    const upstream = mj.matrix([[3]]);
+    tape.backward(tape.result, upstream);
+
+    expect(x.grad?._value).toEqual([[12]]);
+  });
+
+  it("backpropagates through scalar reducer wrappers", () => {
+    const x = mj.matrix([[2], [3]]);
+
+    const sumTape = engine.grad(() => mj.dotSumScalar(x));
+    sumTape.backward(sumTape.result);
+    expect(x.grad?._value).toEqual([[1], [1]]);
+
+    x.clearGrad();
+    const subTape = engine.grad(() => mj.dotSubScalar(x));
+    subTape.backward(subTape.result);
+    expect(x.grad?._value).toEqual([[-1], [-1]]);
+
+    x.clearGrad();
+    const mulTape = engine.grad(() => mj.dotMulScalar(x));
+    mulTape.backward(mulTape.result);
+    expect(x.grad?._value).toEqual([[3], [2]]);
+
+    x.clearGrad();
+    const divTape = engine.grad(() => mj.dotDivScalar(x));
+    divTape.backward(divTape.result);
+    expect(x.grad?._value?.[0][0]).toBeCloseTo(-1 / 12, 8);
+    expect(x.grad?._value?.[1][0]).toBeCloseTo(-1 / 18, 8);
+
+    x.clearGrad();
+    const normTape = engine.grad(() => mj.normScalar(x));
+    normTape.backward(normTape.result);
+    const n = Math.sqrt(13);
+    expect(x.grad?._value?.[0][0]).toBeCloseTo(2 / n, 6);
+    expect(x.grad?._value?.[1][0]).toBeCloseTo(3 / n, 6);
+  });
+
   it("supports nested tapes without clobbering the outer tape", () => {
     const x = mj.matrix([[2]]);
     const z = mj.matrix([[3]]);

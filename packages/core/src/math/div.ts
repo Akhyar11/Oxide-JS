@@ -16,16 +16,11 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
         result[i] = a / bm._data[i];
     }
     const res = Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
-    const tape = engine.tape;
-    if (tape) {
-      tape.record([bm], [res], (grad: Matrix) => {
-        const denomSquared = mj.mul(bm, bm);
-        const scale = mj.div(a * -1, denomSquared);
-        const gradB = mj.mul(grad, scale);
-        if (bm.grad) bm.grad.addInPlace(gradB);
-        else bm.grad = gradB;
-      }, { saveInput: true, saveOutput: false });
-    }
+    engine.record([bm], [res], (grad: Matrix) => {
+      const denomSquared = mj.mul(bm, bm);
+      const scale = mj.div(a * -1, denomSquared);
+      return [mj.mul(grad, scale)];
+    }, { saveInput: true, saveOutput: false });
     return res;
   }
   if (typeof b === "number") {
@@ -33,14 +28,7 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
     const result = new Float32Array(a._data.length);
     for (let i = 0; i < a._data.length; i++) result[i] = a._data[i] / b;
     const res = Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
-    const tape = engine.tape;
-    if (tape) {
-      tape.record([a], [res], (grad: Matrix) => {
-        const gradA = mj.div(grad, b);
-        if ((a as Matrix).grad) (a as Matrix).grad!.addInPlace(gradA);
-        else (a as Matrix).grad = gradA;
-      }, { saveInput: false, saveOutput: false });
-    }
+    engine.record([a], [res], (grad: Matrix) => [mj.div(grad, b)], { saveInput: false, saveOutput: false });
     return res;
   }
   const am = a as Matrix;
@@ -63,23 +51,14 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
   const res = Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([am, bm], [res], (grad: Matrix) => {
-      // dL/da = grad / b
-      const gradA = mj.div(grad, bm);
-      if (am.grad) am.grad.addInPlace(gradA);
-      else am.grad = gradA;
-
-      // dL/db = grad * (-a / b^2)
-      const bSquared = mj.mul(bm, bm);
-      const negA = mj.mul(am, -1);
-      const gradB_base = mj.div(negA, bSquared);
-      const gradB = mj.mul(grad, gradB_base);
-      if (bm.grad) bm.grad.addInPlace(gradB);
-      else bm.grad = gradB;
-    }, { saveInput: true, saveOutput: false });
-  }
+  engine.record([am, bm], [res], (grad: Matrix) => {
+    const gradA = mj.div(grad, bm);
+    const bSquared = mj.mul(bm, bm);
+    const negA = mj.mul(am, -1);
+    const gradBBase = mj.div(negA, bSquared);
+    const gradB = mj.mul(grad, gradBBase);
+    return [gradA, gradB];
+  }, { saveInput: true, saveOutput: false });
 
   return res;
 }

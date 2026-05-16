@@ -30,15 +30,7 @@ export default function transpose(a: Matrix, out?: Matrix): Matrix {
   const res = out || Matrix.fromFlat(resultData, [cols, rows]);
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a], [res], (grad: Matrix) => {
-      // dL/da = grad^T
-      const gradA = mj.transpose(grad);
-      if (a.grad) a.grad.addInPlace(gradA);
-      else a.grad = gradA;
-    }, { saveInput: false, saveOutput: false });
-  }
+  engine.record([a], [res], (grad: Matrix) => [mj.transpose(grad)], { saveInput: false, saveOutput: false });
 
   return res;
 }

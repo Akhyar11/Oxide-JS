@@ -139,30 +139,15 @@ export default function dotProduct(
   }
 
   // RECORD FOR AUTO-DIFF
-  const tape = engine.tape;
-  if (tape) {
-    tape.record([a, b], [res], (grad: Matrix) => {
-      if (!transA) {
-        const gA = dotProduct(grad, b, undefined, false, !transB);
-        if (a.grad) a.grad.addInPlace(gA);
-        else a.grad = gA;
-      } else {
-        const gA = dotProduct(b, grad, undefined, transB, true);
-        if (a.grad) a.grad.addInPlace(gA);
-        else a.grad = gA;
-      }
-
-      if (!transB) {
-        const gB = dotProduct(a, grad, undefined, !transA, false);
-        if (b.grad) b.grad.addInPlace(gB);
-        else b.grad = gB;
-      } else {
-        const gB = dotProduct(grad, a, undefined, true, transA);
-        if (b.grad) b.grad.addInPlace(gB);
-        else b.grad = gB;
-      }
-    }, { saveInput: true, saveOutput: false });
-  }
+  engine.record([a, b], [res], (grad: Matrix) => {
+    const gA = !transA
+      ? dotProduct(grad, b, undefined, false, !transB)
+      : dotProduct(b, grad, undefined, transB, true);
+    const gB = !transB
+      ? dotProduct(a, grad, undefined, !transA, false)
+      : dotProduct(grad, a, undefined, true, transA);
+    return [gA, gB];
+  }, { saveInput: true, saveOutput: false });
 
   return res;
 }
