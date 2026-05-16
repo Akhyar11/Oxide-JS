@@ -77,21 +77,6 @@ export function softmaxInto(a: Matrix, out: Matrix, row = false): Matrix {
   return out;
 }
 
-export function softmaxOnly(a: Matrix, row = false): Matrix {
-  const [rows, cols] = a._shape;
-  return softmaxInto(a, Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]), row);
-}
-
-export function softmaxGradient(a: Matrix): Matrix {
-  const gradData = new Float32Array(a._data.length);
-  for (let i = 0; i < a._data.length; i++) {
-    const value = a._data[i];
-    gradData[i] = value * (1 - value);
-  }
-
-  return Matrix.fromFlat(gradData, [a._shape[0], a._shape[1]]);
-}
-
 export function softmaxBackwardInto(s: Matrix, g: Matrix, out: Matrix, row = false): Matrix {
   const [rows, cols] = s._shape;
   if (g._shape[0] !== rows || g._shape[1] !== cols) {
@@ -143,18 +128,20 @@ export function softmaxBackward(s: Matrix, g: Matrix, row = false): Matrix {
   return softmaxBackwardInto(s, g, Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]), row);
 }
 
-export default function softmax(a: Matrix, row = false): [Matrix, Matrix] {
-  const softmaxMatrix = softmaxOnly(a, row);
-  const dSoftmax = softmaxGradient(softmaxMatrix);
+export default function softmax(a: Matrix, row = false): Matrix {
+  const [rows, cols] = a._shape;
+  const out = Matrix.fromFlat(new Float32Array(rows * cols), [rows, cols]);
+
+  softmaxInto(a, out, row);
 
   const tape = engine.tape;
   if (tape) {
-    tape.record([a], [softmaxMatrix], (grad: Matrix) => {
-      const gradA = softmaxBackward(softmaxMatrix, grad, row);
+    tape.record([a], [out], (grad: Matrix) => {
+      const gradA = softmaxBackward(out, grad, row);
       if (a.grad) a.grad.addInPlace(gradA);
       else a.grad = gradA;
     }, { saveInput: false, saveOutput: true });
   }
 
-  return [softmaxMatrix, dSoftmax];
+  return out;
 }

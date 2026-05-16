@@ -2,9 +2,8 @@ import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
 import { engine } from "../autodiff/engine.js";
 
-export default function linear(a: Matrix): [Matrix, Matrix] {
+export default function linear(a: Matrix): Matrix {
   const result = mj.map(a, (val) => val);
-  const dResult = mj.ones(a._shape);
 
   const tape = engine.tape;
   if (tape) {
@@ -14,5 +13,5 @@ export default function linear(a: Matrix): [Matrix, Matrix] {
     }, { saveInput: false, saveOutput: false });
   }
 
-  return [result, dResult];
+  return result;
 }

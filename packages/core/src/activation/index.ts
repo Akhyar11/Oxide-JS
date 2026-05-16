@@ -5,9 +5,4 @@ export { default as relu } from "./relu.js";
 export { default as lRelu } from "./lRelu.js";
 export {
   default as softmax,
-  softmaxOnly,
-  softmaxInto,
-  softmaxBackward,
-  softmaxBackwardInto,
-  softmaxGradient,
 } from "./softmax.js";

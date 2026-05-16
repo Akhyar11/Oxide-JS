@@ -92,12 +92,12 @@ const mj = {
   clipGradients,
 
   // --- Activation (Returns Matrix, Supports Auto-Diff & Rust) ---
-  sigmoid: (a: Matrix) => sigmoid(a)[0],
-  tanh: (a: Matrix) => tanh(a)[0],
-  relu: (a: Matrix) => relu(a)[0],
-  lRelu: (a: Matrix) => lRelu(a)[0],
-  linear: (a: Matrix) => linear(a)[0],
-  softmax: (a: Matrix, row = false) => softmax(a, row)[0],
+  sigmoid,
+  tanh,
+  relu,
+  lRelu,
+  linear,
+  softmax,
   softmaxOnly,
   softmaxInto,
   softmaxBackward,
