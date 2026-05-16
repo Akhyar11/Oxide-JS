@@ -428,9 +428,7 @@ pub fn logm_native(a: Float32Array, mut out: Float32Array) {
     let a_slice = &*a;
     let out_slice = &mut *out;
     elementwise_op_parallel(a_slice, a_slice, out_slice, |x, _| {
-        if x == 0.0 {
-            0.0
-        } else if x < 0.0 {
+        if x <= 0.0 {
             1e-15_f32.ln()
         } else {
             x.ln()

@@ -305,10 +305,10 @@ describe("rust backend wrapper in JS-only mode", () => {
       [
         "tsx",
         "--eval",
-        "import { addNative, subNative, mulNative, divNative, dotProductNative } from './packages/core/src/math/rust_backend.ts'; const data=new Float32Array([1,2,3,4]); const out=new Float32Array(4); try { addNative(data,data,out); subNative(data,data,out); mulNative(data,data,out); divNative(data,data,out); dotProductNative(data,2,2,data,2,2,false,false,out); console.log('NO_THROW'); } catch (e) { console.log(String(e)); }",
+        "import { addNative, subNative, mulNative, divNative, dotProductNative } from './src/math/rust_backend.ts'; const data=new Float32Array([1,2,3,4]); const out=new Float32Array(4); try { addNative(data,data,out); subNative(data,data,out); mulNative(data,data,out); divNative(data,data,out); dotProductNative(data,2,2,data,2,2,false,false,out); console.log('NO_THROW'); } catch (e) { console.log(String(e)); }",
       ],
       {
-        cwd: process.cwd(),
+        cwd: new URL("../", import.meta.url).pathname,
         env: { ...process.env, ML_DISABLE_NATIVE: "1" },
       }
     ).toString();
