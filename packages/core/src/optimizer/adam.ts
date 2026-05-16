@@ -1,7 +1,7 @@
 import { MatrixShape } from "../@types/type.js";
 import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
-import { isNativeAvailable, adamUpdateNative, adamSparseUpdateNative, embeddingAdamBackwardUpdateNative } from "../math/rust_backend.js";
+import { isNativeAvailable, adamUpdateNative } from "../math/rust_backend.js";
 
 /**
  * Adam Optimizer (Adaptive Moment Estimation)
@@ -77,34 +77,13 @@ export default class Adam {
   }
 
   updateSparse(target: Matrix, grad: Matrix, alpha: number, indices: Int32Array): void {
+    this.t++;
     const targetData = target._data;
     const gradData = grad._data;
     const mData = this.m._data;
     const vData = this.v._data;
-
-    const vocabSize = target._shape[1];
-    const embeddingDim = target._shape[0];
-
-    if (isNativeAvailable()) {
-      adamSparseUpdateNative(
-        indices,
-        gradData,
-        targetData,
-        mData,
-        vData,
-        this.t + 1,
-        alpha,
-        this.beta1,
-        this.beta2,
-        this.epsilon,
-        vocabSize,
-        embeddingDim
-      );
-      this.t++;
-      return;
-    }
-
-    this.t++;
+    const cols = target._shape[1];
+    const rows = target._shape[0];
     const oneMinusBeta1 = 1 - this.beta1;
     const oneMinusBeta2 = 1 - this.beta2;
     const biasCorrection1 = 1 / (1 - Math.pow(this.beta1, this.t));
@@ -113,8 +92,8 @@ export default class Adam {
 
     for (let j = 0; j < numUnique; j++) {
       const tokenIndex = indices[j];
-      for (let i = 0; i < embeddingDim; i++) {
-        const fullIdx = i * vocabSize + tokenIndex;
+      for (let i = 0; i < rows; i++) {
+        const fullIdx = i * cols + tokenIndex;
         const gradIdx = i * numUnique + j;
 
         const g = gradData[gradIdx];
@@ -128,49 +107,6 @@ export default class Adam {
         targetData[fullIdx] -= alpha * mHat / (Math.sqrt(vHat) + this.epsilon);
       }
     }
-  }
-
-  /**
-   * Fused embedding backward + Adam parameter update via single NAPI call.
-   *
-   * Performs gradient aggregation AND Adam update entirely in Rust —
-   * no Int32Array / Float32Array / Matrix is returned across the JS boundary.
-   *
-   * @returns true  when the fused native path ran successfully
-   * @returns false when native is unavailable or the binary predates this symbol
-   *               (caller should fall back to the existing split path)
-   */
-  updateEmbeddingSparseNative(
-    target: Matrix,
-    indices: Int32Array,
-    errData: Float32Array,
-    alpha: number,
-    embeddingDim: number,
-    vocabSize: number,
-    padTokenId: number | null
-  ): boolean {
-    if (!isNativeAvailable()) return false;
-
-    const succeeded = embeddingAdamBackwardUpdateNative(
-      indices,
-      errData,
-      target._data,
-      this.m._data,
-      this.v._data,
-      this.t + 1,   // Rust receives the incremented t (bias-correction uses t≥1)
-      alpha,
-      this.beta1,
-      this.beta2,
-      this.epsilon,
-      vocabSize,
-      embeddingDim,
-      padTokenId
-    );
-
-    if (succeeded) {
-      this.t++;
-    }
-    return succeeded;
   }
 
   /**

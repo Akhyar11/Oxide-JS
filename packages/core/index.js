@@ -310,17 +310,12 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { reluNativeInto, sigmoidNativeInto, tanhNativeInto, convolutionNativeInto, embeddingAdamBackwardUpdateNative, embeddingSgdBackwardUpdateNative, embeddingAdagradBackwardUpdateNative, embeddingMomentumBackwardUpdateNative, embeddingNagBackwardUpdateNative, softmaxNativeInto, softmaxBackwardNativeInto, mseNative, dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, addInPlace, subInPlace, mulInPlace, addBiasNative, sumAxisNative, adamUpdateNative, adamSparseUpdateNative, sgdUpdateNative, sgdSparseUpdateNative, adagradUpdateNative, adagradSparseUpdateNative, momentumUpdateNative, momentumSparseUpdateNative, nagUpdateNative, nagSparseUpdateNative, clipGradientsNative } = nativeBinding
+const { reluNativeInto, sigmoidNativeInto, tanhNativeInto, convolutionNativeInto, softmaxNativeInto, softmaxBackwardNativeInto, mseNative, dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, addInPlace, subInPlace, mulInPlace, addBiasNative, sumAxisNative, adamUpdateNative, sgdUpdateNative, adagradUpdateNative, momentumUpdateNative, nagUpdateNative, clipGradientsNative } = nativeBinding
 
 module.exports.reluNativeInto = reluNativeInto
 module.exports.sigmoidNativeInto = sigmoidNativeInto
 module.exports.tanhNativeInto = tanhNativeInto
 module.exports.convolutionNativeInto = convolutionNativeInto
-module.exports.embeddingAdamBackwardUpdateNative = embeddingAdamBackwardUpdateNative
-module.exports.embeddingSgdBackwardUpdateNative = embeddingSgdBackwardUpdateNative
-module.exports.embeddingAdagradBackwardUpdateNative = embeddingAdagradBackwardUpdateNative
-module.exports.embeddingMomentumBackwardUpdateNative = embeddingMomentumBackwardUpdateNative
-module.exports.embeddingNagBackwardUpdateNative = embeddingNagBackwardUpdateNative
 module.exports.softmaxNativeInto = softmaxNativeInto
 module.exports.softmaxBackwardNativeInto = softmaxBackwardNativeInto
 module.exports.mseNative = mseNative
@@ -337,13 +332,8 @@ module.exports.mulInPlace = mulInPlace
 module.exports.addBiasNative = addBiasNative
 module.exports.sumAxisNative = sumAxisNative
 module.exports.adamUpdateNative = adamUpdateNative
-module.exports.adamSparseUpdateNative = adamSparseUpdateNative
 module.exports.sgdUpdateNative = sgdUpdateNative
-module.exports.sgdSparseUpdateNative = sgdSparseUpdateNative
 module.exports.adagradUpdateNative = adagradUpdateNative
-module.exports.adagradSparseUpdateNative = adagradSparseUpdateNative
 module.exports.momentumUpdateNative = momentumUpdateNative
-module.exports.momentumSparseUpdateNative = momentumSparseUpdateNative
 module.exports.nagUpdateNative = nagUpdateNative
-module.exports.nagSparseUpdateNative = nagSparseUpdateNative
 module.exports.clipGradientsNative = clipGradientsNative
