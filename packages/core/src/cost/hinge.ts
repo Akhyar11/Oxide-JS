@@ -1,6 +1,6 @@
 import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
-import { isNativeAvailable, hingeNativeInto } from ../math/rust_backend.js;
+import { isNativeAvailable, hingeNativeInto } from "../math/rust_backend.js";
 
 export default function HingeLoss(yTrue: Matrix, yPred: Matrix): [number, Matrix] {
   let loss: number;

@@ -1,6 +1,6 @@
 import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
-import { isNativeAvailable, maeNativeInto } from ../math/rust_backend.js;
+import { isNativeAvailable, maeNativeInto } from "../math/rust_backend.js";
 
 export default function MeanAbsoluteError(yTrue: Matrix, yPred: Matrix): [number, Matrix] {
   let loss: number;

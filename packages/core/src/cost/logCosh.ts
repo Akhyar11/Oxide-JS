@@ -1,6 +1,6 @@
 import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
-import { isNativeAvailable, logcoshNativeInto } from ../math/rust_backend.js;
+import { isNativeAvailable, logcoshNativeInto } from "../math/rust_backend.js";
 
 export default function LogCoshLoss(yTrue: Matrix, yPred: Matrix): [number, Matrix] {
   let loss: number;

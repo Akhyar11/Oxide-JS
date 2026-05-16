@@ -1,6 +1,6 @@
 import mj from "../math/index.js";
 import Matrix from "../matrix/index.js";
-import { isNativeAvailable, huberNativeInto } from ../math/rust_backend.js;
+import { isNativeAvailable, huberNativeInto } from "../math/rust_backend.js";
 
 export default function HuberLoss(yTrue: Matrix, yPred: Matrix, delta = 1.0): [number, Matrix] {
   const diff = mj.sub(yPred, yTrue);
