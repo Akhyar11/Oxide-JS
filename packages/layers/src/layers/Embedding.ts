@@ -5,6 +5,7 @@ import { isNativeAvailable, embeddingForwardNative, embeddingBackwardNative } fr
 export interface EmbeddingConfig extends LayerConfig {
   inputDim: number; // vocabulary size
   outputDim: number; // embedding dimension
+  inputLength?: number; // optional sequence length
   embeddingsInitializer?: string;
 }
 
@@ -77,6 +78,7 @@ function embeddingLookup(inputs: Matrix, embeddings: Matrix): Matrix {
 export class Embedding extends BaseLayer {
   public inputDim: number;
   public outputDim: number;
+  public inputLength?: number;
   public embeddingsInitializer: string;
 
   constructor(config: EmbeddingConfig) {
@@ -89,6 +91,7 @@ export class Embedding extends BaseLayer {
     }
     this.inputDim = config.inputDim;
     this.outputDim = config.outputDim;
+    this.inputLength = config.inputLength;
     this.embeddingsInitializer = config.embeddingsInitializer ?? "random";
   }
 
@@ -97,7 +100,7 @@ export class Embedding extends BaseLayer {
    */
   public computeOutputShape(inputShape: number[]): number[] {
     const batch = inputShape[0] ?? -1;
-    const seqLen = inputShape.length > 1 ? inputShape[1] : 1;
+    const seqLen = inputShape.length > 1 ? inputShape[1] : (this.inputLength ?? 1);
     if (batch === -1) {
       return [-1, this.outputDim];
     }
@@ -146,6 +149,7 @@ export class Embedding extends BaseLayer {
       ...super.getConfig(),
       inputDim: this.inputDim,
       outputDim: this.outputDim,
+      inputLength: this.inputLength,
       embeddingsInitializer: this.embeddingsInitializer
     };
   }
