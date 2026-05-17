@@ -1,9 +1,6 @@
-# Ignore Rust source and build artifacts
-src-rust/
+# Ignore Rust build target directory (large build cache)
 target/
-*.rs
-Cargo.toml
-Cargo.lock
+src-rust/target/
 
 # Ignore TS source (optional, but good for clean package)
 # src/ 
@@ -15,3 +12,6 @@ Cargo.lock
 !package.json
 !README.md
 !LICENSE
+!src-rust/
+!Cargo.toml
+!Cargo.lock

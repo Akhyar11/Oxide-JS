@@ -22,7 +22,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:rust": "napi build --platform --release --cargo-cwd src-rust"
+    "build:rust": "napi build --platform --release --cargo-cwd src-rust",
+    "postinstall": "node -e \"try{require('child_process').execSync('npm run build:rust',{stdio:'inherit'})}catch(e){console.warn('[oxide-js] Layers Rust native build skipped — native acceleration unavailable.')}\""
   },
   "keywords": [
     "neural-networks",

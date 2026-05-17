@@ -23,6 +23,7 @@
   "scripts": {
     "build": "tsc",
     "build:rust": "napi build --platform --release --cargo-cwd src-rust",
+    "postinstall": "node -e \"try{require('child_process').execSync('npm run build:rust',{stdio:'inherit'})}catch(e){console.warn('[oxide-js] Core Rust native build skipped — native acceleration unavailable.')}\"",
     "test": "vitest run --root ../..",
     "test:watch": "vitest --root ../..",
     "test:coverage": "vitest run --root ../.. --coverage"
