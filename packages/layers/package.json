@@ -1,0 +1,42 @@
+{
+  "name": "@oxide-js/layers",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Oxide-JS Layers: Neural network layer abstractions.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Akhyar11/Oxide-JS.git",
+    "directory": "packages/layers"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "napi": {
+    "name": "layers-native"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:rust": "napi build --platform --release --cargo-cwd src-rust"
+  },
+  "keywords": [
+    "neural-networks",
+    "layer",
+    "oxide-js"
+  ],
+  "author": "Akhyar",
+  "license": "ISC",
+  "dependencies": {
+    "@oxide-js/core": "workspace:*",
+    "@napi-rs/cli": "^2.18.0",
+    "@napi-rs/wasm-runtime": "^0.2.4"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}
