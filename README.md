@@ -28,16 +28,15 @@
 
 ## Features
 
-- **`Matrix`** — flat `Float32Array`-backed tensor with zero-copy hot-path access via `_data`.
-- **Math primitives** — `dotProduct`, `add`, `sub`, `sumAxis`, `clipGradients`, and more; automatically dispatched to Rust or JS.
-- **Layers** — `Dense`, `Embedding`, `RNN`, `LSTM`, `GRU`, `SelfAttention`, `MultiHeadAttention`, `LayerNormalization`, `Dropout`, `PositionalEncoding`, `Flatten`, `Convolution`, `MemoryBank`.
-- **Custom Architecture API** — define your own trainable model by subclassing `Module`, organize repeated blocks with `ModuleList` / `SequentialBlock`, and train it with `Trainer`.
-- **Legacy High-level Models** — `Sequential`, `Transformers` (causal LM), `RecurrentModel` (RNN/LSTM/GRU many-to-one and aligned many-to-many), `DimentionalityReduction`.
-- **Auto-Diff Engine (Tape)** — record complex mathematical operations on a Gradient Tape and compute gradients automatically with Reverse-Mode Differentiation.
-- **Keras Interoperability** — save and load models using the standardized `model.json` + `weights.bin` format, compatible with the Keras/TensorFlow.js ecosystem.
-- **BPE Tokenizer** — train, incremental update, Unicode-aware pre-tokenization, encode/decode with special tokens, padding, and JSON save/load.
-- **Rust-accelerated ops** — dot-product, activations, LayerNorm, embedding lookup, attention, and optimizer updates; auto-fallback to JS when unavailable.
-- **Dynamic padding trim** (`trimPadding`) — reduces effective sequence length per batch, cutting attention cost from O(seqLen²) to O(effectiveSeqLen²).
+- **`Matrix`** — Flat `Float32Array`-backed tensor with zero-copy hot-path access via `_data` and dynamic autodiff tracking.
+- **Math primitives** — `dotProduct`, `add`, `sub`, `sum`, `clipGradients`, and more; automatically dispatched to Rust native kernels or pure JS fallback.
+- **Layers Catalog** — `Dense`, `Dropout`, `Embedding`, `LayerNormalization`, `BatchNormalization`, `Conv1D`, `Conv2D`, `MaxPooling1D`, `MaxPooling2D`, `AveragePooling1D`, `AveragePooling2D`, `Reshape`, `Flatten`, `SimpleRNN`, `GRU`, `LSTM`, `Attention`, `MultiHeadAttention`, and `Residual` skip connections.
+- **Auto-Diff Engine (Tape)** — Dynamic Gradient Tape to record mathematical operations and run reverse-mode automatic differentiation.
+- **Model Containers** — Abstract `BaseModel` for custom neural network architectures and `Sequential` for stacked feed-forward graphs.
+- **Callback Observers** — Hook into training epochs and batches with built-in `HistoryCallback`, `ProgressLogger`, and `EarlyStopping` observers.
+- **BPE Tokenizer** — Train BPE vocabularies, update incrementally, perform multilingual pre-tokenization (script-aware, unicode-word, etc.), and encode/decode sequences.
+- **Keras Interoperability** — Native serialization (`serialize()`, `setWeights()`) to load and save parameters into standard JSON formats.
+- **Rust-accelerated ops** — Dot-product, activations, LayerNorm, embedding lookup, attention, and optimizer updates; auto-fallback to JS when unavailable.
 
 ---
 
@@ -94,65 +93,87 @@ ML_DISABLE_NATIVE=1 node your-script.js
 
 ## Quick Start
 
-Build a custom residual XOR classifier in a few lines:
+### 1. Build a Stacked Sequential Classifier
+Compose, compile, and train an XOR classifier in a few lines of code:
 
 ```ts
-import { mj } from "@oxide-js/core";
+import { Sequential } from "@oxide-js/models";
 import { Dense } from "@oxide-js/layers";
-import { Module, Trainer } from "@oxide-js/models";
+import { Matrix } from "@oxide-js/core";
 
-class ResidualXorModel extends Module {
-  input = new Dense({ units: 2, outputUnits: 6, activation: "relu", status: "input" });
-  hidden = new Dense({ units: 6, outputUnits: 6, activation: "relu", status: "train" });
-  output = new Dense({ units: 6, outputUnits: 1, activation: "linear", status: "output", loss: "mse" });
+// 1. Compose stacked feed-forward layers
+const model = new Sequential([
+  new Dense({ units: 2, outputUnits: 4, activation: "relu" }),
+  new Dense({ units: 4, outputUnits: 1, activation: "linear" })
+]);
 
-  forward(x) {
-    const a = this.input.forward(x);
-    const b = this.hidden.forward(a);
-    return this.output.forward(mj.add(a, b));
+// 2. Compile model settings
+model.compile({
+  optimizer: "sgd",
+  loss: "mse",
+  learningRate: 0.1
+});
+
+// 3. Prepare XOR datasets
+const X = Matrix.fromFlat(new Float32Array([
+  0.0, 0.0,
+  0.0, 1.0,
+  1.0, 0.0,
+  1.0, 1.0
+]), [4, 2]);
+
+const Y = Matrix.fromFlat(new Float32Array([
+  0.0,
+  1.0,
+  1.0,
+  0.0
+]), [4, 1]);
+
+// 4. Fit the model stack
+console.log("Fitting XOR model...");
+model.fit(X, Y, {
+  epochs: 200,
+  batchSize: 4,
+  verbose: 1
+});
+
+// 5. Predict outcomes
+const predictions = model.predict(X);
+console.log("\nPredictions:");
+predictions.print();
+```
+
+### 2. Build Custom Non-Linear Architectures
+To build complex structures (like multi-branch, skip, or residual connections), subclass `BaseModel` directly:
+
+```ts
+import { BaseModel } from "@oxide-js/models";
+import { Dense } from "@oxide-js/layers";
+import { Matrix, mj } from "@oxide-js/core";
+
+class CustomResidualModel extends BaseModel {
+  private dense1: Dense;
+  private dense2: Dense;
+
+  constructor() {
+    super({ name: "custom_residual_model" });
+    this.dense1 = new Dense({ units: 2, outputUnits: 4, activation: "relu" });
+    this.dense2 = new Dense({ units: 4, outputUnits: 4, activation: "relu" });
+
+    // Register layers to make parameters tracked by the model
+    this.add(this.dense1);
+    this.add(this.dense2);
+  }
+
+  // Define forward routing with skip connection
+  public forward(inputs: Matrix, optionsOrTraining?: any): Matrix {
+    const h1 = this.dense1.forward(inputs, optionsOrTraining);
+    const h2 = this.dense2.forward(h1, optionsOrTraining);
+    // Bypass h1 and add it element-wise to h2
+    return mj.add(h1, h2);
   }
 }
-
-const model = new ResidualXorModel();
-model.compile({ alpha: 0.01, optimizer: "adam", error: "mse" });
-const trainer = new Trainer(model, "mse");
-
-const X = [mj.matrix([[0], [0]]), mj.matrix([[0], [1]]), mj.matrix([[1], [0]]), mj.matrix([[1], [1]])];
-const Y = [mj.matrix([[0]]), mj.matrix([[1]]), mj.matrix([[1]]), mj.matrix([[0]])];
-
-const result = trainer.fit(X, Y, 200, {
-  batchSize: 4,
-  validationSplit: 0.25,
-  earlyStoppingPatience: 10,
-  verbose: true,
-  onEpochEnd: (epoch, loss, valLoss) => {
-    console.log(`epoch=${epoch} loss=${loss} valLoss=${valLoss}`);
-  },
-});
-console.log("best", result.bestEpoch, result.bestLoss);
-const pred = model.predict(mj.matrix([[1], [0]]));
-pred.print();
 ```
-
-Primary architecture API for new work:
-
-```ts
-import { Module, ModuleList, SequentialBlock, Trainer } from "@oxide-js/models";
-```
-
-Legacy high-level wrappers are still available for convenience and backward compatibility:
-
-```ts
-import { Sequential, Transformers, RecurrentModel } from "@oxide-js/models";
-```
-
-Model split:
-- `Sequential` is for generic feed-forward / per-sample supervised learning.
-- `Transformers` has its own token-weighted `fit()` for causal LM.
-- `RecurrentModel` is the high-level entry point for stacked `RNN` / `LSTM` / `GRU` sequence training, including `many-to-one` and aligned `many-to-many`.
-  - For many-to-one, `pooling: "last" | "mean" | "max"` is available. `"mean"` / `"max"` support PAD masking via `padTokenId` when an `Embedding` layer is used.
-  - `LSTM` initializes the forget gate bias to `1` by default on new layers.
-  - `AdaptiveMemoryRNN` trains `Wxh`, `Whh`, `bh`, `Wq`, `Wm`, `Wg`, and `bg`; memory slots are treated as dynamic state rather than optimizer-trained global parameters, and the native backward path matches the JS reference.
 
 ---
 
@@ -216,65 +237,44 @@ tokenizer.train([
 
 BPE alone is not enough for every writing system. Pre-tokenization is important for scripts without spaces, combining marks, emoji sequences, and mixed text. `script-aware` is a general built-in mode; for language-specific behavior, pass a custom `(text: string) => string[]` pre-tokenizer. `Intl.Segmenter` improves grapheme and word segmentation when the runtime supports it. Fallback behavior is deterministic but may be less linguistically accurate.
 
-### Transformer Causal LM — Training
+### Recurrent Sequence Modeling (LSTM)
+
+Oxide-JS supports sequence processing using modular recurrent layers (`SimpleRNN`, `GRU`, `LSTM`). The following example demonstrates composing a sequence classifier:
 
 ```ts
-import { mj } from "@oxide-js/core";
-import { Transformers } from "@oxide-js/models";
+import { Sequential } from "@oxide-js/models";
+import { Embedding, LSTM, Dense } from "@oxide-js/layers";
+import { Matrix } from "@oxide-js/core";
 
-const model = new Transformers({ units: 64, seqLen: 8, vocabSize: 500, heads: 8, alpha: 0.001, padTokenId: 0 });
-model.fillEmbeddingWeight("./pretrained-embedding.json");
-model.compile({ alpha: 0.001, optimizer: "adam", error: "softmaxCrossEntropy" });
-model.train();
+// 1. Setup a sequence classifier
+const model = new Sequential([
+  new Embedding({ vocabSize: 1000, units: 32 }),
+  new LSTM({ units: 64, returnSequences: false }),
+  new Dense({ units: 64, outputUnits: 5, activation: "softmax" })
+]);
 
-const x = mj.matrix([[0], [0], [10], [20], [30], [40], [50], [60]]); // shape [seqLen, 1]
-const y = mj.matrix([[0], [10], [20], [30], [40], [50], [60], [0]]); // shifted targets [seqLen, 1]
-
-const logits = model.forward(x); // shape [vocabSize, seqLen * batch]
-model.backward(y);
-console.log("shape", logits._shape, "loss", model.loss);
-```
-
-### Transformer — Generation / Inference
-
-```ts
-import { mj } from "@oxide-js/core";
-import { Transformers } from "@oxide-js/models";
-
-const model = new Transformers({
-  units: 64,
-  seqLen: 8,
-  vocabSize: 500,
-  heads: 8,
-  alpha: 0.001,
-  padTokenId: 0,
-  predictMode: "next-token",
-});
-model.eval();
-
-const x = mj.matrix([[0], [0], [10], [20], [30], [40], [50], [60]]);
-
-const nextTokenLogits = model.predict(x); // shape [vocabSize, batch]
-model.setPredictMode("full-sequence");
-const fullSequenceLogits = model.predict(x); // shape [vocabSize, seqLen * batch]
-```
-
-### RecurrentModel — Many-to-One
-
-```ts
-import { RecurrentModel } from "@oxide-js/models";
-
-const model = new RecurrentModel({
-  kind: "lstm",
-  vocabSize: 1000,
-  embeddingDim: 32,
-  embeddingTrainable: false,
-  hiddenSizes: [64, 64],
-  outputSize: 5,
-  seqLen: 20,
-  mode: "many-to-one",
+// 2. Compile model settings
+model.compile({
+  optimizer: "adam",
   loss: "softmaxCrossEntropy",
+  learningRate: 0.001,
+  metrics: ["accuracy"]
 });
+
+// inputs: [batch=2, seqLen=4]
+const inputs = Matrix.fromFlat(new Float32Array([
+  10, 20, 30, 40,
+  50, 60, 70, 80
+]), [2, 4]);
+
+// targets: one-hot encoded classes [batch=2, classes=5]
+const targets = Matrix.fromFlat(new Float32Array([
+  0, 0, 1, 0, 0,
+  1, 0, 0, 0, 0
+]), [2, 5]);
+
+// 3. Train
+model.fit(inputs, targets, { epochs: 10, batchSize: 2 });
 ```
 
 ---
@@ -285,9 +285,8 @@ const model = new RecurrentModel({
 
 | Model | Description |
 |---|---|
-| `Sequential` | Generic layer stack (Dense, Embedding, Attention, CNN, etc.). |
-| `Transformers` | Multi-block causal language model. Supports `numBlocks >= 1`, full-sequence training, and configurable `predictMode` (`"next-token"` / `"full-sequence"`). |
-| `DimentionalityReduction` | Extends `Sequential` with an encoder/decoder split via the `outputReduction` layer status. |
+| `BaseModel` | Abstract base class that manages compilation, fit steps, state modes, callbacks, parameter counting, and model weights registry. |
+| `Sequential` | Streamlined subclass container designed for stacked feed-forward layers sequentially, handling unique layer name generation and shape propagation automatically. |
 
 ### Layers
 
@@ -340,27 +339,26 @@ Built-in pre-tokenizer names are saved in tokenizer JSON files. Custom pre-token
 
 ## Core Concepts
 
-- **Shape convention:** most layers use `[rows, cols]`; batched Transformer inputs use column-sequence layout `[seqLen, batchSize]`.
-- **Recurrent convention:** recurrent layers expect a single sequence sample with shape `[features, seqLen]`. The generic `Sequential.fit()` does not batch recurrent sequences yet — use `batchSize: 1`.
-- **Sparse classification targets:** use `softmaxCrossEntropy` with a dense output layer and a target of shape `[1, batch]` containing class indices.
-- **Training / eval mode:** call `model.train()` before training and `model.eval()` before inference. Layers like `Dropout` respect this flag.
+- **Shape convention:** Most layers use `[rows, cols]`; sequential layers propagate shapes automatically.
+- **Sparse classification targets:** Use `softmaxCrossEntropy` with a dense output layer and a target of shape `[1, batch]` containing class indices.
+- **Training / eval mode:** Call `model.train()` before training and `model.eval()` before inference. Layers like `Dropout` and `BatchNormalization` respect this flag.
 
 ---
 
 ## Training Workflow
 
 1. Prepare data as `Matrix` inputs and targets.
-2. Build your model and add layers.
-3. Call `model.compile({ alpha, optimizer, error })`.
-4. Run `model.fit()` (high-level) or loop `forward()` → `backward()` manually.
-5. Save the model and tokenizer with `save()`.
+2. Build your model stack (`Sequential`) or custom architecture subclassing `BaseModel`.
+3. Call `model.compile({ optimizer, loss, learningRate, metrics })`.
+4. Run `model.fit()` (high-level) or loop `forward()` → tape backprop manually.
+5. Save the model and tokenizer weights.
 
 ## Inference Workflow
 
 1. Load the model and tokenizer.
-2. Convert input text to token IDs and pad to `seqLen`.
-3. Call `model.predict()` (respects `predictMode` for `Transformers`) or `model.forward()`.
-4. Extract the argmax or raw logits as required by your task.
+2. Convert input text to token IDs and pad/trim as required.
+3. Call `model.predict()` or `model.forward()`.
+4. Extract the argmax class index or raw logits as required by your task.
 5. Decode token IDs back to text for NLP tasks.
 
 ---
@@ -370,61 +368,40 @@ Built-in pre-tokenizer names are saved in tokenizer JSON files. Custom pre-token
 - The Rust backend accelerates dot-product, activations, LayerNorm, embedding lookup, attention, and optimizer hot paths.
 - `Matrix` uses `Float32Array` to minimize allocation overhead. Use `_data` directly in hot paths.
 - Several layers use pre-allocated output buffers to reduce garbage collection pressure.
-- **Dynamic padding trim** (`trimPadding: true`, the default) reduces `effectiveSeqLen` per batch, cutting attention cost from O(seqLen²) to O(effectiveSeqLen²) and output projection cost from `vocabSize × seqLen × batch` to `vocabSize × effectiveSeqLen × batch`.
 
 ---
 
 ## Dynamic Padding Trim (v2.2.0+)
 
-When training a Transformer on long-context sequences (e.g. `seqLen=1024`), enable `trimPadding` to avoid paying the full quadratic attention cost on padding tokens:
+When processing batches of sequences (e.g., shapes `[seqLen, batchSize]`) with a variable length of padding tokens (e.g. `padTokenId`), you can use the `trimPaddingBatch` utility to trim redundant padding tokens, reducing attention and recurrent projection complexity from O(seqLen²) to O(effectiveSeqLen²):
 
 ```ts
-import { Transformers } from "@oxide-js/models";
+import { trimPaddingBatch, Matrix } from "@oxide-js/core";
 
-const model = new Transformers({
-  units: 64,
-  seqLen: 1024,
-  vocabSize: 5000,
-  heads: 8,
-  numBlocks: 2,
-  padTokenId: 0
-});
+// inputs: shape [seqLen=10, batch=2]
+// targets: shape [seqLen=10, batch=2]
+const padId = 0;
 
-// Right-padding (recommended for new datasets)
-model.fit(trainX, trainY, 80, {
-  batchSize: 8,
-  trimPadding: true,
-  paddingSide: "right",
-  shuffle: true
-});
-
-// Left-padding (for datasets already padded on the left)
-model.fit(trainX, trainY, 80, {
-  batchSize: 8,
-  trimPadding: true,
-  paddingSide: "left",
-  shuffle: true
-});
+const result = trimPaddingBatch(inputs, targets, padId, "right");
+if (result.trimmed) {
+  const trimmedInputs = result.x;           // shape [effectiveSeqLen, batch]
+  const trimmedTargets = result.y;          // shape [effectiveSeqLen, batch]
+  const offset = result.positionOffset;     // e.g. 0 for right padding
+  console.log(`Trimmed sequence to ${result.effectiveSeqLen}`);
+}
 ```
 
-**Options:**
-- `trimPadding: true` *(default)* — enabled automatically.
-- `paddingSide: "right"` *(default)* — trailing PAD tokens are trimmed; `positionOffset` is 0.
-- `paddingSide: "left"` — leading PAD tokens are trimmed; `positionOffset` is adjusted so that positional encodings for real tokens remain unchanged.
-- `trimPadding: false` — disables the feature entirely.
-- Only applies to full-sequence targets with shape `[seqLen, batch]`. Legacy targets with shape `[1, batch]` are not trimmed.
+**Supported Options:**
+- `"right"` — Trim trailing padding tokens. `positionOffset` is 0.
+- `"left"` — Trim leading padding tokens. `positionOffset` indicates the index of the first useful token, which can be used to shift positional encodings correctly.
 
 ---
 
 ## Best Practices
 
 - Use `softmaxCrossEntropy` for sparse token classification tasks.
-- Keep `seqLen` consistent between your preprocessing pipeline and the model constructor.
-- Set `padTokenId` in both the tokenizer and the model's `Embedding` layer.
-- For `Transformers`, prepare shifted next-token targets with shape `[seqLen, batch]` and fill invalid positions with `padTokenId`.
+- Keep sequence lengths consistent between your preprocessing pipeline and the model constructor.
 - Call `model.train()` before training and `model.eval()` before inference.
-- For Transformer inference, use `model.predict()` as the primary entry point and set `predictMode` to `"next-token"` or `"full-sequence"` as needed.
-- For stateful recurrent models, avoid `shuffle: true` and `validationSplit > 0` in the generic `Sequential.fit()` loop.
 - Start debugging with `ML_DISABLE_NATIVE=1` when comparing JS vs. native behavior.
 - If loss does not decrease, verify tensor shapes at every layer boundary.
 
@@ -481,14 +458,38 @@ docs/                ← In-depth guides and API reference
 
 ---
 
-## 📖 Documentation
+## 📖 Documentation & API Reference
 
-For in-depth guides, see the official documentation:
+For in-depth guides and complete technical specifications, see the official documentation workspace:
 
-1. **[Overview & Philosophy](docs/GUIDE-LINE/01-overview.md)** — Introduction to the library design and system architecture.
-2. **[Installation & Setup](docs/GUIDE-LINE/02-installation.md)** — How to install and enable Rust native acceleration.
-3. **[Practical Tutorial](docs/GUIDE-LINE/03-tutorial.md)** — Step-by-step guide to building a logic bot and a generative (GPT-style) bot.
-4. **[Full API Reference](docs/api/README.md)** — Technical documentation for Matrix, Math, Layers, Tokenizer, Optimizers, and related APIs.
+1. **[Master API Navigation Hub](docs/README.md)** — The central entrypoint to all API specifications.
+
+### 🗺️ API Documentation Map
+
+The API documentation is fully decoupled and detailed with complete mathematical explanations, config typings, lifecycle triggers, and standalone copy-pasteable TypeScript code examples for every symbol:
+
+* **[📥 @oxide-js/core](docs/README.md#🧭-oxide-jscore-api-navigation-directory)**:
+  - **[Matrix Operations](docs/api/core/matrix.md)** — Flat Float32Array arrays, shape modifications, and zero-copy bindings.
+  - **[Math Dispatcher](docs/api/core/math.md)** — JS & Rust native math primitives, zero-skipping logic, and shape calculations.
+  - **[Autodiff Tape](docs/api/core/autodiff.md)** — Reverse-mode automatic differentiation tape and dynamic gradients recording.
+  - **[BPETokenizer](docs/api/core/tokenizer.md)** — Byte-Pair Encoding text encoding, grapheme-segmentation, and special tokens padding.
+  - **[Optimizers Registry](docs/api/core/optimizer.md)** — Monolithic parameters optimization kernels (Adam, SGD, Momentum, NAG, AdaGrad).
+  - **[Cost / Loss Functions](docs/api/core/cost.md)** — Mathematical classification and regression loss boundaries (CrossEntropy, Huber, MAE, MSE, hinge).
+  - **[Type Definitions](docs/api/core/types.md)** — Monorepo schemas, execution settings, and status descriptors.
+* **[🧱 @oxide-js/layers](docs/README.md#🧭-oxide-jslayers-api-navigation-directory)**:
+  - **[Base Specification](docs/api/layers/base.md)** — Lifecycle hooks, properties, weights management, and Keras interfaces.
+  - **[Core Layers](docs/api/layers/core.md)** — Modular feed-forward elements (Dense, Dropout gates, Activations, Flatten, Reshape).
+  - **[Normalization](docs/api/layers/normalization.md)** — Dynamic scaling stabilizers (LayerNormalization, BatchNormalization).
+  - **[Sequence Embedding](docs/api/layers/embedding.md)** — Sparse integer token to continuous vector representations lookup tables.
+  - **[Convolution & Pooling](docs/api/layers/convolution.md)** — Spatial feature downsizers (Conv1D/2D, MaxPooling1D/2D, AveragePooling1D/2D).
+  - **[Recurrent Networks](docs/api/layers/recurrent.md)** — Temporal state transition kernels (SimpleRNN, GRU, LSTM).
+  - **[Attention Mechanisms](docs/api/layers/attention.md)** — Scaled dot-product self-attention and causal MultiHeadAttention (MHA) cross-attention.
+  - **[Residual Skip Connections](docs/api/layers/residual.md)** — Element-wise additive bypass paths.
+* **[📈 @oxide-js/models](docs/README.md#🧭-oxide-jsmodels-api-navigation-directory)**:
+  - **[BaseModel Specification](docs/api/models/base.md)** — Base model compiler settings, fitting loops, and Keras binary serialization.
+  - **[Sequential Stack](docs/api/models/sequential.md)** — Linear layer compose stack and unique layer naming allocations.
+  - **[Callback Observers](docs/api/models/callbacks.md)** — Epoch-level and batch-level listeners (ProgressLogger, EarlyStopping, custom observer hooks).
+  - **[Metrics & Data Helpers](docs/api/models/metrics.md)** — Accuracy calculators, training-validation dividers, and mini-batch iterators.
 
 ---
 
