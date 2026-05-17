@@ -1,5 +1,11 @@
 # @oxide-js/core
 
+## 1.0.0
+
+### Major Changes
+
+- e54932b: Stabilized the Oxide-JS monorepo API, completely modernized the layers architecture, replaced legacy model wrappers (Transformers, RecurrentModel) with modular `Sequential` and `BaseModel` abstractions, and optimized core native/JS math primitives parity.
+
 ## 0.4.2
 
 ### Patch Changes
