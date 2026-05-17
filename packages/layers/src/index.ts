@@ -28,3 +28,21 @@ export { AveragePooling1D } from "./layers/AveragePooling1D.js";
 export type { AveragePooling1DConfig } from "./layers/AveragePooling1D.js";
 export { AveragePooling2D } from "./layers/AveragePooling2D.js";
 export type { AveragePooling2DConfig } from "./layers/AveragePooling2D.js";
+export { SimpleRNN } from "./layers/SimpleRNN.js";
+export type { SimpleRNNConfig } from "./layers/SimpleRNN.js";
+export { LSTM } from "./layers/LSTM.js";
+export type { LSTMConfig } from "./layers/LSTM.js";
+export { GRU } from "./layers/GRU.js";
+export type { GRUConfig } from "./layers/GRU.js";
+export { Attention } from "./layers/Attention.js";
+export type { AttentionConfig } from "./layers/Attention.js";
+export { MultiHeadAttention } from "./layers/MultiHeadAttention.js";
+export type { MultiHeadAttentionConfig } from "./layers/MultiHeadAttention.js";
+export { Residual } from "./layers/Residual.js";
+export type { ResidualConfig } from "./layers/Residual.js";
+
+
+
+
+
+

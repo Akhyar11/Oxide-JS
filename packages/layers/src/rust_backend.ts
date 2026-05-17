@@ -354,3 +354,270 @@ export const batchNormalizationBackwardNative = (
   if (!native) throw new Error("Layers native backend not available");
   native.batchNormalizationBackwardNative(gradOut, inputs, mean, invStd, gamma, training, gradIn, gradGamma, gradBeta);
 };
+
+export const rnnForwardNative = (
+  inputs: Float32Array,
+  kernel: Float32Array,
+  recurrentKernel: Float32Array,
+  bias: Float32Array,
+  batchSize: number,
+  sequenceLength: number,
+  inputDim: number,
+  units: number,
+  activation: string,
+  returnSequences: boolean,
+  out: Float32Array,
+  hiddenStates: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.rnnForwardNative(inputs, kernel, recurrentKernel, bias, batchSize, sequenceLength, inputDim, units, activation, returnSequences, out, hiddenStates);
+};
+
+export const rnnBackwardNative = (
+  gradOut: Float32Array,
+  inputs: Float32Array,
+  hiddenStates: Float32Array,
+  kernel: Float32Array,
+  recurrentKernel: Float32Array,
+  batchSize: number,
+  sequenceLength: number,
+  inputDim: number,
+  units: number,
+  activation: string,
+  returnSequences: boolean,
+  gradIn: Float32Array,
+  gradKernel: Float32Array,
+  gradRecurrentKernel: Float32Array,
+  gradBias: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.rnnBackwardNative(gradOut, inputs, hiddenStates, kernel, recurrentKernel, batchSize, sequenceLength, inputDim, units, activation, returnSequences, gradIn, gradKernel, gradRecurrentKernel, gradBias);
+};
+
+export const lstmForwardNative = (
+  inputs: Float32Array,
+  kernel: Float32Array,
+  recurrentKernel: Float32Array,
+  bias: Float32Array,
+  batchSize: number,
+  sequenceLength: number,
+  inputDim: number,
+  units: number,
+  returnSequences: boolean,
+  out: Float32Array,
+  hiddenStates: Float32Array,
+  cellStates: Float32Array,
+  gateValues: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.lstmForwardNative(inputs, kernel, recurrentKernel, bias, batchSize, sequenceLength, inputDim, units, returnSequences, out, hiddenStates, cellStates, gateValues);
+};
+
+export const lstmBackwardNative = (
+  gradOut: Float32Array,
+  inputs: Float32Array,
+  hiddenStates: Float32Array,
+  cellStates: Float32Array,
+  gateValues: Float32Array,
+  kernel: Float32Array,
+  recurrentKernel: Float32Array,
+  batchSize: number,
+  sequenceLength: number,
+  inputDim: number,
+  units: number,
+  returnSequences: boolean,
+  gradIn: Float32Array,
+  gradKernel: Float32Array,
+  gradRecurrentKernel: Float32Array,
+  gradBias: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.lstmBackwardNative(gradOut, inputs, hiddenStates, cellStates, gateValues, kernel, recurrentKernel, batchSize, sequenceLength, inputDim, units, returnSequences, gradIn, gradKernel, gradRecurrentKernel, gradBias);
+};
+
+export const gruForwardNative = (
+  inputs: Float32Array,
+  kernel: Float32Array,
+  recurrentKernel: Float32Array,
+  bias: Float32Array,
+  batchSize: number,
+  sequenceLength: number,
+  inputDim: number,
+  units: number,
+  returnSequences: boolean,
+  out: Float32Array,
+  hiddenStates: Float32Array,
+  gateValues: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.gruForwardNative(inputs, kernel, recurrentKernel, bias, batchSize, sequenceLength, inputDim, units, returnSequences, out, hiddenStates, gateValues);
+};
+
+export const gruBackwardNative = (
+  gradOut: Float32Array,
+  inputs: Float32Array,
+  hiddenStates: Float32Array,
+  gateValues: Float32Array,
+  kernel: Float32Array,
+  recurrentKernel: Float32Array,
+  batchSize: number,
+  sequenceLength: number,
+  inputDim: number,
+  units: number,
+  returnSequences: boolean,
+  gradIn: Float32Array,
+  gradKernel: Float32Array,
+  gradRecurrentKernel: Float32Array,
+  gradBias: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.gruBackwardNative(gradOut, inputs, hiddenStates, gateValues, kernel, recurrentKernel, batchSize, sequenceLength, inputDim, units, returnSequences, gradIn, gradKernel, gradRecurrentKernel, gradBias);
+};
+
+export const attentionForwardNative = (
+  inputsQ: Float32Array,
+  inputsK: Float32Array,
+  wQ: Float32Array,
+  wK: Float32Array,
+  wV: Float32Array,
+  bQ: Float32Array,
+  bK: Float32Array,
+  bV: Float32Array,
+  batchSize: number,
+  seqLenQ: number,
+  seqLenK: number,
+  inputDim: number,
+  units: number,
+  useBias: boolean,
+  out: Float32Array,
+  q: Float32Array,
+  k: Float32Array,
+  v: Float32Array,
+  scores: Float32Array,
+  probs: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.attentionForwardNative(inputsQ, inputsK, wQ, wK, wV, bQ, bK, bV, batchSize, seqLenQ, seqLenK, inputDim, units, useBias, out, q, k, v, scores, probs);
+};
+
+export const attentionBackwardNative = (
+  gradOut: Float32Array,
+  inputsQ: Float32Array,
+  inputsK: Float32Array,
+  q: Float32Array,
+  k: Float32Array,
+  v: Float32Array,
+  probs: Float32Array,
+  wQ: Float32Array,
+  wK: Float32Array,
+  wV: Float32Array,
+  batchSize: number,
+  seqLenQ: number,
+  seqLenK: number,
+  inputDim: number,
+  units: number,
+  useBias: boolean,
+  gradInQ: Float32Array,
+  gradInK: Float32Array,
+  gradWQ: Float32Array,
+  gradWK: Float32Array,
+  gradWV: Float32Array,
+  gradBQ: Float32Array,
+  gradBK: Float32Array,
+  gradBV: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.attentionBackwardNative(gradOut, inputsQ, inputsK, q, k, v, probs, wQ, wK, wV, batchSize, seqLenQ, seqLenK, inputDim, units, useBias, gradInQ, gradInK, gradWQ, gradWK, gradWV, gradBQ, gradBK, gradBV);
+};
+
+export const multiHeadAttentionForwardNative = (
+  inputsQ: Float32Array,
+  inputsK: Float32Array,
+  inputsV: Float32Array,
+  wQ: Float32Array,
+  wK: Float32Array,
+  wV: Float32Array,
+  wO: Float32Array,
+  bQ: Float32Array,
+  bK: Float32Array,
+  bV: Float32Array,
+  bO: Float32Array,
+  batchSize: number,
+  seqLenQ: number,
+  seqLenK: number,
+  inputDimQ: number,
+  inputDimK: number,
+  inputDimV: number,
+  numHeads: number,
+  keyDim: number,
+  valueDim: number,
+  outputDim: number,
+  useBias: boolean,
+  out: Float32Array,
+  q: Float32Array,
+  k: Float32Array,
+  v: Float32Array,
+  scores: Float32Array,
+  probs: Float32Array,
+  outConcat: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.multiHeadAttentionForwardNative(
+    inputsQ, inputsK, inputsV, wQ, wK, wV, wO, bQ, bK, bV, bO,
+    batchSize, seqLenQ, seqLenK, inputDimQ, inputDimK, inputDimV,
+    numHeads, keyDim, valueDim, outputDim, useBias,
+    out, q, k, v, scores, probs, outConcat
+  );
+};
+
+export const multiHeadAttentionBackwardNative = (
+  gradOut: Float32Array,
+  inputsQ: Float32Array,
+  inputsK: Float32Array,
+  inputsV: Float32Array,
+  q: Float32Array,
+  k: Float32Array,
+  v: Float32Array,
+  probs: Float32Array,
+  outConcat: Float32Array,
+  wQ: Float32Array,
+  wK: Float32Array,
+  wV: Float32Array,
+  wO: Float32Array,
+  batchSize: number,
+  seqLenQ: number,
+  seqLenK: number,
+  inputDimQ: number,
+  inputDimK: number,
+  inputDimV: number,
+  numHeads: number,
+  keyDim: number,
+  valueDim: number,
+  outputDim: number,
+  useBias: boolean,
+  gradInQ: Float32Array,
+  gradInK: Float32Array,
+  gradInV: Float32Array,
+  gradWQ: Float32Array,
+  gradWK: Float32Array,
+  gradWV: Float32Array,
+  gradWO: Float32Array,
+  gradBQ: Float32Array,
+  gradBK: Float32Array,
+  gradBV: Float32Array,
+  gradBO: Float32Array
+): void => {
+  if (!native) throw new Error("Layers native backend not available");
+  native.multiHeadAttentionBackwardNative(
+    gradOut, inputsQ, inputsK, inputsV, q, k, v, probs, outConcat,
+    wQ, wK, wV, wO, batchSize, seqLenQ, seqLenK, inputDimQ, inputDimK, inputDimV,
+    numHeads, keyDim, valueDim, outputDim, useBias,
+    gradInQ, gradInK, gradInV, gradWQ, gradWK, gradWV, gradWO, gradBQ, gradBK, gradBV, gradBO
+  );
+};
+
+
+
+
+
+

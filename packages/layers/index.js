@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { seq2ColNative, col2SeqNative, grid2ColNative, col2GridNative, maxPooling1DForwardNative, maxPooling1DBackwardNative, maxPooling2DForwardNative, maxPooling2DBackwardNative, averagePooling1DForwardNative, averagePooling1DBackwardNative, averagePooling2DForwardNative, averagePooling2DBackwardNative, embeddingForwardNative, embeddingBackwardNative, layerNormalizationForwardNative, layerNormalizationBackwardNative, batchNormalizationForwardNative, batchNormalizationBackwardNative } = nativeBinding
+const { seq2ColNative, col2SeqNative, grid2ColNative, col2GridNative, maxPooling1DForwardNative, maxPooling1DBackwardNative, maxPooling2DForwardNative, maxPooling2DBackwardNative, averagePooling1DForwardNative, averagePooling1DBackwardNative, averagePooling2DForwardNative, averagePooling2DBackwardNative, embeddingForwardNative, embeddingBackwardNative, layerNormalizationForwardNative, layerNormalizationBackwardNative, batchNormalizationForwardNative, batchNormalizationBackwardNative, rnnForwardNative, rnnBackwardNative, lstmForwardNative, lstmBackwardNative, gruForwardNative, gruBackwardNative, attentionForwardNative, attentionBackwardNative, multiHeadAttentionForwardNative, multiHeadAttentionBackwardNative } = nativeBinding
 
 module.exports.seq2ColNative = seq2ColNative
 module.exports.col2SeqNative = col2SeqNative
@@ -330,3 +330,13 @@ module.exports.layerNormalizationForwardNative = layerNormalizationForwardNative
 module.exports.layerNormalizationBackwardNative = layerNormalizationBackwardNative
 module.exports.batchNormalizationForwardNative = batchNormalizationForwardNative
 module.exports.batchNormalizationBackwardNative = batchNormalizationBackwardNative
+module.exports.rnnForwardNative = rnnForwardNative
+module.exports.rnnBackwardNative = rnnBackwardNative
+module.exports.lstmForwardNative = lstmForwardNative
+module.exports.lstmBackwardNative = lstmBackwardNative
+module.exports.gruForwardNative = gruForwardNative
+module.exports.gruBackwardNative = gruBackwardNative
+module.exports.attentionForwardNative = attentionForwardNative
+module.exports.attentionBackwardNative = attentionBackwardNative
+module.exports.multiHeadAttentionForwardNative = multiHeadAttentionForwardNative
+module.exports.multiHeadAttentionBackwardNative = multiHeadAttentionBackwardNative
