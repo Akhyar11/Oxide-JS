@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { ActivationType, Matrix } from "@oxide-js/core";
 
 export interface ActivationConfig extends LayerConfig {
@@ -34,7 +34,7 @@ export class Activation extends BaseLayer {
   /**
    * Forward Pass menerapkan fungsi aktivasi ke inputs
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     try {
       const isSoftmax = this.activation === "softmax";
       const actFn = this.resolveActivation(this.activation, { row: isSoftmax });

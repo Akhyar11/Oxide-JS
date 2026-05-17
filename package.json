@@ -11,10 +11,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "build": "npm run build -w packages/core && npm run build -w packages/layers && npm run build -w packages/models",
-    "build:rust": "npm run build:rust -w @oxide-js/core",
-    "release:check": "npm run build && npm test && npm pack --dry-run -w packages/core && npm pack --dry-run -w packages/layers && npm pack --dry-run -w packages/models",
-    "postinstall": "node -e \"try{require('child_process').execSync('npm run build:rust -w @oxide-js/core',{stdio:'inherit'})}catch(e){console.warn('[oxide-js] Rust build skipped — native acceleration unavailable.')}\""
+    "build": "npm run build:rust && npm run build:ts",
+    "build:ts": "npm run build -w packages/core && npm run build -w packages/layers",
+    "build:rust": "node scripts/build-rust.mjs",
+    "release:check": "npm run build && npm test && npm pack --dry-run -w packages/core && npm pack --dry-run -w packages/layers",
+    "postinstall": "node -e \"try{require('child_process').execSync('npm run build:rust',{stdio:'inherit'})}catch(e){console.warn('[oxide-js] Rust build skipped — native acceleration unavailable.')}\""
   },
   "keywords": [
     "machine-learning",

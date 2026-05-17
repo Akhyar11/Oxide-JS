@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj, engine } from "@oxide-js/core";
 import { isNativeAvailable, seq2ColNative, col2SeqNative } from "../rust_backend.js";
 
@@ -252,7 +252,7 @@ export class Conv1D extends BaseLayer {
   /**
    * Forward Pass matematika layer Conv1D
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const kernel = this.kernel;
     if (!kernel) {
       throw new Error("[Conv1D] Bobot 'kernel' tidak terinisialisasi. Pastikan build() sudah dijalankan.");

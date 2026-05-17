@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj } from "@oxide-js/core";
 
 export interface ReshapeConfig extends LayerConfig {
@@ -61,7 +61,7 @@ export class Reshape extends BaseLayer {
    * Forward Pass matematika layer Reshape.
    * Mereshape physical matrix menjadi [batch, physicalFeatures]
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const batch = inputs._shape[0];
     
     // Dapatkan output shape logis yang sesungguhnya (tanpa -1)

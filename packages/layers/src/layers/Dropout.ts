@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj } from "@oxide-js/core";
 
 export interface DropoutConfig extends LayerConfig {
@@ -26,8 +26,8 @@ export class Dropout extends BaseLayer {
   /**
    * Forward Pass matematika layer Dropout
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
-    const training = isTraining ?? this.training;
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
+    const training = options?.training ?? this.training;
 
     // Jika bukan dalam mode training atau rate adalah 0, behaves as an Identity layer
     if (!training || this.rate === 0) {

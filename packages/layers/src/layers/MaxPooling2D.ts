@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, engine } from "@oxide-js/core";
 import { isNativeAvailable, maxPooling2DForwardNative, maxPooling2DBackwardNative } from "../rust_backend.js";
 
@@ -258,7 +258,7 @@ export class MaxPooling2D extends BaseLayer {
   /**
    * Forward Pass matematika layer MaxPooling2D
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const totalRows = inputs._shape[0];
     const H = this.imageShape![0];
     const W = this.imageShape![1];

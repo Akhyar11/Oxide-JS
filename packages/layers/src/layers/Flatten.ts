@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj } from "@oxide-js/core";
 
 export interface FlattenConfig extends LayerConfig {}
@@ -24,7 +24,7 @@ export class Flatten extends BaseLayer {
    * Forward Pass matematika layer Flatten.
    * Mereshape physical matrix menjadi 2D [batch, features]
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const batch = inputs._shape[0];
     const totalElements = inputs._data.length;
     const features = totalElements / batch;

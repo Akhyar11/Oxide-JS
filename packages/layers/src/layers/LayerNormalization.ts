@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj, engine } from "@oxide-js/core";
 import { isNativeAvailable, layerNormalizationForwardNative, layerNormalizationBackwardNative } from "../rust_backend.js";
 
@@ -156,7 +156,7 @@ export class LayerNormalization extends BaseLayer {
   /**
    * Forward Pass matematika Layer Normalization
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const gamma = this.getParameter("gamma");
     const beta = this.getParameter("beta");
 

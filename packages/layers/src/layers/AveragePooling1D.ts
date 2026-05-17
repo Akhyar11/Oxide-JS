@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, engine } from "@oxide-js/core";
 import { isNativeAvailable, averagePooling1DForwardNative, averagePooling1DBackwardNative } from "../rust_backend.js";
 
@@ -236,7 +236,7 @@ export class AveragePooling1D extends BaseLayer {
   /**
    * Forward Pass matematika layer AveragePooling1D
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const totalRows = inputs._shape[0];
     const L = this.sequenceLength!;
     const C = this.inputDim!;

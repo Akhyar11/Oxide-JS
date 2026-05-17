@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, engine } from "@oxide-js/core";
 import { isNativeAvailable, embeddingForwardNative, embeddingBackwardNative } from "../rust_backend.js";
 
@@ -130,7 +130,7 @@ export class Embedding extends BaseLayer {
   /**
    * Forward Pass matematika layer Embedding
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const embeddings = this.embeddings;
     if (!embeddings) {
       throw new Error("[Embedding] Bobot 'embeddings' tidak terinisialisasi. Pastikan build() sudah dijalankan.");

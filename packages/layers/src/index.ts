@@ -1,5 +1,5 @@
 export { BaseLayer } from "./base/BaseLayer.js";
-export type { LayerConfig } from "./base/BaseLayer.js";
+export type { ForwardOptions, LayerConfig, SetWeightsOptions } from "./base/BaseLayer.js";
 export { Dense } from "./layers/Dense.js";
 export type { DenseConfig } from "./layers/Dense.js";
 export { Activation } from "./layers/Activation.js";
@@ -40,7 +40,6 @@ export { MultiHeadAttention } from "./layers/MultiHeadAttention.js";
 export type { MultiHeadAttentionConfig } from "./layers/MultiHeadAttention.js";
 export { Residual } from "./layers/Residual.js";
 export type { ResidualConfig } from "./layers/Residual.js";
-
 
 
 

@@ -1,8 +1,19 @@
-import { Matrix, mj, setActivation, setLoss, setOptimizer } from "@oxide-js/core";
+import { Matrix, mj, setActivation } from "@oxide-js/core";
 
 export interface LayerConfig {
   name?: string;
   trainable?: boolean;
+}
+
+export interface ForwardOptions {
+  training?: boolean;
+  mask?: Matrix;
+  initialState?: Matrix[];
+  [key: string]: unknown;
+}
+
+export interface SetWeightsOptions {
+  strict?: boolean;
 }
 
 export abstract class BaseLayer {
@@ -132,20 +143,6 @@ export abstract class BaseLayer {
   }
 
   /**
-   * Helper utility untuk mencari fungsi loss berdasarkan string nama (misal "mse", "crossEntropy").
-   */
-  protected resolveLoss(loss: string): any {
-    return setLoss(loss as any);
-  }
-
-  /**
-   * Helper utility untuk menginisialisasi optimizer berdasarkan string nama dan parameter.
-   */
-  protected resolveOptimizer(optimizer: string, shape: [number, number], alpha: number): any {
-    return setOptimizer(optimizer as any, shape, alpha);
-  }
-
-  /**
    * Validasi kecocokan shape input dengan inputShape yang terdaftar pada build()
    * Mengabaikan dimensi batch (dimensi pertama index 0).
    */
@@ -166,10 +163,10 @@ export abstract class BaseLayer {
    * Core perhitungan matematika layer (Forward Pass).
    * 
    * @param inputs Matrix input
-   * @param isTraining Flag apakah sedang fase training (misal untuk Dropout/BatchNorm)
+   * @param options Opsi forward pass layer, termasuk mode training dan mask
    * @returns Matrix output
    */
-  protected abstract compute(inputs: Matrix, isTraining?: boolean): Matrix;
+  protected abstract compute(inputs: Matrix, options?: ForwardOptions): Matrix;
 
 
 
@@ -178,17 +175,25 @@ export abstract class BaseLayer {
    * Akan memanggil build() secara otomatis jika belum di-build.
    * 
    * @param inputs Matrix input
-   * @param isTraining Flag training (default: default training state dari layer)
+   * @param optionsOrTraining Opsi forward pass, atau boolean training untuk kompatibilitas lama
    * @returns Matrix output
    */
-  public forward(inputs: Matrix, isTraining: boolean = this.training): Matrix {
+  public forward(inputs: Matrix, optionsOrTraining: ForwardOptions | boolean = {}): Matrix {
+    const options: ForwardOptions =
+      typeof optionsOrTraining === "boolean"
+        ? { training: optionsOrTraining }
+        : optionsOrTraining;
+
     if (!this.isBuilt) {
       this.build(inputs._shape);
     } else {
       this.validateInputShape(inputs);
     }
 
-    return this.compute(inputs, isTraining);
+    return this.compute(inputs, {
+      ...options,
+      training: options.training ?? this.training
+    });
   }
 
   /**
@@ -340,7 +345,12 @@ export abstract class BaseLayer {
   /**
    * Memuat bobot dari buffer eksternal (proses Load Keras weights).
    */
-  public setWeights(weightsData: { name: string, shape: number[], data: Float32Array }[]): void {
+  public setWeights(
+    weightsData: { name: string; shape: number[]; data: Float32Array }[],
+    options: SetWeightsOptions = { strict: true }
+  ): void {
+    const strict = options.strict ?? true;
+
     for (const w of weightsData) {
       const key = w.name.split('/').pop() || w.name;
       
@@ -359,6 +369,10 @@ export abstract class BaseLayer {
         entry.value._data.set(w.data);
         entry.logicalShape = w.shape;
       } else {
+        if (strict) {
+          throw new Error(`[${this.name}] Parameter '${key}' tidak dikenali di layer ini.`);
+        }
+
         // Force inject jika belum terdefinisi
         const targetShape = this.to2DShape(w.shape);
         this.parameters.set(key, { 
@@ -400,4 +414,3 @@ export abstract class BaseLayer {
     console.log(divider);
   }
 }
-

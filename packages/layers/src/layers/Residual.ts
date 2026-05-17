@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj } from "@oxide-js/core";
 
 export interface ResidualConfig extends LayerConfig {
@@ -124,9 +124,9 @@ export class Residual extends BaseLayer {
     this.isBuilt = true;
   }
 
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
-    const fx = this.layer.forward(inputs, isTraining);
-    const shortcutX = this.shortcut ? this.shortcut.forward(inputs, isTraining) : inputs;
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
+    const fx = this.layer.forward(inputs, options);
+    const shortcutX = this.shortcut ? this.shortcut.forward(inputs, options) : inputs;
     return mj.add(fx, shortcutX);
   }
 

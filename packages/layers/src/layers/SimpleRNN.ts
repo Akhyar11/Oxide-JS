@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj, engine } from "@oxide-js/core";
 import { isNativeAvailable, rnnForwardNative, rnnBackwardNative } from "../rust_backend.js";
 
@@ -378,7 +378,7 @@ export class SimpleRNN extends BaseLayer {
     this.isBuilt = true;
   }
 
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const kernel = this.kernel;
     const recurrentKernel = this.recurrentKernel;
     if (!kernel || !recurrentKernel) {

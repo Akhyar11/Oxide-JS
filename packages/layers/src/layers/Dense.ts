@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { ActivationType, Matrix, mj } from "@oxide-js/core";
 
 export interface DenseConfig extends LayerConfig {
@@ -64,7 +64,7 @@ export class Dense extends BaseLayer {
   /**
    * Forward Pass matematika layer Dense
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const kernel = this.kernel!;
 
     // 1. dot = inputs * kernel

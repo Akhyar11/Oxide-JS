@@ -51,6 +51,17 @@ describe("Dropout Layer Tests", () => {
     }
   });
 
+  it("should accept forward options and legacy boolean training overrides", () => {
+    const layer = new Dropout({ rate: 0.5 });
+    layer.build([2, 2]);
+    layer.train();
+
+    const x = mat([1, 2, 3, 4], [2, 2]);
+
+    expectMatrixCloseTo(layer.forward(x, false), [1, 2, 3, 4]);
+    expectMatrixCloseTo(layer.forward(x, { training: false }), [1, 2, 3, 4]);
+  });
+
   it("should perform backward pass via autodiff tape correctly", () => {
     const layer = new Dropout({ rate: 0.5 });
     layer.build([2, 2]);

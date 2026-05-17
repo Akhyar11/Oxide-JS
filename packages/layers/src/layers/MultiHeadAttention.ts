@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj, engine } from "@oxide-js/core";
 import { isNativeAvailable, multiHeadAttentionForwardNative, multiHeadAttentionBackwardNative } from "../rust_backend.js";
 
@@ -698,7 +698,7 @@ export class MultiHeadAttention extends BaseLayer {
     this.isBuilt = true;
   }
 
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
     const wQ = this.wQ;
     const wK = this.wK;
     const wV = this.wV;

@@ -1,4 +1,4 @@
-import { BaseLayer, LayerConfig } from "../base/BaseLayer.js";
+import { BaseLayer, LayerConfig, type ForwardOptions } from "../base/BaseLayer.js";
 import { Matrix, mj, engine } from "@oxide-js/core";
 import { isNativeAvailable, batchNormalizationForwardNative, batchNormalizationBackwardNative } from "../rust_backend.js";
 
@@ -221,8 +221,8 @@ export class BatchNormalization extends BaseLayer {
   /**
    * Forward Pass matematika Batch Normalization
    */
-  protected compute(inputs: Matrix, isTraining?: boolean): Matrix {
-    const training = isTraining ?? this.training;
+  protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
+    const training = options?.training ?? this.training;
 
     const gamma = this.getParameter("gamma");
     const beta = this.getParameter("beta");

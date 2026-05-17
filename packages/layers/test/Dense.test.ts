@@ -120,6 +120,23 @@ describe("Dense Layer Tests", () => {
     expect(layer.nonTrainableWeights.length).toBeGreaterThan(0);
   });
 
+  it("should reject unknown setWeights entries by default and allow non-strict loading", () => {
+    const layer = new Dense({ units: 2 });
+    layer.build([1, 3]);
+
+    const unknownWeight = {
+      name: "dense/extra",
+      shape: [1, 2],
+      data: new Float32Array([7, 8])
+    };
+
+    expect(() => layer.setWeights([unknownWeight])).toThrow("Parameter 'extra' tidak dikenali");
+
+    layer.setWeights([unknownWeight], { strict: false });
+    expect(layer.getParameter("extra")).toBeDefined();
+    expect(layer.getParameter("extra")?._shape).toEqual([1, 2]);
+  });
+
   it("should return config", () => {
     const layer = new Dense({
       name: "dense_keras",
