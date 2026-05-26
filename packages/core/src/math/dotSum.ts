@@ -28,12 +28,14 @@ export function dotSumScalar(a: Matrix): Matrix {
   const out = Matrix.fromFlat(new Float32Array([computeDotSum(a)]), [1, 1]);
   const aShape: [number, number] = [a._shape[0], a._shape[1]];
 
-  engine.record([a], [out], (grad: Matrix) => {
-    const g = grad._data[0];
-    const gradA = Matrix.fromFlat(new Float32Array(a._data.length), aShape);
-    gradA._data.fill(g);
-    return [gradA];
-  }, { saveInput: false, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a], [out], (grad: Matrix) => {
+      const g = grad._data[0];
+      const gradA = Matrix.fromFlat(new Float32Array(a._data.length), aShape);
+      gradA._data.fill(g);
+      return [gradA];
+    }, { saveInput: false, saveOutput: false });
+  }
 
   return out;
 }

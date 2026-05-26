@@ -20,13 +20,15 @@ export default function concat(a: Matrix, b: Matrix): Matrix {
   result.set(b._data, a._data.length);
   const res = Matrix.fromFlat(result, [1, result.length]);
 
-  engine.record([a, b], [res], (grad: Matrix) => {
-    const gradAData = grad._data.subarray(0, aLen);
-    const gradA = Matrix.fromFlat(new Float32Array(gradAData), [...aShape]);
-    const gradBData = grad._data.subarray(aLen);
-    const gradB = Matrix.fromFlat(new Float32Array(gradBData), [...bShape]);
-    return [gradA, gradB];
-  }, { saveInput: false, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a, b], [res], (grad: Matrix) => {
+      const gradAData = grad._data.subarray(0, aLen);
+      const gradA = Matrix.fromFlat(new Float32Array(gradAData), [...aShape]);
+      const gradBData = grad._data.subarray(aLen);
+      const gradB = Matrix.fromFlat(new Float32Array(gradBData), [...bShape]);
+      return [gradA, gradB];
+    }, { saveInput: false, saveOutput: false });
+  }
 
   return res;
 }

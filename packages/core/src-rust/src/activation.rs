@@ -440,3 +440,54 @@ pub fn elu_native_into(
         }
     }
 }
+
+#[inline(always)]
+pub fn threshold_chunk(input: &[f32], out_res: &mut [f32], out_grad: &mut [f32], threshold: f32, leak: f32) {
+    for i in 0..input.len() {
+        let x = input[i];
+        out_res[i] = if x > threshold { 1.0 } else { 0.0 };
+        out_grad[i] = if x > threshold { leak } else { 1.0 };
+    }
+}
+
+#[napi]
+pub fn threshold_native_into(
+    input: Float32Array,
+    threshold: f64,
+    leak: f64,
+    mut out_res: Float32Array,
+    mut out_grad: Float32Array,
+) {
+    let input_slice = &*input;
+    let out_res_slice = &mut *out_res;
+    let out_grad_slice = &mut *out_grad;
+    let threshold_f32 = threshold as f32;
+    let leak_f32 = leak as f32;
+    if input_slice.len() < ACTIVATION_PARALLEL_THRESHOLD {
+        threshold_chunk(input_slice, out_res_slice, out_grad_slice, threshold_f32, leak_f32);
+    } else {
+        const CHUNK: usize = 64;
+        let n = input_slice.len();
+        let full = n - (n % CHUNK);
+        out_res_slice[..full]
+            .par_chunks_mut(CHUNK)
+            .zip(out_grad_slice[..full].par_chunks_mut(CHUNK))
+            .enumerate()
+            .for_each(|(chunk_idx, (res_chunk, grad_chunk))| {
+                let start = chunk_idx * CHUNK;
+                let inp = &input_slice[start..start + CHUNK];
+                threshold_chunk(inp, res_chunk, grad_chunk, threshold_f32, leak_f32);
+            });
+        if full < n {
+            threshold_chunk(
+                &input_slice[full..],
+                &mut out_res_slice[full..],
+                &mut out_grad_slice[full..],
+                threshold_f32,
+                leak_f32,
+            );
+        }
+    }
+}
+
+

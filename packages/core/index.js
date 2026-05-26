@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { reluNativeInto, sigmoidNativeInto, tanhNativeInto, lReluNativeInto, seluNativeInto, softplusNativeInto, softsignNativeInto, swishNativeInto, geluNativeInto, mishNativeInto, hardSigmoidNativeInto, hardSwishNativeInto, eluNativeInto, convolutionNativeInto, softmaxNativeInto, softmaxBackwardNativeInto, mseNative, maeNativeInto, huberNativeInto, logcoshNativeInto, hingeNativeInto, squaredHingeNativeInto, kldivergenceNativeInto, poissonNativeInto, dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, addInPlace, subInPlace, mulInPlace, addBiasNative, sumAxisNative, powNative, absmNative, expmNative, logmNative, transposeNative, dotSumNative, dotSubNative, dotMulNative, dotDivNative, adamUpdateNative, sgdUpdateNative, adagradUpdateNative, momentumUpdateNative, nagUpdateNative, clipGradientsNative } = nativeBinding
+const { reluNativeInto, sigmoidNativeInto, tanhNativeInto, lReluNativeInto, seluNativeInto, softplusNativeInto, softsignNativeInto, swishNativeInto, geluNativeInto, mishNativeInto, hardSigmoidNativeInto, hardSwishNativeInto, eluNativeInto, thresholdNativeInto, convolutionNativeInto, softmaxNativeInto, softmaxBackwardNativeInto, mseNative, maeNativeInto, huberNativeInto, logcoshNativeInto, hingeNativeInto, squaredHingeNativeInto, kldivergenceNativeInto, poissonNativeInto, dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, addInPlace, subInPlace, mulInPlace, addBiasNative, addBiasRowNative, sumAxisNative, powNative, absmNative, expmNative, logmNative, transposeNative, dotSumNative, dotSubNative, dotMulNative, dotDivNative, sumSquaresNative, scaleVectorNative, adamUpdateNative, sgdUpdateNative, adagradUpdateNative, momentumUpdateNative, nagUpdateNative, clipGradientsNative } = nativeBinding
 
 module.exports.reluNativeInto = reluNativeInto
 module.exports.sigmoidNativeInto = sigmoidNativeInto
@@ -325,6 +325,7 @@ module.exports.mishNativeInto = mishNativeInto
 module.exports.hardSigmoidNativeInto = hardSigmoidNativeInto
 module.exports.hardSwishNativeInto = hardSwishNativeInto
 module.exports.eluNativeInto = eluNativeInto
+module.exports.thresholdNativeInto = thresholdNativeInto
 module.exports.convolutionNativeInto = convolutionNativeInto
 module.exports.softmaxNativeInto = softmaxNativeInto
 module.exports.softmaxBackwardNativeInto = softmaxBackwardNativeInto
@@ -347,6 +348,7 @@ module.exports.addInPlace = addInPlace
 module.exports.subInPlace = subInPlace
 module.exports.mulInPlace = mulInPlace
 module.exports.addBiasNative = addBiasNative
+module.exports.addBiasRowNative = addBiasRowNative
 module.exports.sumAxisNative = sumAxisNative
 module.exports.powNative = powNative
 module.exports.absmNative = absmNative
@@ -357,6 +359,8 @@ module.exports.dotSumNative = dotSumNative
 module.exports.dotSubNative = dotSubNative
 module.exports.dotMulNative = dotMulNative
 module.exports.dotDivNative = dotDivNative
+module.exports.sumSquaresNative = sumSquaresNative
+module.exports.scaleVectorNative = scaleVectorNative
 module.exports.adamUpdateNative = adamUpdateNative
 module.exports.sgdUpdateNative = sgdUpdateNative
 module.exports.adagradUpdateNative = adagradUpdateNative

@@ -1,4 +1,4 @@
-import { createRequire } from "module";
+import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 import { MatrixShape } from "../@types/type.js";
@@ -305,6 +305,11 @@ export const addBiasNative = (data: Float32Array, bias: Float32Array, rows: numb
   native.addBiasNative(data, bias, rows, cols);
 };
 
+export const addBiasRowNative = (data: Float32Array, bias: Float32Array, rows: number, cols: number): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.addBiasRowNative(data, bias, rows, cols);
+};
+
 export const sumAxisNative = (data: Float32Array, rows: number, cols: number, axis: number, out: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
   native.sumAxisNative(data, rows, cols, axis, out);
@@ -349,6 +354,13 @@ export const eluNative = (input: Float32Array, alpha: number, outRes: Float32Arr
   if (!native) throw new Error("Native backend not available");
   native.eluNativeInto(input, alpha, outRes, outGrad);
 };
+
+export const thresholdNative = (input: Float32Array, threshold: number, leak: number, outRes: Float32Array, outGrad: Float32Array): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.thresholdNativeInto(input, threshold, leak, outRes, outGrad);
+};
+
+
 
 export const seluNative = (input: Float32Array, outRes: Float32Array, outGrad: Float32Array): void => {
   if (!native) throw new Error("Native backend not available");
@@ -408,4 +420,14 @@ export const dotMulNative = (a: Float32Array): number => {
 export const dotDivNative = (a: Float32Array): number => {
   if (!native) throw new Error("Native backend not available");
   return native.dotDivNative(a);
+};
+
+export const sumSquaresNative = (a: Float32Array): number => {
+  if (!native) throw new Error("Native backend not available");
+  return native.sumSquaresNative(a);
+};
+
+export const scaleVectorNative = (a: Float32Array, scale: number): void => {
+  if (!native) throw new Error("Native backend not available");
+  native.scaleVectorNative(a, scale);
 };

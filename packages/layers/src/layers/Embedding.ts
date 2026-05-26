@@ -69,7 +69,7 @@ function embeddingLookup(inputs: Matrix, embeddings: Matrix): Matrix {
         Matrix.fromFlat(gradEmbed, [vocabSize, embeddingDim]) // embeddings gradient
       ];
     },
-    { saveInput: true, saveOutput: false } // we need inputs to know the indices
+    { saveInput: false, saveOutput: false, requireInputStability: true } // backward uses captured inputsData from closure
   );
 
   return res;

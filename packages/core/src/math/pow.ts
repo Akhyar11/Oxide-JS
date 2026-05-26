@@ -21,10 +21,12 @@ export default function pow(a: Matrix, n: number, out?: Matrix): Matrix {
   const res = out || Matrix.fromFlat(resultData, [...a._shape]);
 
   // RECORD FOR AUTO-DIFF
-  engine.record([a], [res], (grad: Matrix) => {
-    const gradABase = mj.map(a, (val) => n * Math.pow(val, n - 1));
-    return [mj.mul(grad, gradABase)];
-  }, { saveInput: true, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a], [res], (grad: Matrix) => {
+      const gradABase = mj.map(a, (val) => n * Math.pow(val, n - 1));
+      return [mj.mul(grad, gradABase)];
+    }, { saveInput: true, saveOutput: false });
+  }
 
   return res;
 }

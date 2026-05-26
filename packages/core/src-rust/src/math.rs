@@ -150,7 +150,10 @@ pub fn dot_product_into_impl(
 }
 
 #[inline(always)]
-fn elementwise_op_chunk(a: &[f32], b: &[f32], out: &mut [f32], op: fn(f32, f32) -> f32) {
+fn elementwise_op_chunk<F>(a: &[f32], b: &[f32], out: &mut [f32], op: F)
+where
+    F: Fn(f32, f32) -> f32,
+{
     debug_assert_eq!(a.len(), b.len());
     debug_assert_eq!(a.len(), out.len());
     for i in 0..a.len() {
@@ -158,12 +161,14 @@ fn elementwise_op_chunk(a: &[f32], b: &[f32], out: &mut [f32], op: fn(f32, f32) 
     }
 }
 
-fn elementwise_op_parallel(
+fn elementwise_op_parallel<F>(
     a_slice: &[f32],
     b_slice: &[f32],
     out_slice: &mut [f32],
-    op: fn(f32, f32) -> f32,
-) {
+    op: F,
+) where
+    F: Fn(f32, f32) -> f32 + Sync + Send + Copy,
+{
     const CHUNK: usize = 1024;
     if out_slice.len() < ELEMENTWISE_PARALLEL_THRESHOLD {
         elementwise_op_chunk(a_slice, b_slice, out_slice, op);
@@ -229,14 +234,20 @@ pub fn div_matrices_into(a: Float32Array, b: Float32Array, mut out: Float32Array
 }
 
 #[inline(always)]
-fn inplace_op_chunk(a: &mut [f32], b: &[f32], op: fn(f32, f32) -> f32) {
+fn inplace_op_chunk<F>(a: &mut [f32], b: &[f32], op: F)
+where
+    F: Fn(f32, f32) -> f32,
+{
     debug_assert_eq!(a.len(), b.len());
     for i in 0..a.len() {
         a[i] = op(a[i], b[i]);
     }
 }
 
-fn inplace_op_parallel(a_slice: &mut [f32], b_slice: &[f32], op: fn(f32, f32) -> f32) {
+fn inplace_op_parallel<F>(a_slice: &mut [f32], b_slice: &[f32], op: F)
+where
+    F: Fn(f32, f32) -> f32 + Sync + Send + Copy,
+{
     const CHUNK: usize = 1024;
     if a_slice.len() < ELEMENTWISE_PARALLEL_THRESHOLD {
         inplace_op_chunk(a_slice, b_slice, op);
@@ -329,6 +340,40 @@ pub fn add_bias_native(mut data: Float32Array, bias: Float32Array, rows: u32, co
                 let bias_value = bias_slice[i];
                 for value in row.iter_mut() {
                     *value += bias_value;
+                }
+            });
+    }
+}
+
+/// Menambahkan bias secara in-place per-kolom (broadcasting axis=1).
+/// data shape [rows x cols], bias shape [cols x 1]
+/// Operasi: data[r][c] += bias[c] untuk semua r
+#[napi]
+pub fn add_bias_row_native(mut data: Float32Array, bias: Float32Array, rows: u32, cols: u32) {
+    let r = rows as usize;
+    let c = cols as usize;
+    let bias_slice = &*bias;
+    let data_slice = &mut *data;
+    assert_eq!(
+        bias_slice.len(),
+        c,
+        "add_bias_row_native: expected bias length {} for shape [cols,1], got {}",
+        c,
+        bias_slice.len()
+    );
+    if data_slice.len() < ELEMENTWISE_PARALLEL_THRESHOLD {
+        for i in 0..r {
+            let row_start = i * c;
+            for j in 0..c {
+                data_slice[row_start + j] += bias_slice[j];
+            }
+        }
+    } else {
+        data_slice
+            .par_chunks_mut(c)
+            .for_each(|row| {
+                for (j, value) in row.iter_mut().enumerate() {
+                    *value += bias_slice[j];
                 }
             });
     }
@@ -499,4 +544,24 @@ pub fn dot_div_native(a: Float32Array) -> f64 {
         val /= v as f64;
     }
     val
+}
+
+#[napi]
+pub fn sum_squares_native(a: Float32Array) -> f64 {
+    let a_slice = &*a;
+    let mut sum = 0.0;
+    for &val in a_slice {
+        let v = val as f64;
+        sum += v * v;
+    }
+    sum
+}
+
+#[napi]
+pub fn scale_vector_native(mut a: Float32Array, scale: f64) {
+    let a_slice = &mut *a;
+    let s = scale as f32;
+    for val in a_slice.iter_mut() {
+        *val *= s;
+    }
 }

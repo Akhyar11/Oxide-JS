@@ -139,15 +139,17 @@ export default function dotProduct(
   }
 
   // RECORD FOR AUTO-DIFF
-  engine.record([a, b], [res], (grad: Matrix) => {
-    const gA = !transA
-      ? dotProduct(grad, b, undefined, false, !transB)
-      : dotProduct(b, grad, undefined, transB, true);
-    const gB = !transB
-      ? dotProduct(a, grad, undefined, !transA, false)
-      : dotProduct(grad, a, undefined, true, transA);
-    return [gA, gB];
-  }, { saveInput: true, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a, b], [res], (grad: Matrix) => {
+      const gA = !transA
+        ? dotProduct(grad, b, undefined, false, !transB)
+        : dotProduct(b, grad, undefined, transB, true);
+      const gB = !transB
+        ? dotProduct(a, grad, undefined, !transA, false)
+        : dotProduct(grad, a, undefined, true, transA);
+      return [gA, gB];
+    }, { saveInput: false, saveOutput: false, requireInputStability: true });
+  }
 
   return res;
 }

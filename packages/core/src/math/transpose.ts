@@ -35,7 +35,9 @@ export default function transpose(a: Matrix, out?: Matrix): Matrix {
   const res = out || Matrix.fromFlat(resultData, [cols, rows]);
 
   // RECORD FOR AUTO-DIFF
-  engine.record([a], [res], (grad: Matrix) => [mj.transpose(grad)], { saveInput: false, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a], [res], (grad: Matrix) => [mj.transpose(grad)], { saveInput: false, saveOutput: false });
+  }
 
   return res;
 }

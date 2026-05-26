@@ -70,13 +70,8 @@ export class Dense extends BaseLayer {
     // 1. dot = inputs * kernel
     let dot = mj.dotProduct(inputs, kernel);
 
-    // 2. Tambahkan bias jika digunakan
     if (this.useBias && this.bias) {
-      // dot shape: [batch, units], bias shape: [units, 1]
-      // Transpose dot ke [units, batch] agar in-place addBias bekerja
-      const dotT = mj.transpose(dot);
-      mj.addBias(dotT, this.bias);
-      dot = mj.transpose(dotT);
+      mj.addBiasRow(dot, this.bias);
     }
 
     // 3. Aplikasikan fungsi aktivasi

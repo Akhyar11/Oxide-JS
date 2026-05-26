@@ -41,30 +41,32 @@ export default function convolution(a: Matrix, kernel: Matrix): Matrix {
     }
   }
 
-  engine.record([a, kernel], [matrix], (grad: Matrix) => {
-    const dKernel = convolution(a, grad);
+  if (engine.tape) {
+    engine.record([a, kernel], [matrix], (grad: Matrix) => {
+      const dKernel = convolution(a, grad);
 
-    const flippedK = Matrix.fromFlat(new Float32Array(kRows * kCols), [kRows, kCols]);
-    for (let i = 0; i < kRows; i++) {
-      for (let j = 0; j < kCols; j++) {
-        flippedK._data[(kRows - 1 - i) * kCols + (kCols - 1 - j)] = kernel._data[i * kCols + j];
+      const flippedK = Matrix.fromFlat(new Float32Array(kRows * kCols), [kRows, kCols]);
+      for (let i = 0; i < kRows; i++) {
+        for (let j = 0; j < kCols; j++) {
+          flippedK._data[(kRows - 1 - i) * kCols + (kCols - 1 - j)] = kernel._data[i * kCols + j];
+        }
       }
-    }
 
-    const pGrad = mj.zeros([outRows + 2 * (kRows - 1), outCols + 2 * (kCols - 1)]);
-    const pgData = pGrad._data;
-    const pgCols = pGrad._shape[1];
-    const gData = grad._data;
-    const gCols = grad._shape[1];
-    for (let i = 0; i < outRows; i++) {
-      for (let j = 0; j < outCols; j++) {
-        pgData[(i + kRows - 1) * pgCols + (j + kCols - 1)] = gData[i * gCols + j];
+      const pGrad = mj.zeros([outRows + 2 * (kRows - 1), outCols + 2 * (kCols - 1)]);
+      const pgData = pGrad._data;
+      const pgCols = pGrad._shape[1];
+      const gData = grad._data;
+      const gCols = grad._shape[1];
+      for (let i = 0; i < outRows; i++) {
+        for (let j = 0; j < outCols; j++) {
+          pgData[(i + kRows - 1) * pgCols + (j + kCols - 1)] = gData[i * gCols + j];
+        }
       }
-    }
 
-    const gradA = convolution(pGrad, flippedK);
-    return [gradA, dKernel];
-  }, { saveInput: true, saveOutput: false });
+      const gradA = convolution(pGrad, flippedK);
+      return [gradA, dKernel];
+    }, { saveInput: true, saveOutput: false });
+  }
 
   return matrix;
 }

@@ -14,7 +14,9 @@ export {
   relu,
   lRelu,
   softmax,
+  threshold,
 } from "./activation/index.js";
+
 
 // === Cost Functions ===
 export {
