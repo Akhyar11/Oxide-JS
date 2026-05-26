@@ -431,3 +431,8 @@ export const scaleVectorNative = (a: Float32Array, scale: number): void => {
   if (!native) throw new Error("Native backend not available");
   native.scaleVectorNative(a, scale);
 };
+
+export const getNativeBpeTrainer = (): any => {
+  if (!native) return null;
+  return native.NativeBpeTrainer;
+};

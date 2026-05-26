@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { reluNativeInto, sigmoidNativeInto, tanhNativeInto, lReluNativeInto, seluNativeInto, softplusNativeInto, softsignNativeInto, swishNativeInto, geluNativeInto, mishNativeInto, hardSigmoidNativeInto, hardSwishNativeInto, eluNativeInto, thresholdNativeInto, convolutionNativeInto, softmaxNativeInto, softmaxBackwardNativeInto, mseNative, maeNativeInto, huberNativeInto, logcoshNativeInto, hingeNativeInto, squaredHingeNativeInto, kldivergenceNativeInto, poissonNativeInto, dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, addInPlace, subInPlace, mulInPlace, addBiasNative, addBiasRowNative, sumAxisNative, powNative, absmNative, expmNative, logmNative, transposeNative, dotSumNative, dotSubNative, dotMulNative, dotDivNative, sumSquaresNative, scaleVectorNative, adamUpdateNative, sgdUpdateNative, adagradUpdateNative, momentumUpdateNative, nagUpdateNative, clipGradientsNative } = nativeBinding
+const { reluNativeInto, sigmoidNativeInto, tanhNativeInto, lReluNativeInto, seluNativeInto, softplusNativeInto, softsignNativeInto, swishNativeInto, geluNativeInto, mishNativeInto, hardSigmoidNativeInto, hardSwishNativeInto, eluNativeInto, thresholdNativeInto, convolutionNativeInto, softmaxNativeInto, softmaxBackwardNativeInto, mseNative, maeNativeInto, huberNativeInto, logcoshNativeInto, hingeNativeInto, squaredHingeNativeInto, kldivergenceNativeInto, poissonNativeInto, dotProduct, dotProductInto, dotProductIntoDims, addMatricesInto, subMatricesInto, mulMatricesInto, divMatricesInto, addInPlace, subInPlace, mulInPlace, addBiasNative, addBiasRowNative, sumAxisNative, powNative, absmNative, expmNative, logmNative, transposeNative, dotSumNative, dotSubNative, dotMulNative, dotDivNative, sumSquaresNative, scaleVectorNative, adamUpdateNative, sgdUpdateNative, adagradUpdateNative, momentumUpdateNative, nagUpdateNative, NativeBpeTrainer, clipGradientsNative } = nativeBinding
 
 module.exports.reluNativeInto = reluNativeInto
 module.exports.sigmoidNativeInto = sigmoidNativeInto
@@ -366,4 +366,5 @@ module.exports.sgdUpdateNative = sgdUpdateNative
 module.exports.adagradUpdateNative = adagradUpdateNative
 module.exports.momentumUpdateNative = momentumUpdateNative
 module.exports.nagUpdateNative = nagUpdateNative
+module.exports.NativeBpeTrainer = NativeBpeTrainer
 module.exports.clipGradientsNative = clipGradientsNative

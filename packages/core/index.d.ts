@@ -62,4 +62,14 @@ export declare function sgdUpdateNative(grad: Float32Array, out: Float32Array, a
 export declare function adagradUpdateNative(grad: Float32Array, sum: Float32Array, out: Float32Array, alpha: number, epsilon: number): void
 export declare function momentumUpdateNative(grad: Float32Array, v: Float32Array, out: Float32Array, alpha: number, beta: number): void
 export declare function nagUpdateNative(grad: Float32Array, v: Float32Array, out: Float32Array, alpha: number, beta: number): void
+export interface NativeVocabResult {
+  vocab: Record<string, number>
+  merges: Array<Array<string>>
+}
 export declare function clipGradientsNative(data: Float32Array, limit: number): void
+export type NativeBPETrainer = NativeBpeTrainer
+export declare class NativeBpeTrainer {
+  constructor(vocabSize: number, specialTokens: Array<string>)
+  trainFromFile(filepath: string): NativeVocabResult
+  trainAndSave(filepath: string, savePath: string): boolean
+}
