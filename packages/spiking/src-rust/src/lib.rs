@@ -495,14 +495,19 @@ pub fn learn_hebbian_native(
                 updated_mask[token_id] = true;
                 let k_offset = token_id * dim;
 
-                for j in 0..dim {
-                    let mut pos_grad = 0.0;
-                    if n == 0 {
-                        pos_grad = pos_slice[j] - k_slice[k_offset + j];
+                if n == 0 {
+                    for j in 0..dim {
+                        let pos_grad = pos_slice[j] - k_slice[k_offset + j];
+                        let neg_grad = k_slice[k_offset + j] - neg_mean[j];
+                        let update = (pos_grad * mp) - (neg_grad * mn);
+                        k_slice[k_offset + j] += lr * update;
                     }
-                    let neg_grad = k_slice[k_offset + j] - neg_mean[j];
-                    let update = (pos_grad * mp) - (neg_grad * mn);
-                    k_slice[k_offset + j] += lr * update;
+                } else {
+                    for j in 0..dim {
+                        let neg_grad = k_slice[k_offset + j] - neg_mean[j];
+                        let update = -(neg_grad * mn);
+                        k_slice[k_offset + j] += lr * update;
+                    }
                 }
             }
         }
