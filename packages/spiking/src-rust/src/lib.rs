@@ -354,8 +354,6 @@ pub fn dot_product_add_only_native(
             }
         }
     });
-        }
-    });
 }
 
 #[napi]
@@ -459,4 +457,68 @@ pub fn apply_add_only_delta_native(
             *b_val += lr * b_update;
         });
     }
+}
+
+#[napi]
+pub fn learn_hebbian_native(
+    mut kernel: napi::bindgen_prelude::Float32Array,
+    tokens: napi::bindgen_prelude::Float32Array,
+    positive_context: napi::bindgen_prelude::Float32Array,
+    negative_contexts: napi::bindgen_prelude::Float32Array,
+    num_negatives: u32,
+    input_dim: u32,
+    output_dim: u32,
+    learning_rate: f64,
+    margin_positive: f64,
+    margin_negative: f64,
+) {
+    let k_slice = &mut *kernel;
+    let t_slice = &*tokens;
+    let pos_slice = &*positive_context;
+    let neg_slice = &*negative_contexts;
+    let lr = learning_rate as f32;
+    let mp = margin_positive as f32;
+    let mn = margin_negative as f32;
+    let dim = output_dim as usize;
+    let in_dim = input_dim as usize;
+    let num_neg = num_negatives as usize;
+
+    let mut updated_mask = vec![false; in_dim];
+
+    for n in 0..num_neg {
+        let neg_offset = n * dim;
+        let neg_mean = &neg_slice[neg_offset..neg_offset + dim];
+
+        for &t in t_slice {
+            let token_id = t.round() as usize;
+            if token_id < in_dim {
+                updated_mask[token_id] = true;
+                let k_offset = token_id * dim;
+
+                for j in 0..dim {
+                    let mut pos_grad = 0.0;
+                    if n == 0 {
+                        pos_grad = pos_slice[j] - k_slice[k_offset + j];
+                    }
+                    let neg_grad = k_slice[k_offset + j] - neg_mean[j];
+                    let update = (pos_grad * mp) - (neg_grad * mn);
+                    k_slice[k_offset + j] += lr * update;
+                }
+            }
+        }
+    }
+
+    // L2 Normalization in parallel
+    k_slice.par_chunks_mut(dim).enumerate().for_each(|(i, k_row)| {
+        if updated_mask[i] {
+            let mut norm = 0.0;
+            for j in 0..dim {
+                norm += k_row[j] * k_row[j];
+            }
+            norm = norm.sqrt() + 1e-8;
+            for j in 0..dim {
+                k_row[j] /= norm;
+            }
+        }
+    });
 }
