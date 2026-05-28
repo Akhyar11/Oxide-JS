@@ -116,7 +116,7 @@ export interface WeightData {
   shape: number[];
   physicalShape?: number[];
   dtype: "float32" | "float64";
-  data: Float32Array;
+  data: Float32Array | number[];
 }
 
 export interface ModelSummaryRow {

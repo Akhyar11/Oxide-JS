@@ -310,6 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { NativeSpikingNetwork } = nativeBinding
+const { NativeSpikingNetwork, dotProductAddOnlyNative } = nativeBinding
 
 module.exports.NativeSpikingNetwork = NativeSpikingNetwork
+module.exports.dotProductAddOnlyNative = dotProductAddOnlyNative

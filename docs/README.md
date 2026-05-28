@@ -39,6 +39,17 @@ Here is the central directory containing the complete, detailed API documentatio
 
 ---
 
+## 🧭 `@oxide-js/spiking` API Navigation Directory
+
+The **`@oxide-js/spiking`** module introduces Biomimetic Spiking Neural Networks (SNN) that use event-driven binary pulses instead of continuous float activations. These models are exceptionally power-efficient and capable of semantic representation without representation collapse.
+
+| Module / Topic | Documentation Link | Description |
+| :--- | :--- | :--- |
+| **🧠 Spiking Layers** | **[spiking.md](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/docs/api/spiking/layers.md)** | Core neural units like `SpikingDense` and `SpikingEmbedding` featuring Leaky Integrate-and-Fire (LIF) potentials and Add-Only native weight updates. |
+| **🗣️ Sentence Embedder** | **[embedder.md](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/docs/api/spiking/embedder.md)** | High-level `SpikingSentenceEmbedder` that computes topological document embeddings using CBOW Hebbian Contrastive Learning (`learnContrastive`). |
+
+---
+
 ## 🏗️ Monorepo Architecture Blueprint
 
 The following diagram illustrates how the monorepo layers interact, highlighting the zero-copy, highly optimized bridge connecting TypeScript to the raw Rust kernels:
@@ -65,6 +76,12 @@ graph TD
         CNNs["[Conv2D / MaxPooling2D](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/packages/layers/src/layers/Conv2D.ts)"]
     end
 
+    subgraph SpikingPkg ["@oxide-js/spiking"]
+        SpikingEmbedder["[SpikingSentenceEmbedder](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/packages/spiking/src/models/SpikingSentenceEmbedder.ts)"]
+        SpikingEmbedding["[SpikingEmbedding](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/packages/spiking/src/layers/SpikingEmbedding.ts)"]
+        SpikingDense["[SpikingDense](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/packages/spiking/src/layers/SpikingDense.ts)"]
+    end
+
     subgraph CorePkg ["@oxide-js/core"]
         Matrix["[Matrix](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/packages/core/src/matrix/index.ts) (Float32Array-backed)"]
         MJ["[mj](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/packages/core/src/math/index.ts) (Math Dispatcher)"]
@@ -85,6 +102,11 @@ graph TD
     Sequential --> BaseLayer
     BaseLayer --> Matrix
     BaseLayer --> MJ
+    App --> SpikingEmbedder
+    SpikingEmbedder --> SpikingEmbedding
+    SpikingEmbedder --> SpikingDense
+    SpikingEmbedding --> NativeBridge
+    SpikingDense --> NativeBridge
     MJ --> NapiBridge
     NapiBridge --> RayonKernel
     Tape --> Matrix
@@ -92,6 +114,7 @@ graph TD
     style Client fill:#1a1b26,stroke:#7aa2f7,stroke-width:2px,color:#c0caf5
     style ModelsPkg fill:#1f2335,stroke:#bb9af7,stroke-width:2px,color:#c0caf5
     style LayersPkg fill:#1f2335,stroke:#2ac3de,stroke-width:2px,color:#c0caf5
+    style SpikingPkg fill:#1f2335,stroke:#ff9e64,stroke-width:2px,color:#c0caf5
     style CorePkg fill:#1f2335,stroke:#9ece6a,stroke-width:2px,color:#c0caf5
     style NativeBridge fill:#2e3c43,stroke:#f7768e,stroke-width:2px,color:#c0caf5
 ```
@@ -140,6 +163,30 @@ Here is the central directory containing the complete, detailed API documentatio
 | **🥞 Sequential Stack** | **[sequential.md](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/docs/api/models/sequential.md)** | Stacked layers feed-forward container, dynamic building trigger, unique layer renaming, and E2E classifier setup. |
 | **🎛️ Callback Observers** | **[callbacks.md](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/docs/api/models/callbacks.md)** | Observers hooks (epoch, batch bounds), and detailed guidelines on ProgressLogger, EarlyStopping, and custom logger pipelines. |
 | **📊 Metrics & Data Helpers** | **[metrics.md](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/docs/api/models/metrics.md)** | Evaluation criteria math equations (accuracy, MAE, MSE), train-val slicing helpers, and mini-batch partition triggers. |
+
+---
+
+## ⚡ Workspace 4: `@oxide-js/spiking`
+
+The spiking module offers specialized biomimetic architectures. It runs without heavy float multipliers using local Leaky Integrate-and-Fire (LIF) neurons and enables completely new paradigms like contrastive self-supervised semantic modeling.
+
+> **Source Entrypoint**: [packages/spiking/src/index.ts](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/packages/spiking/src/index.ts)
+
+### 1. Spiking Sentence Embedder
+A full container model `SpikingSentenceEmbedder` creates semantic topologies. You can invoke its natively compiled contrastive learning loop:
+```ts
+const meanVec = model.learnContrastive(
+    tokens, 
+    negativeContexts, 
+    learningRate, 
+    0.1,  // marginPositive
+    0.05  // marginNegative
+);
+```
+
+### 2. Spiking Layers
+- **`SpikingEmbedding`**: Has native `learnHebbian()` update to implement CBOW-style learning.
+- **`SpikingDense`**: Computes using `dotProductAddOnly`, circumventing expensive mathematical operations by performing pure additions when an input spike is `1`.
 
 ---
 

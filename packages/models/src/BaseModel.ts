@@ -595,10 +595,17 @@ export abstract class BaseModel {
 
   /**
    * Set weights ke layer berdasarkan prefix nama layer.
+   * Akan otomatis mendekompresi number[] kembali menjadi Float32Array jika diperlukan.
    */
   public setWeights(weightsData: WeightData[]): void {
+    // Pastikan data berbentuk Float32Array saat diset
+    const normalizedWeights = weightsData.map(w => ({
+      ...w,
+      data: w.data instanceof Float32Array ? w.data : new Float32Array(w.data)
+    }));
+
     for (const layer of this.layers) {
-      const layerWeights = weightsData.filter(w => {
+      const layerWeights = normalizedWeights.filter(w => {
         return w.name.startsWith(`${layer.name}/`);
       });
 
@@ -631,15 +638,21 @@ export abstract class BaseModel {
 
   /**
    * Serialize model.
+   * Otomatis mengompres Float32Array ke Array agar ukuran file JSON tidak membengkak.
    */
   public serialize(): SerializedModel {
+    const compressedWeights = this.getWeights().map(w => ({
+      ...w,
+      data: Array.isArray(w.data) ? w.data : Array.from(w.data)
+    }));
+
     return {
       class_name: this.constructor.name,
       name: this.name,
       trainable: this.trainable,
       config: this.getConfig(),
       layers: this.layers.map(layer => layer.getKerasConfig()),
-      weights: this.getWeights()
+      weights: compressedWeights
     };
   }
 

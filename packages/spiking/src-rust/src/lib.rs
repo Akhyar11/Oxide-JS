@@ -74,6 +74,20 @@ impl NativeSpikingNetwork {
   }
 
   #[napi]
+  pub fn inhibit_range(&mut self, start_idx: u32, end_idx: u32, except_idx: u32, current: f64) {
+    let start = start_idx as usize;
+    let end = end_idx as usize;
+    let ex = except_idx as usize;
+    let c = current as f32;
+
+    for i in start..end {
+      if i != ex && i < self.potentials.len() {
+        self.potentials[i] += c;
+      }
+    }
+  }
+
+  #[napi]
   pub fn step(&mut self) {
     // 1. Accumulate pre-synaptic spikes (Sequential for now to avoid data races)
     // We only process neurons that spiked in the previous step
@@ -99,6 +113,7 @@ impl NativeSpikingNetwork {
       .zip(self.spikes.par_iter_mut())
       .for_each(|((pot, &thresh), spike)| {
         *pot *= beta; // Leaky integration
+        if *pot < 1e-5 { *pot = 0.0; } // Prevent denormals
         if *pot >= thresh {
           *spike = 1;
           *pot -= thresh; // Soft reset
@@ -150,6 +165,10 @@ impl NativeSpikingNetwork {
       .for_each(|((pre, post), &spike)| {
         *pre *= t_plus;
         *post *= t_minus;
+        
+        if *pre < 1e-5 { *pre = 0.0; }
+        if *post < 1e-5 { *post = 0.0; }
+
         if spike == 1 {
           *pre = 1.0;
           *post = 1.0;
@@ -171,9 +190,14 @@ impl NativeSpikingNetwork {
       .par_iter_mut()
       .enumerate()
       .for_each(|(i, w_list)| {
-        let targets = &post_synaptic_indices[i];
         let pre_spiked = spikes[i] == 1;
         let pre_trace = pre_traces[i];
+
+        if pre_trace == 0.0 && !pre_spiked {
+          return;
+        }
+
+        let targets = &post_synaptic_indices[i];
 
         for k in 0..targets.len() {
           let j = targets[k] as usize;
@@ -241,4 +265,198 @@ impl NativeSpikingNetwork {
       self.pre_traces.fill(0.0);
       self.post_traces.fill(0.0);
   }
+}
+
+#[napi]
+pub fn dot_product_add_only_native(
+    a_data: napi::bindgen_prelude::Float32Array,
+    a_rows_orig: u32,
+    a_cols_orig: u32,
+    b_data: napi::bindgen_prelude::Float32Array,
+    b_rows_orig: u32,
+    b_cols_orig: u32,
+    trans_a: bool,
+    trans_b: bool,
+    mut out_data: napi::bindgen_prelude::Float32Array,
+) {
+    let a_rows = if trans_a { a_cols_orig } else { a_rows_orig } as usize;
+    let a_cols = if trans_a { a_rows_orig } else { a_cols_orig } as usize;
+    let b_rows = if trans_b { b_cols_orig } else { b_rows_orig } as usize;
+    let b_cols = if trans_b { b_rows_orig } else { b_cols_orig } as usize;
+
+    let a_slice = &*a_data;
+    let b_slice = &*b_data;
+    let out_slice = &mut *out_data;
+
+    let mut a_is_binary = true;
+    for &val in a_slice {
+        if val != 0.0 && val != 1.0 {
+            a_is_binary = false;
+            break;
+        }
+    }
+    
+    let mut b_is_binary = true;
+    if !a_is_binary {
+        for &val in b_slice {
+            if val != 0.0 && val != 1.0 {
+                b_is_binary = false;
+                break;
+            }
+        }
+    }
+
+    if !a_is_binary && !b_is_binary {
+        panic!("SNN Error: Kedua matriks adalah floating-point. Setidaknya salah satu matriks harus hanya berisi 0 dan 1.");
+    }
+
+    out_slice.par_iter_mut().for_each(|x| *x = 0.0);
+    
+    let a_rows_orig = a_rows_orig as usize;
+    let a_cols_orig = a_cols_orig as usize;
+    let b_cols_orig = b_cols_orig as usize;
+
+    out_slice.par_chunks_mut(b_cols).enumerate().for_each(|(i, out_row)| {
+        if !trans_b {
+            for k in 0..a_cols {
+                let aik = if trans_a { a_slice[k * a_rows_orig + i] } else { a_slice[i * a_cols_orig + k] };
+                if aik == 0.0 { continue; }
+                let k_offset = k * b_cols;
+                
+                if a_is_binary {
+                    // aik must be 1.0
+                    for j in 0..b_cols {
+                        out_row[j] += b_slice[k_offset + j];
+                    }
+                } else {
+                    // b_is_binary
+                    for j in 0..b_cols {
+                        if b_slice[k_offset + j] == 1.0 {
+                            out_row[j] += aik;
+                        }
+                    }
+                }
+            }
+        } else {
+            // trans_b == true
+            for j in 0..b_cols {
+                let mut sum = 0.0;
+                for k in 0..a_cols {
+                    let aik = if trans_a { a_slice[k * a_rows_orig + i] } else { a_slice[i * a_cols_orig + k] };
+                    let bjk = b_slice[j * b_cols_orig + k];
+                    if a_is_binary {
+                        if aik == 1.0 { sum += bjk; }
+                    } else {
+                        if bjk == 1.0 { sum += aik; }
+                    }
+                }
+                out_row[j] = sum;
+            }
+        }
+    });
+        }
+    });
+}
+
+#[napi]
+pub fn lif_step_native(
+    mut potentials: napi::bindgen_prelude::Float32Array,
+    dot: napi::bindgen_prelude::Float32Array,
+    mut spikes: napi::bindgen_prelude::Float32Array,
+    mut last_potentials: napi::bindgen_prelude::Float32Array,
+    beta: f64,
+    threshold: f64,
+) {
+    let pot_slice = &mut *potentials;
+    let dot_slice = &*dot;
+    let spike_slice = &mut *spikes;
+    let lp_slice = &mut *last_potentials;
+    let b = beta as f32;
+    let th = threshold as f32;
+    
+    pot_slice.par_iter_mut()
+        .zip(dot_slice.par_iter())
+        .zip(spike_slice.par_iter_mut())
+        .zip(lp_slice.par_iter_mut())
+        .for_each(|(((p, d), s), lp)| {
+            *p = (*p * b) + d;
+            *lp = *p;
+            if *p >= th {
+                *s = 1.0;
+                *p -= th;
+            } else {
+                *s = 0.0;
+            }
+        });
+}
+
+#[napi]
+pub fn mask_surrogate_native(
+    mut error_signal: napi::bindgen_prelude::Float32Array,
+    potentials: napi::bindgen_prelude::Float32Array,
+    threshold: f64,
+    window_size: f64,
+) {
+    let err_slice = &mut *error_signal;
+    let pot_slice = &*potentials;
+    let th = threshold as f32;
+    let win = window_size as f32;
+    
+    err_slice.par_iter_mut()
+        .zip(pot_slice.par_iter())
+        .for_each(|(e, p)| {
+            if (*p - th).abs() > win {
+                *e = 0.0;
+            }
+        });
+}
+
+#[napi]
+pub fn apply_add_only_delta_native(
+    mut kernel: napi::bindgen_prelude::Float32Array,
+    mut bias: napi::bindgen_prelude::Float32Array,
+    inputs: napi::bindgen_prelude::Float32Array,
+    error_signal: napi::bindgen_prelude::Float32Array,
+    learning_rate: f64,
+    batch: u32,
+    in_features: u32,
+    units: u32,
+    use_bias: bool,
+) {
+    let k_slice = &mut *kernel;
+    let b_slice = &mut *bias;
+    let in_slice = &*inputs;
+    let err_slice = &*error_signal;
+    let lr = learning_rate as f32;
+    
+    let batch = batch as usize;
+    let in_f = in_features as usize;
+    let u = units as usize;
+
+    k_slice.par_chunks_mut(u).enumerate().for_each(|(k, k_row)| {
+        let mut row_update = vec![0.0; u];
+        for b in 0..batch {
+            let in_offset = b * in_f;
+            if in_slice[in_offset + k] == 1.0 {
+                let err_offset = b * u;
+                for j in 0..u {
+                    row_update[j] += err_slice[err_offset + j];
+                }
+            }
+        }
+        for j in 0..u {
+            k_row[j] += lr * row_update[j];
+        }
+    });
+
+    if use_bias && b_slice.len() >= u {
+        b_slice.par_iter_mut().enumerate().for_each(|(j, b_val)| {
+            let mut b_update = 0.0;
+            for b in 0..batch {
+                let err_offset = b * u;
+                b_update += err_slice[err_offset + j];
+            }
+            *b_val += lr * b_update;
+        });
+    }
 }
