@@ -115,16 +115,29 @@ impl NativeBPETrainer {
 
         // 4. Proses iterasi BPE Merging (Super cepat karena menggunakan integer/u32)
         while next_id < self.vocab_size {
-            // Hitung frekuensi pasangan adjacent (kiri, kanan)
-            let mut pair_freqs: HashMap<(u32, u32), u32> = HashMap::new();
-            
-            for (ids, freq) in &corpus {
-                if ids.len() < 2 { continue; }
-                for i in 0..ids.len() - 1 {
-                    let pair = (ids[i], ids[i+1]);
-                    *pair_freqs.entry(pair).or_insert(0) += freq;
-                }
-            }
+            // Hitung frekuensi pasangan adjacent (kiri, kanan) menggunakan Rayon (Map-Reduce)
+            let pair_freqs: HashMap<(u32, u32), u32> = corpus.par_iter()
+                .fold(
+                    || HashMap::new(),
+                    |mut local_map, (ids, freq)| {
+                        if ids.len() >= 2 {
+                            for i in 0..ids.len() - 1 {
+                                let pair = (ids[i], ids[i+1]);
+                                *local_map.entry(pair).or_insert(0) += freq;
+                            }
+                        }
+                        local_map
+                    }
+                )
+                .reduce(
+                    || HashMap::new(),
+                    |mut map1, map2| {
+                        for (k, v) in map2 {
+                            *map1.entry(k).or_insert(0) += v;
+                        }
+                        map1
+                    }
+                );
 
             // Cari pasangan dengan frekuensi tertinggi
             let best_pair = pair_freqs.into_iter().max_by_key(|&(_, count)| count);
@@ -152,8 +165,8 @@ impl NativeBPETrainer {
                     println!("[Rust BPE] Progress Merges: {}/{} (Vocab Size: {})", merges_history.len(), self.vocab_size, next_id);
                 }
 
-                // Terapkan merge ke seluruh corpus (in-place modification untuk performa ekstrim)
-                for (ids, _) in corpus.iter_mut() {
+                // Terapkan merge ke seluruh corpus (Parallel in-place modification)
+                corpus.par_iter_mut().for_each(|(ids, _)| {
                     let mut i = 0;
                     let mut new_ids = Vec::with_capacity(ids.len());
                     while i < ids.len() {
@@ -166,7 +179,7 @@ impl NativeBPETrainer {
                         }
                     }
                     *ids = new_ids; // Update array dengan yang sudah dipadatkan
-                }
+                });
             } else {
                 break; // Tidak ada pasangan lagi
             }
