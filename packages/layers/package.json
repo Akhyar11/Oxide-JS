@@ -1,6 +1,6 @@
 {
   "name": "@oxide-js/layers",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Oxide-JS Layers: Neural network layer abstractions.",
   "repository": {

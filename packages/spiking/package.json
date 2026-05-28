@@ -1,6 +1,6 @@
 {
   "name": "@oxide-js/spiking",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Oxide-JS Spiking: Add-Only Event-Driven Spiking Neural Network implementation.",
   "repository": {

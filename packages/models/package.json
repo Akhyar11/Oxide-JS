@@ -1,6 +1,6 @@
 {
   "name": "@oxide-js/models",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Oxide-JS Models: Neural network model abstractions and sequentially integrated graphs.",
   "repository": {
