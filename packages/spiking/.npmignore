@@ -1,0 +1,14 @@
+# Ignore Rust build target directory (large build cache)
+target/
+src-rust/target/
+
+# Keep only what's needed
+!dist/
+!index.js
+!*.node
+!package.json
+!README.md
+!LICENSE
+!src-rust/
+!Cargo.toml
+!Cargo.lock
