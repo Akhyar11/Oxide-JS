@@ -150,7 +150,7 @@ Supported string tags identifying layer activation routines.
   type ActivationType = 
     | "sigmoid" | "tanh" | "relu" | "lRelu" | "linear" | "softmax"
     | "elu" | "gelu" | "hardsigmoid" | "hardswish" | "mish" | "selu"
-    | "softplus" | "softsign" | "swish";
+    | "softplus" | "softsign" | "swish" | "threshold";
   ```
 - **Example**:
   ```ts

@@ -1,6 +1,7 @@
 import absm from "./absm.js";
 import Matrix from "../matrix/index.js";
 import add, { addInto } from "./add.js";
+import argmax from "./argmax.js";
 import concat from "./concat.js";
 import div from "./div.js";
 import dotDiv, { dotDivScalar } from "./dotDiv.js";
@@ -26,6 +27,7 @@ import norm, { normScalar } from "./norm.js";
 import xavier from "./xavier.js";
 import he from "./he.js";
 import addBias from "./addBias.js";
+import addBiasRow from "./addBiasRow.js";
 import sumAxis from "./sumAxis.js";
 import clipGradients from "./clipGradients.js";
 import pow from "./pow.js";
@@ -46,6 +48,7 @@ import linear, {
   mish,
   hardSigmoid,
   hardSwish,
+  threshold,
 } from "../activation/index.js";
 
 // === Cost / Loss Functions ===
@@ -65,6 +68,7 @@ const mj = {
   absm,
   add,
   addInto,
+  argmax,
   concat,
   div,
   dotDiv,
@@ -97,6 +101,7 @@ const mj = {
   xavier,
   he,
   addBias,
+  addBiasRow,
   sumAxis,
   clipGradients,
 
@@ -116,6 +121,7 @@ const mj = {
   mish,
   hardSigmoid,
   hardSwish,
+  threshold,
 
   // --- Cost / Loss (Functional API) ---
   mse: (pred: Matrix, target: Matrix) => MeanSquaredError(target, pred)[0],

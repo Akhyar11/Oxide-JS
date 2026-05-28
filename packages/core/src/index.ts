@@ -14,7 +14,9 @@ export {
   relu,
   lRelu,
   softmax,
+  threshold,
 } from "./activation/index.js";
+
 
 // === Cost Functions ===
 export {
@@ -63,6 +65,9 @@ export { engine } from "./autodiff/engine.js";
 
 // === Native Backend ===
 export * from "./math/rust_backend.js";
+
+import { getNativeBpeTrainer } from "./math/rust_backend.js";
+export const NativeBpeTrainer = getNativeBpeTrainer();
 
 // === Types ===
 export type {

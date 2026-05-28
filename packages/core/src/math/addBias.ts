@@ -28,10 +28,12 @@ export default function addBias(a: Matrix, bias: Matrix): void {
     }
   }
 
-  engine.record([a, bias], [a], (grad: Matrix) => {
-    const gradBias = mj.sumAxis(grad, 1);
-    // `a` adalah input sekaligus output (in-place), grad untuk `a`
-    // sudah tersimpan sebagai output grad di tensor yang sama.
-    return [null, gradBias];
-  }, { saveInput: false, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a, bias], [a], (grad: Matrix) => {
+      const gradBias = mj.sumAxis(grad, 1);
+      // `a` adalah input sekaligus output (in-place), grad untuk `a`
+      // sudah tersimpan sebagai output grad di tensor yang sama.
+      return [null, gradBias];
+    }, { saveInput: false, saveOutput: false });
+  }
 }

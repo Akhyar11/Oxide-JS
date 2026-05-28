@@ -13,3 +13,5 @@ export { default as gelu } from "./gelu.js";
 export { default as mish } from "./mish.js";
 export { default as hardSigmoid } from "./hardSigmoid.js";
 export { default as hardSwish } from "./hardSwish.js";
+export { default as threshold } from "./threshold.js";
+

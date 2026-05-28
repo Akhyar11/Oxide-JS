@@ -20,12 +20,14 @@ export default function relu(a: Matrix): Matrix {
     dResult = mj.map(a, (val) => (val < 0 ? 0 : 1));
   }
 
-  engine.record(
-    [a],
-    [result],
-    (grad: Matrix) => [mj.mul(grad, dResult)],
-    { saveInput: false, saveOutput: false }
-  );
+  if (engine.tape) {
+    engine.record(
+      [a],
+      [result],
+      (grad: Matrix) => [mj.mul(grad, dResult)],
+      { saveInput: false, saveOutput: false }
+    );
+  }
 
   return result;
 }

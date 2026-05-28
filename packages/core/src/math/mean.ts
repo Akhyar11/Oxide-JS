@@ -20,14 +20,16 @@ export default function mean(a: Matrix): Matrix {
   const res = mj.matrix([[value / n]]);
 
   // RECORD FOR AUTO-DIFF
-  engine.record([a], [res], (grad: Matrix) => {
-    const gradVal = grad._data[0] / n;
-    const gradA = mj.ones(aShape);
-    for (let i = 0; i < gradA._data.length; i++) {
-      gradA._data[i] *= gradVal;
-    }
-    return [gradA];
-  }, { saveInput: false, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a], [res], (grad: Matrix) => {
+      const gradVal = grad._data[0] / n;
+      const gradA = mj.ones(aShape);
+      for (let i = 0; i < gradA._data.length; i++) {
+        gradA._data[i] *= gradVal;
+      }
+      return [gradA];
+    }, { saveInput: false, saveOutput: false });
+  }
 
   return res;
 }

@@ -13,7 +13,7 @@ export type MatrixCollection = Matrix | number;
 export type MatrixShape = [number, number];
 export type MatrixFlatData = Float32Array | Float64Array;
 export { Matrix };
-export type ActivationType = "sigmoid" | "tanh" | "relu" | "lRelu" | "linear" | "softmax" | "elu" | "gelu" | "hardsigmoid" | "hardswish" | "mish" | "selu" | "softplus" | "softsign" | "swish";
+export type ActivationType = "sigmoid" | "tanh" | "relu" | "lRelu" | "linear" | "softmax" | "elu" | "gelu" | "hardsigmoid" | "hardswish" | "mish" | "selu" | "softplus" | "softsign" | "swish" | "threshold";
 export type StatusLayer =
   | "input"
   | "output"

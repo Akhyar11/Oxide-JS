@@ -229,7 +229,9 @@ export default class Matrix {
   }
 
   clearGrad(): void {
-    this.grad = null;
+    if (this.grad) {
+      this.grad._data.fill(0);
+    }
   }
 
   detach(): Matrix {

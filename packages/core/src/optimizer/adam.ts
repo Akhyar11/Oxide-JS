@@ -117,7 +117,7 @@ export default class Adam {
     if (!target.grad) return;
     const update = this.calculate(target.grad, alpha);
     target.subInPlace(update);
-    // Reset gradien setelah update
-    target.grad = null;
+    // Reset gradien setelah update: zero-fill instead of nulling
+    target.grad._data.fill(0);
   }
 }

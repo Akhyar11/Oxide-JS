@@ -14,7 +14,9 @@ export default function flatten(a: Matrix): Matrix {
   const res = Matrix.fromFlat(resultData, [n, 1]);
 
   // RECORD FOR AUTO-DIFF
-  engine.record([a], [res], (grad: Matrix) => [mj.reshape(grad, originalShape)], { saveInput: false, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a], [res], (grad: Matrix) => [mj.reshape(grad, originalShape)], { saveInput: false, saveOutput: false });
+  }
 
   return res;
 }

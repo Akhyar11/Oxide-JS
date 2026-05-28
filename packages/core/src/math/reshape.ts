@@ -19,7 +19,9 @@ export default function reshape(a: Matrix, shape: MatrixShape): Matrix {
   const res = Matrix.fromFlat(resultData, shape);
 
   // RECORD FOR AUTO-DIFF
-  engine.record([a], [res], (grad: Matrix) => [mj.reshape(grad, originalShape)], { saveInput: false, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a], [res], (grad: Matrix) => [mj.reshape(grad, originalShape)], { saveInput: false, saveOutput: false });
+  }
 
   return res;
 }

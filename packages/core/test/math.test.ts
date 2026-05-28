@@ -201,6 +201,22 @@ describe("math primitives", () => {
     expectMatrixValue(pow(a, 2), [[1, 4], [9, 16]]);
   });
 
+  it("computes argmax along axes or globally", () => {
+    const a = matrix([[1, 5, 2], [4, 3, 6]]);
+    
+    // global argmax
+    expect(mj.argmax(a)).toBe(5); // index of value 6 in flattened array
+    
+    // argmax along rows (axis 1)
+    const rowArgmax = mj.argmax(a, 1) as Matrix;
+    expectMatrixValue(rowArgmax, [[1], [2]]);
+    
+    // argmax along columns (axis 0)
+    const colArgmax = mj.argmax(a, 0) as Matrix;
+    expectMatrixValue(colArgmax, [[1, 0, 1]]);
+  });
+
+
   it("creates ones and zeros", () => {
     expectMatrixValue(ones([2, 3]), [[1, 1, 1], [1, 1, 1]]);
     expectMatrixValue(zeros([2, 2]), [[0, 0], [0, 0]]);

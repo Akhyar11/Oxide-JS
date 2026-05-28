@@ -23,7 +23,9 @@ export default function expm(a: Matrix): Matrix {
   const res = Matrix.fromFlat(resultData, [a._shape[0], a._shape[1]]);
 
   // RECORD FOR AUTO-DIFF
-  engine.record([a], [res], (grad: Matrix) => [mj.mul(grad, res)], { saveInput: false, saveOutput: true });
+  if (engine.tape) {
+    engine.record([a], [res], (grad: Matrix) => [mj.mul(grad, res)], { saveInput: false, saveOutput: true });
+  }
 
   return res;
 }

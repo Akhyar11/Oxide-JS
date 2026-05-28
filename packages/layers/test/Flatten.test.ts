@@ -15,8 +15,8 @@ describe("Flatten Layer Tests", () => {
 
   it("should compute output shape", () => {
     const layer = new Flatten();
-    expect(layer.computeOutputShape([2, 3, 4])).toEqual([2, 12]);
-    expect(layer.computeOutputShape([5, 2, 2, 3])).toEqual([5, 12]);
+    expect(layer.computeOutputShape([2, 3, 4])).toEqual([1, 24]);
+    expect(layer.computeOutputShape([5, 2, 2, 3])).toEqual([1, 60]);
   });
 
   it("should build correctly", () => {
@@ -24,7 +24,7 @@ describe("Flatten Layer Tests", () => {
     layer.build([2, 3, 4]);
     expect(layer.isBuilt).toBe(true);
     expect(layer.inputShape).toEqual([2, 3, 4]);
-    expect(layer.outputShape).toEqual([2, 12]);
+    expect(layer.outputShape).toEqual([1, 24]);
   });
 
   it("should perform forward pass reshaping to 2D but keeping identical data values", () => {
@@ -32,7 +32,7 @@ describe("Flatten Layer Tests", () => {
     const x = mat([1, 2, 3, 4, 5, 6], [2, 3]); // logically 2D
     const y = layer.forward(x);
 
-    expectMatrixShape(y, [2, 3]);
+    expectMatrixShape(y, [1, 6]);
     expectMatrixCloseTo(y, [1, 2, 3, 4, 5, 6]);
   });
 
@@ -48,7 +48,7 @@ describe("Flatten Layer Tests", () => {
     });
 
     x.clearGrad();
-    const gradOutput = mat([10, 10, 10, 10, 10, 10], [2, 3]);
+    const gradOutput = mat([10, 10, 10, 10, 10, 10], [1, 6]);
     tape.backward(tape.result, gradOutput);
 
     expect(x.grad).toBeDefined();

@@ -31,14 +31,16 @@ export function dotDivScalar(a: Matrix): Matrix {
   const out = Matrix.fromFlat(new Float32Array([value]), [1, 1]);
   const aShape: [number, number] = [a._shape[0], a._shape[1]];
 
-  engine.record([a], [out], (grad: Matrix) => {
-    const upstream = grad._data[0];
-    const gradA = Matrix.fromFlat(new Float32Array(n), aShape);
-    for (let i = 0; i < n; i++) {
-      gradA._data[i] = upstream * (-value / data[i]);
-    }
-    return [gradA];
-  }, { saveInput: true, saveOutput: false });
+  if (engine.tape) {
+    engine.record([a], [out], (grad: Matrix) => {
+      const upstream = grad._data[0];
+      const gradA = Matrix.fromFlat(new Float32Array(n), aShape);
+      for (let i = 0; i < n; i++) {
+        gradA._data[i] = upstream * (-value / data[i]);
+      }
+      return [gradA];
+    }, { saveInput: true, saveOutput: false });
+  }
 
   return out;
 }

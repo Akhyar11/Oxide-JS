@@ -147,6 +147,18 @@ Concatenates an array of matrices along the specified axis (0 for vertical stack
   mj.concat([a, b], 1).print(); // Horizontal stack: [[1, 2, 3, 4]]
   ```
 
+### 4. `argmax(matrix: Matrix, axis?: 0 | 1): number | Matrix`
+Finds the index of the maximum value.
+- **`axis = undefined`**: Returns the global flat index of the maximum element.
+- **`axis = 0`**: Returns the row index of the max value for each column (shape `[1, C]`).
+- **`axis = 1`**: Returns the column index of the max value for each row (shape `[R, 1]`).
+- **Example**:
+  ```ts
+  const a = mj.matrix([[1, 5, 2], [4, 3, 6]]);
+  console.log(mj.argmax(a)); // 5 (flattened index of 6)
+  mj.argmax(a, 1).print(); // [[1], [2]] (max indices per row)
+  ```
+
 ---
 
 ## 🎨 Initialization Methods
@@ -228,10 +240,18 @@ Calculates L2 Euclidean normalization.
   mj.norm(a).print();            // Normalize: [[0.6, 0.8]]
   ```
 
+### 5. `threshold(matrix: Matrix, threshold: number, leak: number): Matrix`
+Applies a thresholding function to a matrix, often used in Spiking Neural Networks (SNNs) as a Leaky Integrate-and-Fire output function. Emits `1.0` if $x \ge threshold$, otherwise emits $leak$ (usually 0.0).
+- **Example**:
+  ```ts
+  const a = mj.matrix([[0.5, 1.2]]);
+  mj.threshold(a, 1.0, 0.0).print(); // [[0.0, 1.0]]
+  ```
+
 ---
 
 ## 🔗 Integrated Namespaces
 For convenience, `mj` also exposes aliases to other core utilities:
-- **Activations**: `mj.sigmoid`, `mj.tanh`, `mj.relu`, `mj.lRelu`, `mj.softmax`, etc. (See [Activation Docs](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/docs/api/core/activation.md)).
+- **Activations**: `mj.sigmoid`, `mj.tanh`, `mj.relu`, `mj.lRelu`, `mj.softmax`, `mj.threshold`, etc. (See [Activation Docs](file:///home/akhyar/Dokumen/Code/NODE_JS/Oxide-JS/docs/api/core/activation.md)).
 - **Cost Loss Wrappers**: `mj.mse`, `mj.crossEntropy`, `mj.binaryCrossEntropy`, `mj.softmaxCrossEntropy` (Returns scalar values).
 - **Optimizers**: `mj.SGD`, `mj.Adam`, `mj.NAG`, `mj.AdaGrad`, `mj.Momentum`.

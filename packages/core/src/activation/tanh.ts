@@ -16,7 +16,9 @@ export default function tanh(a: Matrix): Matrix {
   }
   const dResult = mj.sub(1, mj.mul(result, result));
 
-  engine.record([a], [result], (grad: Matrix) => [mj.mul(grad, dResult)], { saveInput: false, saveOutput: true });
+  if (engine.tape) {
+    engine.record([a], [result], (grad: Matrix) => [mj.mul(grad, dResult)], { saveInput: false, saveOutput: true });
+  }
 
   return result;
 }

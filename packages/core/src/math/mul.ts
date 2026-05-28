@@ -13,7 +13,9 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
     const resultData = out ? out._data : new Float32Array(bm._data.length);
     for (let i = 0; i < bm._data.length; i++) resultData[i] = a === 0 || bm._data[i] === 0 ? 0 : a * bm._data[i];
     const res = out || Matrix.fromFlat(resultData, [bm._shape[0], bm._shape[1]]);
-    engine.record([bm], [res], (grad: Matrix) => [mj.mul(grad, a)]);
+    if (engine.tape) {
+      engine.record([bm], [res], (grad: Matrix) => [mj.mul(grad, a)]);
+    }
     return res;
   }
   if (typeof b === "number") {
@@ -21,7 +23,9 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
     const resultData = out ? out._data : new Float32Array(am._data.length);
     for (let i = 0; i < am._data.length; i++) resultData[i] = am._data[i] === 0 || b === 0 ? 0 : am._data[i] * b;
     const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
-    engine.record([am], [res], (grad: Matrix) => [mj.mul(grad, b)]);
+    if (engine.tape) {
+      engine.record([am], [res], (grad: Matrix) => [mj.mul(grad, b)]);
+    }
     return res;
   }
   const am = a as Matrix;
@@ -49,12 +53,14 @@ export default function mul(a: MatrixCollection, b: MatrixCollection, out?: Matr
   const res = out || Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
 
   // RECORD FOR AUTO-DIFF
-  engine.record(
-    [am, bm],
-    [res],
-    (grad: Matrix) => [mj.mul(grad, bm), mj.mul(grad, am)],
-    { saveInput: true, saveOutput: false }
-  );
+  if (engine.tape) {
+    engine.record(
+      [am, bm],
+      [res],
+      (grad: Matrix) => [mj.mul(grad, bm), mj.mul(grad, am)],
+      { saveInput: true, saveOutput: false }
+    );
+  }
 
   return res;
 }

@@ -22,12 +22,14 @@ export default function lRelu(a: Matrix): Matrix {
     }
   }
 
-  engine.record(
-    [a],
-    [result],
-    (grad: Matrix) => [mj.mul(grad, dResult)],
-    { saveInput: false, saveOutput: false }
-  );
+  if (engine.tape) {
+    engine.record(
+      [a],
+      [result],
+      (grad: Matrix) => [mj.mul(grad, dResult)],
+      { saveInput: false, saveOutput: false }
+    );
+  }
 
   return result;
 }

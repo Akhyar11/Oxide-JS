@@ -1,13 +1,15 @@
-import linear, { lRelu, relu, sigmoid, softmax, tanh, elu, gelu, hardSigmoid, hardSwish, mish, selu, softplus, softsign, swish } from "../activation/index.js";
+import linear, { lRelu, relu, sigmoid, softmax, tanh, elu, gelu, hardSigmoid, hardSwish, mish, selu, softplus, softsign, swish, threshold } from "../activation/index.js";
 import { ActivationType } from "../@types/type.js";
 
 interface Activation {
   activation: ActivationType
   row?: boolean
   alpha?: number
+  threshold?: number
+  leak?: number
 }
 
-export default function setActivation({ activation, alpha = 0.001, row = false }: Activation) {
+export default function setActivation({ activation, alpha = 0.001, row = false, threshold: thresholdVal = 0.0, leak = 0.0 }: Activation) {
   switch (activation) {
     case "sigmoid":
       return sigmoid;
@@ -39,7 +41,9 @@ export default function setActivation({ activation, alpha = 0.001, row = false }
       return softsign;
     case "swish":
       return swish;
+    case "threshold":
+      return (a: any) => threshold(a, thresholdVal, leak);
     default:
-      throw new Error(`Activation '${activation}' tidak dikenal. Pilih: sigmoid, tanh, relu, lRelu, linear, softmax, elu, gelu, hardsigmoid, hardswish, mish, selu, softplus, softsign, swish`);
+      throw new Error(`Activation '${activation}' tidak dikenal. Pilih: sigmoid, tanh, relu, lRelu, linear, softmax, elu, gelu, hardsigmoid, hardswish, mish, selu, softplus, softsign, swish, threshold`);
   }
 }

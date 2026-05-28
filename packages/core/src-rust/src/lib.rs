@@ -6,6 +6,7 @@ pub mod layers;
 pub mod loss;
 pub mod math;
 pub mod optimizer;
+pub mod bpe;
 
 const CLIP_PARALLEL_THRESHOLD: usize = 16 * 1024;
 

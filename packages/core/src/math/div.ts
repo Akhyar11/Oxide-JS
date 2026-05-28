@@ -16,11 +16,13 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
         result[i] = a / bm._data[i];
     }
     const res = Matrix.fromFlat(result, [bm._shape[0], bm._shape[1]]);
-    engine.record([bm], [res], (grad: Matrix) => {
-      const denomSquared = mj.mul(bm, bm);
-      const scale = mj.div(a * -1, denomSquared);
-      return [mj.mul(grad, scale)];
-    }, { saveInput: true, saveOutput: false });
+    if (engine.tape) {
+      engine.record([bm], [res], (grad: Matrix) => {
+        const denomSquared = mj.mul(bm, bm);
+        const scale = mj.div(a * -1, denomSquared);
+        return [mj.mul(grad, scale)];
+      }, { saveInput: true, saveOutput: false });
+    }
     return res;
   }
   if (typeof b === "number") {
@@ -28,7 +30,9 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
     const result = new Float32Array(a._data.length);
     for (let i = 0; i < a._data.length; i++) result[i] = a._data[i] / b;
     const res = Matrix.fromFlat(result, [a._shape[0], a._shape[1]]);
-    engine.record([a], [res], (grad: Matrix) => [mj.div(grad, b)], { saveInput: false, saveOutput: false });
+    if (engine.tape) {
+      engine.record([a], [res], (grad: Matrix) => [mj.div(grad, b)], { saveInput: false, saveOutput: false });
+    }
     return res;
   }
   const am = a as Matrix;
@@ -51,14 +55,16 @@ export default function div(a: MatrixCollection, b: MatrixCollection): Matrix {
   const res = Matrix.fromFlat(resultData, [am._shape[0], am._shape[1]]);
 
   // RECORD FOR AUTO-DIFF
-  engine.record([am, bm], [res], (grad: Matrix) => {
-    const gradA = mj.div(grad, bm);
-    const bSquared = mj.mul(bm, bm);
-    const negA = mj.mul(am, -1);
-    const gradBBase = mj.div(negA, bSquared);
-    const gradB = mj.mul(grad, gradBBase);
-    return [gradA, gradB];
-  }, { saveInput: true, saveOutput: false });
+  if (engine.tape) {
+    engine.record([am, bm], [res], (grad: Matrix) => {
+      const gradA = mj.div(grad, bm);
+      const bSquared = mj.mul(bm, bm);
+      const negA = mj.mul(am, -1);
+      const gradBBase = mj.div(negA, bSquared);
+      const gradB = mj.mul(grad, gradBBase);
+      return [gradA, gradB];
+    }, { saveInput: true, saveOutput: false });
+  }
 
   return res;
 }

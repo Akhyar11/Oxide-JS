@@ -48,20 +48,20 @@ pub fn adam_update_native(
         }
     } else {
         (0..len).into_par_iter().for_each(|i| unsafe {
-            let g_ptr = std::slice::from_raw_parts(grad_p.0 as *const f32, len);
-            let m_ptr = std::slice::from_raw_parts_mut(m_p.0 as *mut f32, len);
-            let v_ptr = std::slice::from_raw_parts_mut(v_p.0 as *mut f32, len);
-            let b_ptr = std::slice::from_raw_parts_mut(buf_p.0 as *mut f32, len);
+            let g_ptr = grad_p.0 as *const f32;
+            let m_ptr = m_p.0 as *mut f32;
+            let v_ptr = v_p.0 as *mut f32;
+            let b_ptr = buf_p.0 as *mut f32;
 
-            let g = g_ptr[i];
-            let m_new = beta1 * m_ptr[i] + one_minus_beta1 * g;
-            let v_new = beta2 * v_ptr[i] + one_minus_beta2 * g * g;
-            m_ptr[i] = m_new;
-            v_ptr[i] = v_new;
+            let g = *g_ptr.add(i);
+            let m_new = beta1 * *m_ptr.add(i) + one_minus_beta1 * g;
+            let v_new = beta2 * *v_ptr.add(i) + one_minus_beta2 * g * g;
+            *m_ptr.add(i) = m_new;
+            *v_ptr.add(i) = v_new;
 
             let m_hat = m_new * bias_correction1;
             let v_hat = v_new * bias_correction2;
-            b_ptr[i] = alpha * m_hat / (v_hat.sqrt() + epsilon);
+            *b_ptr.add(i) = alpha * m_hat / (v_hat.sqrt() + epsilon);
         });
     }
 }
@@ -79,9 +79,9 @@ pub fn sgd_update_native(grad: Float32Array, mut out: Float32Array, alpha: f64) 
         }
     } else {
         (0..len).into_par_iter().for_each(|i| unsafe {
-            let g_ptr = std::slice::from_raw_parts(grad_p.0 as *const f32, len);
-            let o_ptr = std::slice::from_raw_parts_mut(out_p.0 as *mut f32, len);
-            o_ptr[i] = g_ptr[i] * alpha;
+            let g_ptr = grad_p.0 as *const f32;
+            let o_ptr = out_p.0 as *mut f32;
+            *o_ptr.add(i) = *g_ptr.add(i) * alpha;
         });
     }
 }
@@ -109,13 +109,13 @@ pub fn adagrad_update_native(
         }
     } else {
         (0..len).into_par_iter().for_each(|i| unsafe {
-            let g_ptr = std::slice::from_raw_parts(grad_p.0 as *const f32, len);
-            let s_ptr = std::slice::from_raw_parts_mut(sum_p.0 as *mut f32, len);
-            let o_ptr = std::slice::from_raw_parts_mut(out_p.0 as *mut f32, len);
+            let g_ptr = grad_p.0 as *const f32;
+            let s_ptr = sum_p.0 as *mut f32;
+            let o_ptr = out_p.0 as *mut f32;
 
-            let g = g_ptr[i];
-            s_ptr[i] += g * g;
-            o_ptr[i] = alpha * g / (s_ptr[i] + eps).sqrt();
+            let g = *g_ptr.add(i);
+            *s_ptr.add(i) += g * g;
+            *o_ptr.add(i) = alpha * g / (*s_ptr.add(i) + eps).sqrt();
         });
     }
 }
@@ -142,12 +142,12 @@ pub fn momentum_update_native(
         }
     } else {
         (0..len).into_par_iter().for_each(|i| unsafe {
-            let g_ptr = std::slice::from_raw_parts(grad_p.0 as *const f32, len);
-            let v_ptr = std::slice::from_raw_parts_mut(v_p.0 as *mut f32, len);
-            let o_ptr = std::slice::from_raw_parts_mut(out_p.0 as *mut f32, len);
+            let g_ptr = grad_p.0 as *const f32;
+            let v_ptr = v_p.0 as *mut f32;
+            let o_ptr = out_p.0 as *mut f32;
 
-            v_ptr[i] = beta * v_ptr[i] + alpha * g_ptr[i];
-            o_ptr[i] = v_ptr[i];
+            *v_ptr.add(i) = beta * *v_ptr.add(i) + alpha * *g_ptr.add(i);
+            *o_ptr.add(i) = *v_ptr.add(i);
         });
     }
 }
@@ -176,14 +176,14 @@ pub fn nag_update_native(
         }
     } else {
         (0..len).into_par_iter().for_each(|i| unsafe {
-            let g_ptr = std::slice::from_raw_parts(grad_p.0 as *const f32, len);
-            let v_ptr = std::slice::from_raw_parts_mut(v_p.0 as *mut f32, len);
-            let o_ptr = std::slice::from_raw_parts_mut(out_p.0 as *mut f32, len);
+            let g_ptr = grad_p.0 as *const f32;
+            let v_ptr = v_p.0 as *mut f32;
+            let o_ptr = out_p.0 as *mut f32;
 
-            let v_old = v_ptr[i];
-            let v_new = beta * v_old + alpha * (g_ptr[i] - beta * v_old);
-            v_ptr[i] = v_new;
-            o_ptr[i] = v_new;
+            let v_old = *v_ptr.add(i);
+            let v_new = beta * v_old + alpha * (*g_ptr.add(i) - beta * v_old);
+            *v_ptr.add(i) = v_new;
+            *o_ptr.add(i) = v_new;
         });
     }
 }

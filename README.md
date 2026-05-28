@@ -43,7 +43,7 @@
 ## Installation
 
 ```bash
-npm install @oxide-js/core @oxide-js/layers @oxide-js/models
+npm install @oxide-js/core @oxide-js/layers @oxide-js/models @oxide-js/spiking
 ```
 
 ### Prerequisites for Native Acceleration
@@ -301,6 +301,14 @@ model.fit(inputs, targets, { epochs: 10, batchSize: 2 });
 | `RNN` / `LSTM` / `GRU` | Recurrent sequence modeling with BPTT, gradient clipping, save/load, and stateful mode. `returnSequences` is supported; `returnState` is not yet supported and will throw explicitly. |
 | `Flatten` / `Convolution` | Standard CNN building blocks. |
 
+### Spiking Neural Networks (SNN)
+
+| Layer / Model | Description |
+|---|---|
+| `SpikingDense` | Dense layer dengan fungsi *Leaky Integrate-and-Fire* (LIF), *surrogate gradient*, dan `dotProductAddOnly` native. |
+| `SpikingEmbedding` | Lookup spasial untuk NLP spiking, mendukung *Word2Vec CBOW-style Hebbian Contrastive Learning* melalui `learnHebbian()`. |
+| `SpikingSentenceEmbedder` | Container model untuk memproses kalimat secara sekuensial menjadi *Semantic Vector* tunggal dengan *Native Contrastive Learning* bawaan. |
+
 ### Tokenizer
 
 `BPETokenizer` supports:
@@ -442,6 +450,7 @@ docs/                ← In-depth guides and API reference
 | `@oxide-js/core` | Core `Matrix` data structure, numeric primitives, and modular Rust backend. |
 | `@oxide-js/layers` | Reusable NN layers (Dense, Attention, RNN, etc.) with native acceleration support. |
 | `@oxide-js/models` | High-level compositions like `Sequential` and `Transformers`. |
+| `@oxide-js/spiking` | Biomimetic Spiking Neural Networks (SNN) dengan LIF, Surrogate Gradient, dan Hebbian Contrastive Learning. |
 | `oxide-native` | NAPI-RS binding linking TypeScript to the optimized Rust kernels. |
 
 ---
@@ -490,6 +499,9 @@ The API documentation is fully decoupled and detailed with complete mathematical
   - **[Sequential Stack](docs/api/models/sequential.md)** — Linear layer compose stack and unique layer naming allocations.
   - **[Callback Observers](docs/api/models/callbacks.md)** — Epoch-level and batch-level listeners (ProgressLogger, EarlyStopping, custom observer hooks).
   - **[Metrics & Data Helpers](docs/api/models/metrics.md)** — Accuracy calculators, training-validation dividers, and mini-batch iterators.
+* **[⚡ @oxide-js/spiking](docs/README.md)**:
+  - **Spiking Layers** — Biomimetic `SpikingDense`, `SpikingEmbedding` with LIF dynamics, Add-Only ops, and Native Rust kernels.
+  - **Sentence Embedder** — `SpikingSentenceEmbedder` for high-performance zero-floating-point Semantic representations and built-in Contrastive CBOW learning.
 
 ---
 
@@ -505,6 +517,7 @@ This project follows `MAJOR.MINOR.PATCH` semantic versioning. The current versio
 
 | Version | Summary |
 |---|---|
+| `2.5.0` | **Spiking Neural Networks & Compression**: Penambahan paket `@oxide-js/spiking` untuk AI Biomimetik (LIF, Hebbian Learning), dukungan `learnContrastive` pada SNN Embedder, serta kompresi serialisasi matriks JSON menjadi 1/4 ukuran asli. |
 | `2.4.0` | **Interoperability & Auto-Diff Update**: Introduced Keras-style model serialization (`model.json` + `weights.bin`) and Gradient Tape for dynamic automatic differentiation. |
 | `2.3.1` | **Modularization Milestone**: Monorepo split (`@oxide-js/core`, `@oxide-js/layers`, `@oxide-js/models`), Modular Rust kernels, and ESM-first test suite. |
 | `2.3.0` | Initial Monorepo structure and decoupled Layer Registry. |

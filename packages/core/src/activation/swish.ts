@@ -13,12 +13,14 @@ export default function swish(a: Matrix): Matrix {
     throw new Error("swish JS fallback not implemented yet. Please run with native backend.");
   }
 
-  engine.record(
-    [a],
-    [result],
-    (grad: Matrix) => [mj.mul(grad, dResult)],
-    { saveInput: false, saveOutput: false }
-  );
+  if (engine.tape) {
+    engine.record(
+      [a],
+      [result],
+      (grad: Matrix) => [mj.mul(grad, dResult)],
+      { saveInput: false, saveOutput: false }
+    );
+  }
 
   return result;
 }

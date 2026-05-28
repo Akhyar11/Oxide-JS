@@ -19,18 +19,20 @@ export function normScalar(a: Matrix): Matrix {
   const out = Matrix.fromFlat(new Float32Array([value]), [1, 1]);
   const aShape: [number, number] = [a._shape[0], a._shape[1]];
 
-  engine.record([a], [out], (grad: Matrix) => {
-    const upstream = grad._data[0];
-    const gradA = Matrix.fromFlat(new Float32Array(a._data.length), aShape);
-    if (value === 0) {
+  if (engine.tape) {
+    engine.record([a], [out], (grad: Matrix) => {
+      const upstream = grad._data[0];
+      const gradA = Matrix.fromFlat(new Float32Array(a._data.length), aShape);
+      if (value === 0) {
+        return [gradA];
+      }
+      const scale = upstream / value;
+      for (let i = 0; i < a._data.length; i++) {
+        gradA._data[i] = scale * a._data[i];
+      }
       return [gradA];
-    }
-    const scale = upstream / value;
-    for (let i = 0; i < a._data.length; i++) {
-      gradA._data[i] = scale * a._data[i];
-    }
-    return [gradA];
-  }, { saveInput: true, saveOutput: false });
+    }, { saveInput: true, saveOutput: false });
+  }
 
   return out;
 }

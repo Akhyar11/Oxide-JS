@@ -230,6 +230,14 @@ describe("JS vs Rust Math Parity - Complete Suite", () => {
     const rustTranspose = mj.transpose(rectData);
     expectMatricesToBeClose(jsTranspose, rustTranspose, 1e-5);
 
+    // threshold
+    setForceDisableNative(true);
+    const jsThreshold = mj.threshold(aData, 0.5, 0.1);
+    setForceDisableNative(false);
+    const rustThreshold = mj.threshold(aData, 0.5, 0.1);
+    expectMatricesToBeClose(jsThreshold, rustThreshold, 1e-5);
+
+
     // mse
     const bData = mj.random([32, 32]);
     setForceDisableNative(true);

@@ -177,3 +177,13 @@ Piecewise approximation of Swish. Efficient for mobile/embedded deployment.
   const inputs = mj.matrix([[2.0]]);
   mj.hardSwish(inputs).print();
   ```
+
+### 10. `threshold(x: Matrix, threshold?: number, leak?: number): Matrix`
+Step function designed for **Spiking Neural Networks** (SNN) Leaky Integrate-and-Fire output potentials.
+- **Math**: $f(x) = \begin{cases} 1 & x \ge threshold \\ leak & x < threshold \end{cases}$ (Default $threshold = 1.0, leak = 0.0$).
+- **Example**:
+  ```ts
+  import { mj } from "@oxide-js/core";
+  const inputs = mj.matrix([[0.5, 1.2]]);
+  mj.threshold(inputs, 1.0, 0.0).print(); // [[0.0, 1.0]]
+  ```
