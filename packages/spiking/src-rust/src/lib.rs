@@ -435,7 +435,7 @@ pub fn apply_add_only_delta_native(
         let mut row_update = vec![0.0; u];
         for b in 0..batch {
             let in_offset = b * in_f;
-            if in_slice[in_offset + k] == 1.0 {
+            if in_slice[in_offset + k] > 0.5 {
                 let err_offset = b * u;
                 for j in 0..u {
                     row_update[j] += err_slice[err_offset + j];
@@ -454,7 +454,7 @@ pub fn apply_add_only_delta_native(
                 let err_offset = b * u;
                 b_update += err_slice[err_offset + j];
             }
-            *b_val += lr * b_update;
+            *b_val += (lr * b_update) / (batch as f32);
         });
     }
 }
@@ -485,29 +485,25 @@ pub fn learn_hebbian_native(
 
     let mut updated_mask = vec![false; in_dim];
 
-    for n in 0..num_neg {
-        let neg_offset = n * dim;
-        let neg_mean = &neg_slice[neg_offset..neg_offset + dim];
+    for &t in t_slice {
+        let token_id = t.round() as usize;
+        if token_id < in_dim {
+            updated_mask[token_id] = true;
+            let k_offset = token_id * dim;
 
-        for &t in t_slice {
-            let token_id = t.round() as usize;
-            if token_id < in_dim {
-                updated_mask[token_id] = true;
-                let k_offset = token_id * dim;
+            // 1. Update Positive Context (selalu dieksekusi)
+            for j in 0..dim {
+                let pos_grad = pos_slice[j] - k_slice[k_offset + j];
+                k_slice[k_offset + j] += lr * pos_grad * mp;
+            }
 
-                if n == 0 {
-                    for j in 0..dim {
-                        let pos_grad = pos_slice[j] - k_slice[k_offset + j];
-                        let neg_grad = k_slice[k_offset + j] - neg_mean[j];
-                        let update = (pos_grad * mp) - (neg_grad * mn);
-                        k_slice[k_offset + j] += lr * update;
-                    }
-                } else {
-                    for j in 0..dim {
-                        let neg_grad = k_slice[k_offset + j] - neg_mean[j];
-                        let update = -(neg_grad * mn);
-                        k_slice[k_offset + j] += lr * update;
-                    }
+            // 2. Update Negative Contexts (jika ada)
+            for n in 0..num_neg {
+                let neg_offset = n * dim;
+                let neg_mean = &neg_slice[neg_offset..neg_offset + dim];
+                for j in 0..dim {
+                    let neg_grad = k_slice[k_offset + j] - neg_mean[j];
+                    k_slice[k_offset + j] += lr * neg_grad * mn;
                 }
             }
         }
@@ -520,7 +516,7 @@ pub fn learn_hebbian_native(
             for j in 0..dim {
                 norm += k_row[j] * k_row[j];
             }
-            norm = norm.sqrt() + 1e-8;
+            norm = (norm + 1e-8).sqrt();
             for j in 0..dim {
                 k_row[j] /= norm;
             }

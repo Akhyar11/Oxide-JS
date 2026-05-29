@@ -139,7 +139,6 @@ export class SpikingEmbedding extends BaseLayer {
     const inputData = this.lastInputs._data;
     const batch = this.lastInputs._shape[0];
 
-    const eHidden = Matrix.fromFlat(new Float32Array(batch * this.outputDim), [batch, this.outputDim]);
     let eHiddenMatrix = mj.dotProduct(errorFromNext, B, undefined, false, false);
 
     // Surrogate Mask: Boxcar
@@ -197,51 +196,52 @@ export class SpikingEmbedding extends BaseLayer {
     const dim = this.outputDim;
 
     if (isNativeAvailable()) {
-        const negFlat = new Float32Array(negativeContexts.length * dim);
-        for (let i = 0; i < negativeContexts.length; i++) {
-            negFlat.set(negativeContexts[i], i * dim);
-        }
-        
-        let tokensArray: Float32Array;
-        if (tokens instanceof Float32Array) {
-            tokensArray = tokens;
-        } else {
-            tokensArray = new Float32Array(tokens);
-        }
+      const negFlat = new Float32Array(negativeContexts.length * dim);
+      for (let i = 0; i < negativeContexts.length; i++) {
+        negFlat.set(negativeContexts[i], i * dim);
+      }
 
-        learnHebbianNativeWrapper(
-            kernel,
-            tokensArray,
-            positiveContext,
-            negFlat,
-            negativeContexts.length,
-            this.inputDim,
-            dim,
-            learningRate,
-            marginPositive,
-            marginNegative
-        );
-        return;
+      let tokensArray: Float32Array;
+      if (tokens instanceof Float32Array) {
+        tokensArray = tokens;
+      } else {
+        tokensArray = new Float32Array(tokens);
+      }
+
+      learnHebbianNativeWrapper(
+        kernel,
+        tokensArray,
+        positiveContext,
+        negFlat,
+        negativeContexts.length,
+        this.inputDim,
+        dim,
+        learningRate,
+        marginPositive,
+        marginNegative
+      );
+      return;
     }
 
     // Lacak token yang diperbarui agar bisa dinormalisasi
     const updatedTokens = new Set<number>();
 
-    for (let n = 0; n < negativeContexts.length; n++) {
-      const negMean = negativeContexts[n];
-      for (let i = 0; i < tokens.length; i++) {
-        const tokenId = Math.round(tokens[i]);
-        if (tokenId >= 0 && tokenId < this.inputDim) {
-          updatedTokens.add(tokenId);
-          const offset = tokenId * dim;
-          for (let j = 0; j < dim; j++) {
-            // Tarik kata ke arah konteks kalimatnya (Positive) - hanya sekali per token
-            const posGradient = (n === 0) ? (positiveContext[j] - kernel[offset + j]) : 0;
-            // Tolak kata dari konteks kalimat acak (Negative)
-            const negGradient = kernel[offset + j] - negMean[j];
+    for (let i = 0; i < tokens.length; i++) {
+      const tokenId = Math.round(tokens[i]);
+      if (tokenId >= 0 && tokenId < this.inputDim) {
+        updatedTokens.add(tokenId);
+        const offset = tokenId * dim;
+        
+        for (let j = 0; j < dim; j++) {
+          // 1. Update Positive Context (selalu dieksekusi)
+          const posGradient = positiveContext[j] - kernel[offset + j];
+          kernel[offset + j] += learningRate * posGradient * marginPositive;
 
-            const update = (posGradient * marginPositive) - (negGradient * marginNegative);
-            kernel[offset + j] += learningRate * update;
+          // 2. Update Negative Contexts (jika ada)
+          for (let n = 0; n < negativeContexts.length; n++) {
+            const negMean = negativeContexts[n];
+            const negGradient = kernel[offset + j] - negMean[j];
+            kernel[offset + j] += learningRate * negGradient * marginNegative;
           }
         }
       }
@@ -254,7 +254,7 @@ export class SpikingEmbedding extends BaseLayer {
       for (let j = 0; j < dim; j++) {
         norm += kernel[offset + j] * kernel[offset + j];
       }
-      norm = Math.sqrt(norm) + 1e-8;
+      norm = Math.sqrt(norm + 1e-8);
       for (let j = 0; j < dim; j++) {
         kernel[offset + j] /= norm;
       }

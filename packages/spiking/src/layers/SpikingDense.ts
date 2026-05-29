@@ -61,8 +61,8 @@ export class SpikingDense extends BaseLayer {
     this.addParameter("kernel", kernelVal, true, [inFeatures, this.units]);
 
     if (this.useBias) {
-      const biasVal = this.createInitializer(this.biasInitializer, [this.units, 1]);
-      this.addParameter("bias", biasVal, true, [this.units, 1]);
+      const biasVal = this.createInitializer(this.biasInitializer, [1, this.units]);
+      this.addParameter("bias", biasVal, true, [1, this.units]);
     }
     
     // Inisialisasi state
@@ -204,8 +204,8 @@ export class SpikingDense extends BaseLayer {
               const errOffset = b * units;
               
               for (let k = 0; k < inFeatures; k++) {
-                  // HANYA update jika input menyala (Spike = 1) -> Add Only Update!
-                  if (inputs[inOffset + k] === 1) { 
+                  // HANYA update jika input menyala (Spike > 0.5) -> Add Only Update!
+                  if (inputs[inOffset + k] > 0.5) { 
                       const kOffset = k * units;
                       for (let j = 0; j < units; j++) {
                           kernel[kOffset + j] += learningRate * err[errOffset + j];
@@ -216,7 +216,7 @@ export class SpikingDense extends BaseLayer {
               if (this.useBias && this.bias) {
                   const biasData = this.bias._data;
                   for (let j = 0; j < units; j++) {
-                      biasData[j] += learningRate * err[errOffset + j];
+                      biasData[j] += (learningRate * err[errOffset + j]) / batch;
                   }
               }
           }

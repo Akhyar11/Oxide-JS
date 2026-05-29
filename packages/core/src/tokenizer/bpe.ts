@@ -459,7 +459,7 @@ export default class BPETokenizer {
       if (isSingleChar) continue;
 
       if (!this.isMergeableToken(token)) {
-        console.log(`[BPE] Removing polluted token: "${token}" (ID: ${id})`);
+        // console.log(`[BPE] Removing polluted token: "${token}" (ID: ${id})`);
         this.vocab.delete(token);
       }
     }
