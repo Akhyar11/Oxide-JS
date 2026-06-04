@@ -18,31 +18,31 @@ Extends standard `LayerConfig`.
 | :--- | :--- | :--- | :--- |
 | `units` | `number` | **Required** | The dimensionality of the output space (number of neurons). |
 | `useBias` | `boolean` | `true` | Whether the layer uses a bias vector. |
-| `beta` | `number` | `0.9` | The decay factor for the membrane potential (Leakage rate). |
-| `threshold` | `number` | `1.0` | The voltage threshold at which the neuron fires a spike. |
 | `kernelInitializer` | `string` | `"glorot_normal"` | Initializer for the synaptic weight matrix. |
 | `biasInitializer` | `string` | `"zeros"` | Initializer for the bias vector. |
 
-### LIF Dynamics (Forward Pass)
+### Heterogeneous LIF Dynamics (Forward Pass)
+
+Unlike standard SNNs that use a global leak factor (`beta`) and `threshold`, Oxide-JS utilizes **Heterogeneous Neuron Dynamics**. Every neuron is initialized with its own random `beta` ($0.8 - 0.99$) and `threshold` ($0.5 - 1.0$). This stochasticity promotes model diversity and prevents premature synchronization or representation collapse.
 
 The `SpikingDense` layer processes incoming binary spikes through the following equation:
 
 1. **Add-Only Integration**: $I(t) = W \cdot S(t) + b$ (implemented via fast lookup additions).
-2. **Leaky Integration**: $V(t) = V(t-1) \times \beta + I(t)$.
-3. **Fire & Reset**: If $V(t) \ge \theta$, emit spike $1$ and subtract $\theta$ from $V(t)$. Else emit spike $0$.
+2. **Leaky Integration**: $V(t) = \min(V(t-1) \times \beta_i + I(t), 1.0)$. The potential is **clamped at 1.0** to prevent overflow.
+3. **Fire & Reset**: If $V(t) \ge \theta_i$, emit spike $1$ and subtract $\theta_i$ from $V(t)$. Else emit spike $0$.
 
 ### Surrogate Gradient Learning
 
 Because the spike function (Heaviside step function) is non-differentiable (derivative is 0 everywhere except at threshold where it is infinite), standard backpropagation fails. `SpikingDense` automatically uses a **Boxcar Surrogate Gradient** during backpropagation:
-- Gradients pass through the neuron *only* if the membrane potential $V(t)$ was close to the threshold $\theta$.
+- Gradients pass through the neuron *only* if the membrane potential $V(t)$ was close to the threshold $\theta_i$.
+
+> **Stability Normalization**: To prevent gradient explosions in temporal learning, all synaptic weights (kernels and biases) are strictly clipped to the `[-1.0, 1.0]` range after every weight update.
 
 ```ts
 import { SpikingDense } from "@oxide-js/spiking";
 
 const spikingLayer = new SpikingDense({
     units: 256,
-    beta: 0.9,
-    threshold: 1.0,
     useBias: true
 });
 
@@ -64,9 +64,9 @@ Extends standard `LayerConfig`.
 | :--- | :--- | :--- | :--- |
 | `inputDim` | `number` | **Required** | Size of the vocabulary (max integer index + 1). |
 | `outputDim` | `number` | **Required** | Dimension of the continuous embedding space. |
-| `beta` | `number` | `0.9` | Decay factor for the internal LIF neurons. |
-| `threshold` | `number` | `1.0` | Firing threshold for the internal LIF neurons. |
 | `embeddingsInitializer` | `string` | `"glorot_normal"` | Weight initializer. |
+
+*Note: Similar to `SpikingDense`, `SpikingEmbedding` automatically initializes and utilizes heterogeneous neuron dynamics (per-neuron `beta` and `threshold`) and clamps embedding weights to `[-1.0, 1.0]` during updates.*
 
 ### Word2Vec CBOW-style Hebbian Contrastive Learning
 
@@ -97,4 +97,4 @@ By manually orchestrating `learnHebbian`, you can train SNN embeddings for downs
 
 ---
 
-> **Note on Native Acceleration**: Both `SpikingDense` and `SpikingEmbedding` automatically hook into `@oxide-js/core`'s Rust Native Backend. The LIF computations (`lifStepNativeWrapper`), Surrogate Masking, and Add-Only Delta Updates run completely in heavily optimized Rust routines (via Rayon parallel processing) when native dependencies are present.
+> **Note on Native Acceleration**: Both `SpikingDense` and `SpikingEmbedding` automatically hook into `@oxide-js/core`'s Rust Native Backend. The LIF computations (`lifStepNativeWrapper`), Surrogate Masking, and Add-Only Delta Updates run completely in heavily optimized Rust routines (via **Rayon Data Parallelism**) when native dependencies are present. The Rust implementations handle slicing correctly to ensure `Send + Sync` constraints are satisfied across thread pools.

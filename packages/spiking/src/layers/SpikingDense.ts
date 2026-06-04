@@ -12,8 +12,6 @@ export interface SpikingDenseConfig extends LayerConfig {
   useBias?: boolean;
   kernelInitializer?: string;
   biasInitializer?: string;
-  beta?: number;
-  threshold?: number;
 }
 
 export class SpikingDense extends BaseLayer {
@@ -21,8 +19,8 @@ export class SpikingDense extends BaseLayer {
   public useBias: boolean;
   public kernelInitializer: string;
   public biasInitializer: string;
-  public beta: number;
-  public threshold: number;
+  public beta!: Float32Array;
+  public threshold!: Float32Array;
 
   public potentials!: Matrix;
   public lastPotentials?: Matrix;
@@ -43,8 +41,6 @@ export class SpikingDense extends BaseLayer {
     this.useBias = config.useBias ?? true;
     this.kernelInitializer = config.kernelInitializer || "glorot_normal";
     this.biasInitializer = config.biasInitializer || "zeros";
-    this.beta = config.beta ?? 0.9;
-    this.threshold = config.threshold ?? 1.0;
   }
 
   public computeOutputShape(inputShape: number[]): number[] {
@@ -63,6 +59,14 @@ export class SpikingDense extends BaseLayer {
     if (this.useBias) {
       const biasVal = this.createInitializer(this.biasInitializer, [this.units, 1]);
       this.addParameter("bias", biasVal, true, [this.units, 1]);
+    }
+    
+    // Inisialisasi beta dan threshold secara acak untuk setiap neuron
+    this.beta = new Float32Array(this.units);
+    this.threshold = new Float32Array(this.units);
+    for (let i = 0; i < this.units; i++) {
+        this.beta[i] = 0.8 + Math.random() * 0.19; 
+        this.threshold[i] = 0.5 + Math.random() * 0.5; // Max 1.0
     }
     
     // Inisialisasi state
@@ -112,19 +116,24 @@ export class SpikingDense extends BaseLayer {
     } else {
         const potData = this.potentials._data;
         const dotData = dot._data;
-        const thresh = this.threshold;
         const lpData = this.lastPotentials._data;
-        for (let i = 0; i < potData.length; i++) {
-            potData[i] = (potData[i] * this.beta) + dotData[i];
-            lpData[i] = potData[i];
-        }
-        for (let i = 0; i < potData.length; i++) {
-          if (potData[i] >= thresh) {
-            outData[i] = 1;
-            potData[i] -= thresh;
-          } else {
-            outData[i] = 0;
-          }
+        
+        for (let b = 0; b < batch; b++) {
+            const offset = b * this.units;
+            for (let i = 0; i < this.units; i++) {
+                const idx = offset + i;
+                potData[idx] = Math.min((potData[idx] * this.beta[i]) + dotData[idx], 1.0); // Clamp potential max 1.0
+                lpData[idx] = potData[idx];
+            }
+            for (let i = 0; i < this.units; i++) {
+                const idx = offset + i;
+                if (potData[idx] >= this.threshold[i]) {
+                    outData[idx] = 1;
+                    potData[idx] -= this.threshold[i];
+                } else {
+                    outData[idx] = 0;
+                }
+            }
         }
     }
 
@@ -146,22 +155,26 @@ export class SpikingDense extends BaseLayer {
       
       // Surrogate Mask: Boxcar (Murni Add-Only mask, tanpa perkalian float!)
       if (this.lastPotentials) {
+          const eData = eHidden._data;
+          const pData = this.lastPotentials._data;
+          const windowSize = 1.0; 
+          
           if (isNativeAvailable()) {
               maskSurrogateNativeWrapper(
-                  eHidden._data, 
-                  this.lastPotentials._data, 
-                  this.threshold, 
-                  1.0
+                  eData,
+                  pData,
+                  this.threshold,
+                  windowSize
               );
           } else {
-              const eData = eHidden._data;
-              const pData = this.lastPotentials._data;
-              const thresh = this.threshold;
-              const windowSize = 1.0; 
-
-              for (let i = 0; i < eData.length; i++) {
-                  if (Math.abs(pData[i] - thresh) > windowSize) {
-                      eData[i] = 0; 
+              const batch = eHidden._shape[0];
+              for (let b = 0; b < batch; b++) {
+                  const offset = b * this.units;
+                  for (let i = 0; i < this.units; i++) {
+                      const idx = offset + i;
+                      if (Math.abs(pData[idx] - this.threshold[i]) > windowSize) {
+                          eData[idx] = 0; 
+                      }
                   }
               }
           }
@@ -197,6 +210,12 @@ export class SpikingDense extends BaseLayer {
               units,
               this.useBias
           );
+          
+          for(let i = 0; i < kernel.length; i++) kernel[i] = Math.max(-1.0, Math.min(1.0, kernel[i]));
+          if (this.useBias && this.bias) {
+              const biasData = this.bias._data;
+              for(let i = 0; i < biasData.length; i++) biasData[i] = Math.max(-1.0, Math.min(1.0, biasData[i]));
+          }
       } else {
           // Delta rule add-only
           for (let b = 0; b < batch; b++) {
@@ -209,6 +228,7 @@ export class SpikingDense extends BaseLayer {
                       const kOffset = k * units;
                       for (let j = 0; j < units; j++) {
                           kernel[kOffset + j] += learningRate * err[errOffset + j];
+                          kernel[kOffset + j] = Math.max(-1.0, Math.min(1.0, kernel[kOffset + j]));
                       }
                   }
               }
@@ -217,6 +237,7 @@ export class SpikingDense extends BaseLayer {
                   const biasData = this.bias._data;
                   for (let j = 0; j < units; j++) {
                       biasData[j] += (learningRate * err[errOffset + j]) / batch;
+                      biasData[j] = Math.max(-1.0, Math.min(1.0, biasData[j]));
                   }
               }
           }
@@ -229,9 +250,7 @@ export class SpikingDense extends BaseLayer {
       units: this.units,
       useBias: this.useBias,
       kernelInitializer: this.kernelInitializer,
-      biasInitializer: this.biasInitializer,
-      beta: this.beta,
-      threshold: this.threshold
+      biasInitializer: this.biasInitializer
     };
   }
 }
