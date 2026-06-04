@@ -47,8 +47,8 @@ export const lifStepNativeWrapper = (
   dot: Float32Array,
   spikes: Float32Array,
   lastPotentials: Float32Array,
-  beta: number,
-  threshold: number
+  beta: Float32Array,
+  threshold: Float32Array
 ): void => {
   if (!native) throw new Error("Spiking Native backend not available");
   native.lifStepNative(potentials, dot, spikes, lastPotentials, beta, threshold);
@@ -57,7 +57,7 @@ export const lifStepNativeWrapper = (
 export const maskSurrogateNativeWrapper = (
   errorSignal: Float32Array,
   potentials: Float32Array,
-  threshold: number,
+  threshold: Float32Array,
   windowSize: number
 ): void => {
   if (!native) throw new Error("Spiking Native backend not available");
@@ -86,5 +86,24 @@ export const applyAddOnlyDeltaNativeWrapper = (
     inFeatures,
     units,
     useBias
+  );
+};
+
+export const applyEmbeddingDeltaNativeWrapper = (
+  embeddings: Float32Array,
+  inputs: Float32Array,
+  errorSignal: Float32Array,
+  learningRate: number,
+  inputDim: number,
+  outputDim: number
+): void => {
+  if (!native) throw new Error("Spiking Native backend not available");
+  native.applyEmbeddingDeltaNative(
+    embeddings,
+    inputs,
+    errorSignal,
+    learningRate,
+    inputDim,
+    outputDim
   );
 };

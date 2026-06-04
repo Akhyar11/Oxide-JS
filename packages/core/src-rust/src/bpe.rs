@@ -115,9 +115,8 @@ impl NativeBPETrainer {
 
         // 4. Proses iterasi BPE Merging (Super cepat karena menggunakan integer/u32)
         while next_id < self.vocab_size {
-            // Hitung frekuensi pasangan adjacent (kiri, kanan)
+            // Hitung frekuensi pasangan adjacent (kiri, kanan) (Sekuensial lebih cepat karena menghindari overhead merge HashMap di Rayon)
             let mut pair_freqs: HashMap<(u32, u32), u32> = HashMap::new();
-            
             for (ids, freq) in &corpus {
                 if ids.len() < 2 { continue; }
                 for i in 0..ids.len() - 1 {
@@ -152,10 +151,20 @@ impl NativeBPETrainer {
                     println!("[Rust BPE] Progress Merges: {}/{} (Vocab Size: {})", merges_history.len(), self.vocab_size, next_id);
                 }
 
-                // Terapkan merge ke seluruh corpus (in-place modification untuk performa ekstrim)
-                for (ids, _) in corpus.iter_mut() {
+                // Terapkan merge ke seluruh corpus (Parallel in-place modification)
+                corpus.par_iter_mut().for_each(|(ids, _)| {
+                    // FAST PATH: Jangan alokasi Vector baru jika pasangan ini tidak ada di array ini
+                    let mut found = false;
+                    for i in 0..ids.len().saturating_sub(1) {
+                        if ids[i] == left_id && ids[i+1] == right_id {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found { return; }
+
                     let mut i = 0;
-                    let mut new_ids = Vec::with_capacity(ids.len());
+                    let mut new_ids = Vec::with_capacity(ids.len() - 1);
                     while i < ids.len() {
                         if i < ids.len() - 1 && ids[i] == left_id && ids[i+1] == right_id {
                             new_ids.push(new_id);
@@ -166,7 +175,7 @@ impl NativeBPETrainer {
                         }
                     }
                     *ids = new_ids; // Update array dengan yang sudah dipadatkan
-                }
+                });
             } else {
                 break; // Tidak ada pasangan lagi
             }

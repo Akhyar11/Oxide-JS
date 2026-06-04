@@ -2,41 +2,36 @@ import { BaseLayer, LayerConfig, ForwardOptions } from "@oxide-js/layers";
 import { Matrix, mj } from "@oxide-js/core";
 import { 
     isNativeAvailable, 
-    lifStepNativeWrapper,
-    maskSurrogateNativeWrapper
+    lifStepNativeWrapper, 
+    maskSurrogateNativeWrapper 
 } from "../native_backend.js";
 
 export interface SpikingEmbeddingConfig extends LayerConfig {
-  inputDim: number; // Ukuran vocabulary
-  outputDim: number; // Dimensi embedding (jumlah neuron)
-  beta?: number; // Decay factor LIF
-  threshold?: number; // Ambang batas Spike
-  embeddingsInitializer?: string; // Tipe inisialisasi bobot
+  inputDim: number;
+  outputDim: number;
+  embeddingsInitializer?: string;
 }
 
 export class SpikingEmbedding extends BaseLayer {
   public inputDim: number;
   public outputDim: number;
-  public beta: number;
-  public threshold: number;
+  public embeddingsInitializer: string;
+  public beta!: Float32Array;
+  public threshold!: Float32Array;
 
   public potentials!: Matrix;
   public lastPotentials?: Matrix;
   public lastInputs?: Matrix;
   public lastSpikes?: Matrix;
 
-  public embeddingsInitializer: string;
-
-  public get kernel(): Matrix | undefined {
-    return this.getParameter("kernel");
+  public get embeddings(): Matrix | undefined {
+    return this.getParameter("embeddings");
   }
 
   constructor(config: SpikingEmbeddingConfig) {
     super(config);
     this.inputDim = config.inputDim;
     this.outputDim = config.outputDim;
-    this.beta = config.beta ?? 0.9;
-    this.threshold = config.threshold ?? 1.0;
     this.embeddingsInitializer = config.embeddingsInitializer || "glorot_normal";
   }
 
@@ -47,8 +42,26 @@ export class SpikingEmbedding extends BaseLayer {
 
   public build(inputShape: number[]): void {
     super.build(inputShape);
-    const kernelVal = this.createInitializer(this.embeddingsInitializer, [this.inputDim, this.outputDim]);
-    this.addParameter("kernel", kernelVal, true, [this.inputDim, this.outputDim]);
+
+    const embVal = this.createInitializer(this.embeddingsInitializer, [this.inputDim, this.outputDim]);
+    this.addParameter("embeddings", embVal, true, [this.inputDim, this.outputDim]);
+    
+    // Inisialisasi beta dan threshold secara acak untuk setiap neuron
+    this.beta = new Float32Array(this.outputDim);
+    this.threshold = new Float32Array(this.outputDim);
+    for (let i = 0; i < this.outputDim; i++) {
+        this.beta[i] = 0.8 + Math.random() * 0.19; // Random 0.8 - 0.99
+        this.threshold[i] = 0.5 + Math.random() * 0.5; // Random 0.5 - 1.0 (Max 1.0)
+    }
+    
+    // Potentials start at 0, shape [batch, outputDim]. 
+    this.potentials = Matrix.fromFlat(new Float32Array(this.outputDim), [1, this.outputDim]); 
+  }
+
+  private ensurePotentialsShape(batch: number) {
+    if (this.potentials._shape[0] !== batch) {
+       this.potentials = Matrix.fromFlat(new Float32Array(batch * this.outputDim), [batch, this.outputDim]);
+    }
   }
 
   public resetState() {
@@ -58,38 +71,26 @@ export class SpikingEmbedding extends BaseLayer {
      this.lastSpikes = undefined;
   }
 
-  private ensurePotentialsShape(batch: number) {
-    if (!this.potentials || this.potentials._shape[0] !== batch) {
-      this.potentials = Matrix.fromFlat(
-        new Float32Array(batch * this.outputDim), 
-        [batch, this.outputDim]
-      );
-    }
-  }
-
   protected compute(inputs: Matrix, options?: ForwardOptions): Matrix {
-    const kernel = this.kernel!._data;
     const batch = inputs._shape[0];
-    const inputData = inputs._data;
-    
     this.ensurePotentialsShape(batch);
-
-    // 1. Lookup Row (Pengganti dot-product)
+    
+    // 1. Embedding lookup
+    const emb = this.embeddings!;
     const dotData = new Float32Array(batch * this.outputDim);
+    
     for (let b = 0; b < batch; b++) {
-      const tokenId = Math.round(inputData[b]); // Asumsi input adalah ID token berukuran [batch, 1]
-      
-      // Jika token valid, ekstrak barisnya sebagai Arus (Current)
-      if (tokenId >= 0 && tokenId < this.inputDim) {
-         const kernelOffset = tokenId * this.outputDim;
-         const dotOffset = b * this.outputDim;
-         for (let j = 0; j < this.outputDim; j++) {
-            dotData[dotOffset + j] = kernel[kernelOffset + j];
-         }
-      }
+        const tokenIdx = inputs._data[b]; 
+        if (tokenIdx >= 0 && tokenIdx < this.inputDim) {
+            const embOffset = tokenIdx * this.outputDim;
+            const dotOffset = b * this.outputDim;
+            for (let i = 0; i < this.outputDim; i++) {
+                dotData[dotOffset + i] = emb._data[embOffset + i];
+            }
+        }
     }
-
-    // 2 & 3. Leaky Integrate, Fire & Reset
+    
+    // 2. Leaky Integrate and Fire
     const outData = new Float32Array(batch * this.outputDim);
     const outSpikes = Matrix.fromFlat(outData, [batch, this.outputDim]);
     this.lastPotentials = Matrix.fromFlat(new Float32Array(batch * this.outputDim), [batch, this.outputDim]);
@@ -98,130 +99,117 @@ export class SpikingEmbedding extends BaseLayer {
         lifStepNativeWrapper(
             this.potentials._data,
             dotData,
-            outSpikes._data,
+            outData,
             this.lastPotentials._data,
             this.beta,
             this.threshold
         );
     } else {
         const potData = this.potentials._data;
-        const thresh = this.threshold;
         const lpData = this.lastPotentials._data;
-        for (let i = 0; i < potData.length; i++) {
-            potData[i] = (potData[i] * this.beta) + dotData[i];
-            lpData[i] = potData[i];
-        }
-        for (let i = 0; i < potData.length; i++) {
-          if (potData[i] >= thresh) {
-            outData[i] = 1;
-            potData[i] -= thresh;
-          } else {
-            outData[i] = 0;
-          }
+        
+        for (let b = 0; b < batch; b++) {
+            const offset = b * this.outputDim;
+            for (let i = 0; i < this.outputDim; i++) {
+                const idx = offset + i;
+                potData[idx] = Math.min((potData[idx] * this.beta[i]) + dotData[idx], 1.0); // Clamp potential max 1.0
+                lpData[idx] = potData[idx];
+            }
+            for (let i = 0; i < this.outputDim; i++) {
+                const idx = offset + i;
+                if (potData[idx] >= this.threshold[i]) {
+                    outData[idx] = 1;
+                    potData[idx] -= this.threshold[i];
+                } else {
+                    outData[idx] = 0;
+                }
+            }
         }
     }
 
-    // Simpan memori untuk update bobot
     this.lastInputs = inputs;
     this.lastSpikes = outSpikes;
 
     return outSpikes;
   }
 
-  // Embedding hanya menerima instruksi belajar dari layer atasnya (eHidden yang sudah dikalikan matriks B)
-  public learnEmbedding(errorFromNext: Matrix, B: Matrix, learningRate: number = 0.01): Matrix {
-      if (!this.lastInputs) {
-          throw new Error("[SpikingEmbedding] Cannot run learnEmbedding() before forward() is executed. 'lastInputs' is undefined.");
-      }
-
-      const kernel = this.kernel!._data;
-      const inputData = this.lastInputs._data;
-      const batch = this.lastInputs._shape[0];
+  public learnEmbedding(errorSignal: Matrix, B: Matrix, learningRate: number = 0.01): Matrix {
+      // Broadcast error mundur (Feedback Alignment)
+      let eHidden = mj.dotProduct(errorSignal, B, undefined, false, false); // E * B
       
-      // Hitung error yang mampir ke embedding
-      // E * B (Feedback Alignment)
-      // Gunakan matmul biasa karena B adalah float, dan errorFromNext mungkin float
-      const eHidden = Matrix.fromFlat(new Float32Array(batch * this.outputDim), [batch, this.outputDim]);
-      // Namun karena OxideJS Matrix belum memiliki fungsi dot produk standar terbuka yang stabil,
-      // kita harus hati-hati di sini. Untuk simplifikasi, eHidden = errorFromNext * B.
-      // Kita asumsikan ada utilitas dotProduct standar dari core.
-      // Jika B adalah matriks Dense (dimensi: outUnits x hiddenUnits), maka 
-      // eHidden [batch, hiddenUnits] = errorFromNext [batch, outUnits] dot B [outUnits, hiddenUnits]
-      
-      // Kita panggil dot product standar (bukan Add-Only, karena error dan B sama-sama float)
-      let eHiddenMatrix = mj.dotProduct(errorFromNext, B, undefined, false, false);
-
       // Surrogate Mask: Boxcar
       if (this.lastPotentials) {
+          const eData = eHidden._data;
+          const pData = this.lastPotentials._data;
+          const windowSize = 1.0; 
+          
           if (isNativeAvailable()) {
               maskSurrogateNativeWrapper(
-                  eHiddenMatrix._data, 
-                  this.lastPotentials._data, 
-                  this.threshold, 
-                  1.0
+                  eData,
+                  pData,
+                  this.threshold,
+                  windowSize
               );
           } else {
-              const eData = eHiddenMatrix._data;
-              const pData = this.lastPotentials._data;
-              const thresh = this.threshold;
-              const windowSize = 1.0; 
-
-              for (let i = 0; i < eData.length; i++) {
-                  if (Math.abs(pData[i] - thresh) > windowSize) {
-                      eData[i] = 0; 
+              const batch = eHidden._shape[0];
+              for (let b = 0; b < batch; b++) {
+                  const offset = b * this.outputDim;
+                  for (let i = 0; i < this.outputDim; i++) {
+                      const idx = offset + i;
+                      if (Math.abs(pData[idx] - this.threshold[i]) > windowSize) {
+                          eData[idx] = 0; 
+                      }
                   }
               }
           }
       }
 
-      // Delta Rule Update pada baris Lookup (sangat efisien)
-      const err = eHiddenMatrix._data;
-      for (let b = 0; b < batch; b++) {
-          const tokenId = Math.round(inputData[b]);
-          if (tokenId >= 0 && tokenId < this.inputDim) {
-              const kOffset = tokenId * this.outputDim;
-              const errOffset = b * this.outputDim;
-              for (let j = 0; j < this.outputDim; j++) {
-                  kernel[kOffset + j] += learningRate * err[errOffset + j];
+      this.applyEmbeddingDelta(eHidden, learningRate);
+      return eHidden;
+  }
+  
+  private applyEmbeddingDelta(errorSignal: Matrix, learningRate: number) {
+      if (!this.lastInputs || !this.lastSpikes) {
+          throw new Error("[SpikingEmbedding] Cannot run learning before forward() is executed.");
+      }
+      
+      const embeddings = this.embeddings!._data;
+      const inputs = this.lastInputs._data;
+      const err = errorSignal._data;
+      
+      const batch = this.lastInputs._shape[0];
+      const outputDim = this.outputDim;
+
+      if (isNativeAvailable()) {
+          applyEmbeddingDeltaNativeWrapper(
+              embeddings,
+              inputs,
+              err,
+              learningRate,
+              this.inputDim,
+              outputDim
+          );
+      } else {
+          for (let b = 0; b < batch; b++) {
+              const tokenIdx = inputs[b];
+              if (tokenIdx >= 0 && tokenIdx < this.inputDim) {
+                  const embOffset = tokenIdx * outputDim;
+                  const errOffset = b * outputDim;
+                  for (let j = 0; j < outputDim; j++) {
+                      embeddings[embOffset + j] += learningRate * err[errOffset + j];
+                      embeddings[embOffset + j] = Math.max(-1.0, Math.min(1.0, embeddings[embOffset + j])); // Clamp weight [-1, 1]
+                  }
               }
           }
       }
-
-      return eHiddenMatrix;
   }
 
-  /**
-   * Word2Vec CBOW-style Hebbian Contrastive Learning
-   * Memungkinkan pembelajaran embedding semantik secara topologis tanpa representation collapse.
-   */
-  public learnHebbian(
-    tokens: number[] | Float32Array,
-    positiveContext: Float32Array, 
-    negativeContexts: Float32Array[], 
-    learningRate: number = 0.01,
-    marginPositive: number = 0.1,
-    marginNegative: number = 0.05
-  ): void {
-      const kernel = this.kernel!._data;
-      const dim = this.outputDim;
-
-      for (let n = 0; n < negativeContexts.length; n++) {
-          const negMean = negativeContexts[n];
-          for (let i = 0; i < tokens.length; i++) {
-              const tokenId = Math.round(tokens[i]);
-              if (tokenId >= 0 && tokenId < this.inputDim) {
-                  const offset = tokenId * dim;
-                  for (let j = 0; j < dim; j++) {
-                      // Tarik kata ke arah konteks kalimatnya (Positive) - hanya sekali per token
-                      const posGradient = (n === 0) ? (positiveContext[j] - kernel[offset + j]) : 0;
-                      // Tolak kata dari konteks kalimat acak (Negative)
-                      const negGradient = kernel[offset + j] - negMean[j];
-
-                      const update = (posGradient * marginPositive) - (negGradient * marginNegative);
-                      kernel[offset + j] += learningRate * update;
-                  }
-              }
-          }
-      }
+  public getConfig(): Record<string, any> {
+    return {
+      ...super.getConfig(),
+      inputDim: this.inputDim,
+      outputDim: this.outputDim,
+      embeddingsInitializer: this.embeddingsInitializer
+    };
   }
 }
