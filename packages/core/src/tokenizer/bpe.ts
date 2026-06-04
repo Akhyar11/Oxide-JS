@@ -71,7 +71,8 @@ export default class BPETokenizer {
   private preTokenizer: PreTokenizer;
   private preTokenizerName: BuiltInPreTokenizer | "custom";
   private encodeCache: Map<string, number[]> = new Map();
-  private readonly maxEncodeCacheSize = 8192;
+  private readonly maxEncodeCacheSize = 1000000;
+  private mergeRanks: Map<string, number> | null = null;
 
   constructor(config: (BPETokenizerOptions & { specialTokens?: string[] }) = {}) {
     this.vocabSize = config.vocabSize ?? 1000;
@@ -354,9 +355,7 @@ export default class BPETokenizer {
   }
 
   private applyMergeRulesInPlace(symbols: string[], merges: [string, string][]): void {
-    for (const [left, right] of merges) {
-      this.applyMergeInPlace(symbols, left, right, left + right);
-    }
+    this.applyMergeRulesInPlaceWithOptions(symbols, merges, { blockedMergedToken: null });
   }
 
   /**
@@ -724,12 +723,32 @@ export default class BPETokenizer {
     merges: [string, string][],
     options: { blockedMergedToken: string | null }
   ): void {
-    for (const [left, right] of merges) {
-      const merged = left + right;
-      if (options.blockedMergedToken !== null && merged === options.blockedMergedToken) {
-        continue;
+    if (this.mergeRanks === null || this.mergeRanks.size !== merges.length) {
+      this.mergeRanks = new Map();
+      for (let i = 0; i < merges.length; i++) {
+        this.mergeRanks.set(merges[i][0] + PAIR_SEPARATOR + merges[i][1], i);
       }
-      this.applyMergeInPlace(symbols, left, right, merged);
+    }
+
+    while (symbols.length > 1) {
+      let bestRank = Infinity;
+      let bestIndex = -1;
+
+      for (let i = 0; i < symbols.length - 1; i++) {
+        const pair = symbols[i] + PAIR_SEPARATOR + symbols[i + 1];
+        const rank = this.mergeRanks.get(pair);
+        if (rank !== undefined && rank < bestRank) {
+          if (options.blockedMergedToken !== null && symbols[i] + symbols[i + 1] === options.blockedMergedToken) {
+            continue;
+          }
+          bestRank = rank;
+          bestIndex = i;
+        }
+      }
+
+      if (bestIndex === -1) break;
+
+      symbols.splice(bestIndex, 2, symbols[bestIndex] + symbols[bestIndex + 1]);
     }
   }
 
