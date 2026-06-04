@@ -354,6 +354,8 @@ pub fn dot_product_add_only_native(
             }
         }
     });
+        }
+    });
 }
 
 #[napi]
@@ -435,7 +437,7 @@ pub fn apply_add_only_delta_native(
         let mut row_update = vec![0.0; u];
         for b in 0..batch {
             let in_offset = b * in_f;
-            if in_slice[in_offset + k] > 0.5 {
+            if in_slice[in_offset + k] == 1.0 {
                 let err_offset = b * u;
                 for j in 0..u {
                     row_update[j] += err_slice[err_offset + j];
@@ -454,72 +456,7 @@ pub fn apply_add_only_delta_native(
                 let err_offset = b * u;
                 b_update += err_slice[err_offset + j];
             }
-            *b_val += (lr * b_update) / (batch as f32);
+            *b_val += lr * b_update;
         });
     }
-}
-
-#[napi]
-pub fn learn_hebbian_native(
-    mut kernel: napi::bindgen_prelude::Float32Array,
-    tokens: napi::bindgen_prelude::Float32Array,
-    positive_context: napi::bindgen_prelude::Float32Array,
-    negative_contexts: napi::bindgen_prelude::Float32Array,
-    num_negatives: u32,
-    input_dim: u32,
-    output_dim: u32,
-    learning_rate: f64,
-    margin_positive: f64,
-    margin_negative: f64,
-) {
-    let k_slice = &mut *kernel;
-    let t_slice = &*tokens;
-    let pos_slice = &*positive_context;
-    let neg_slice = &*negative_contexts;
-    let lr = learning_rate as f32;
-    let mp = margin_positive as f32;
-    let mn = margin_negative as f32;
-    let dim = output_dim as usize;
-    let in_dim = input_dim as usize;
-    let num_neg = num_negatives as usize;
-
-    let mut updated_mask = vec![false; in_dim];
-
-    for &t in t_slice {
-        let token_id = t.round() as usize;
-        if token_id < in_dim {
-            updated_mask[token_id] = true;
-            let k_offset = token_id * dim;
-
-            // 1. Update Positive Context (selalu dieksekusi)
-            for j in 0..dim {
-                let pos_grad = pos_slice[j] - k_slice[k_offset + j];
-                k_slice[k_offset + j] += lr * pos_grad * mp;
-            }
-
-            // 2. Update Negative Contexts (jika ada)
-            for n in 0..num_neg {
-                let neg_offset = n * dim;
-                let neg_mean = &neg_slice[neg_offset..neg_offset + dim];
-                for j in 0..dim {
-                    let neg_grad = k_slice[k_offset + j] - neg_mean[j];
-                    k_slice[k_offset + j] += lr * neg_grad * mn;
-                }
-            }
-        }
-    }
-
-    // L2 Normalization in parallel
-    k_slice.par_chunks_mut(dim).enumerate().for_each(|(i, k_row)| {
-        if updated_mask[i] {
-            let mut norm = 0.0;
-            for j in 0..dim {
-                norm += k_row[j] * k_row[j];
-            }
-            norm = (norm + 1e-8).sqrt();
-            for j in 0..dim {
-                k_row[j] /= norm;
-            }
-        }
-    });
 }

@@ -88,30 +88,3 @@ export const applyAddOnlyDeltaNativeWrapper = (
     useBias
   );
 };
-
-export const learnHebbianNativeWrapper = (
-  kernel: Float32Array,
-  tokens: Float32Array,
-  positiveContext: Float32Array,
-  negativeContexts: Float32Array,
-  numNegatives: number,
-  inputDim: number,
-  outputDim: number,
-  learningRate: number,
-  marginPositive: number,
-  marginNegative: number
-): void => {
-  if (!native) throw new Error("Spiking Native backend not available");
-  native.learnHebbianNative(
-    kernel,
-    tokens,
-    positiveContext,
-    negativeContexts,
-    numNegatives,
-    inputDim,
-    outputDim,
-    learningRate,
-    marginPositive,
-    marginNegative
-  );
-};

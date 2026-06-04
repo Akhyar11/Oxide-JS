@@ -69,11 +69,12 @@ export class SpikingSentenceEmbedder extends BaseModel {
         for (let i = 0; i < seqLen; i++) {
             const x = Matrix.fromFlat(new Float32Array([inputData[i]]), [1, 1]);
             
-            // Default readingTime = 5 timestep untuk memastikan neuron sempat firing
-            for (let t = 0; t < 5; t++) {
+            // Default readingTime = 3 timestep
+            for (let t = 0; t < 3; t++) {
                 const wordSpikes = this.embedding.forward(x) as Matrix;
-                // BYPASS contextLayer karena tidak dilatih saat learnContrastive
-                const outData = wordSpikes._data;
+                const contextSpikes = this.contextLayer.forward(wordSpikes) as Matrix;
+
+                const outData = contextSpikes._data;
                 for(let j=0; j<this.embedDim; j++) {
                     semanticVector[j] += outData[j];
                 }
@@ -130,15 +131,5 @@ export class SpikingSentenceEmbedder extends BaseModel {
         }
         
         return meanVec;
-    }
-
-    public getConfig(): Record<string, any> {
-        return {
-            ...super.getConfig(),
-            vocabSize: this.vocabSize,
-            embedDim: this.embedDim,
-            beta: this.embedding.beta,
-            threshold: this.embedding.threshold
-        };
     }
 }
