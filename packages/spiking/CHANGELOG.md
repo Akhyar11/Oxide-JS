@@ -1,5 +1,13 @@
 # @oxide-js/spiking
 
+## 1.3.0
+
+### Minor Changes
+
+- 1f6489c: - Added `SpikingDenseBPTT` temporal pooler with Sequence-as-Time dynamics.
+  - Implemented Spike-Count Accumulation with L2 Normalization to solve membrane saturation in long sequences.
+  - Updated documentation for SpikingDenseBPTT in API layers.
+
 ## 1.2.0
 
 ### Minor Changes
