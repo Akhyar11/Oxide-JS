@@ -3,19 +3,25 @@ import { Matrix, mj } from "@oxide-js/core";
 import { 
     isNativeAvailable, 
     lifStepNativeWrapper, 
-    maskSurrogateNativeWrapper 
+    maskSurrogateNativeWrapper,
+    applyEmbeddingDeltaNativeWrapper
 } from "../native_backend.js";
 
 export interface SpikingEmbeddingConfig extends LayerConfig {
   inputDim: number;
   outputDim: number;
   embeddingsInitializer?: string;
+  betaRange?: [number, number];
+  thresholdRange?: [number, number];
 }
 
 export class SpikingEmbedding extends BaseLayer {
   public inputDim: number;
   public outputDim: number;
   public embeddingsInitializer: string;
+  
+  public betaRange: [number, number];
+  public thresholdRange: [number, number];
   public beta!: Float32Array;
   public threshold!: Float32Array;
 
@@ -33,6 +39,8 @@ export class SpikingEmbedding extends BaseLayer {
     this.inputDim = config.inputDim;
     this.outputDim = config.outputDim;
     this.embeddingsInitializer = config.embeddingsInitializer || "glorot_normal";
+    this.betaRange = config.betaRange || [0.8, 0.99];
+    this.thresholdRange = config.thresholdRange || [0.01, 0.1];
   }
 
   public computeOutputShape(inputShape: number[]): number[] {
@@ -44,29 +52,43 @@ export class SpikingEmbedding extends BaseLayer {
     super.build(inputShape);
 
     const embVal = this.createInitializer(this.embeddingsInitializer, [this.inputDim, this.outputDim]);
+    
+    // Scale up the embedding values because Glorot Normal makes them too small for large vocabularies (e.g. 32000)
+    // which prevents the LIF neurons from ever reaching the threshold.
+    const scaleFactor = Math.sqrt(this.inputDim);
+    for (let i = 0; i < embVal._data.length; i++) {
+        embVal._data[i] *= scaleFactor;
+    }
+
     this.addParameter("embeddings", embVal, true, [this.inputDim, this.outputDim]);
     
     // Inisialisasi beta dan threshold secara acak untuk setiap neuron
     this.beta = new Float32Array(this.outputDim);
     this.threshold = new Float32Array(this.outputDim);
     for (let i = 0; i < this.outputDim; i++) {
-        this.beta[i] = 0.8 + Math.random() * 0.19; // Random 0.8 - 0.99
-        this.threshold[i] = 0.5 + Math.random() * 0.5; // Random 0.5 - 1.0 (Max 1.0)
+        this.beta[i] = this.betaRange[0] + Math.random() * (this.betaRange[1] - this.betaRange[0]);
+        this.threshold[i] = this.thresholdRange[0] + Math.random() * (this.thresholdRange[1] - this.thresholdRange[0]); 
     }
     
     // Potentials start at 0, shape [batch, outputDim]. 
     this.potentials = Matrix.fromFlat(new Float32Array(this.outputDim), [1, this.outputDim]); 
   }
 
+  private dotDataBuffer?: Float32Array;
+  private outDataBuffer?: Float32Array;
+
   private ensurePotentialsShape(batch: number) {
-    if (this.potentials._shape[0] !== batch) {
+    if (this.potentials._shape[0] !== batch || !this.dotDataBuffer) {
        this.potentials = Matrix.fromFlat(new Float32Array(batch * this.outputDim), [batch, this.outputDim]);
+       this.dotDataBuffer = new Float32Array(batch * this.outputDim);
+       this.outDataBuffer = new Float32Array(batch * this.outputDim);
+       this.lastPotentials = Matrix.fromFlat(new Float32Array(batch * this.outputDim), [batch, this.outputDim]);
     }
   }
 
   public resetState() {
      if (this.potentials) this.potentials._data.fill(0);
-     this.lastPotentials = undefined;
+     if (this.lastPotentials) this.lastPotentials._data.fill(0);
      this.lastInputs = undefined;
      this.lastSpikes = undefined;
   }
@@ -77,7 +99,8 @@ export class SpikingEmbedding extends BaseLayer {
     
     // 1. Embedding lookup
     const emb = this.embeddings!;
-    const dotData = new Float32Array(batch * this.outputDim);
+    const dotData = this.dotDataBuffer!;
+    dotData.fill(0);
     
     for (let b = 0; b < batch; b++) {
         const tokenIdx = inputs._data[b]; 
@@ -90,23 +113,24 @@ export class SpikingEmbedding extends BaseLayer {
         }
     }
     
-    // 2. Leaky Integrate and Fire
-    const outData = new Float32Array(batch * this.outputDim);
+    // 2. Leaky Integrate and Fire (LIF Restore untuk Spiking Murni)
+    const outData = this.outDataBuffer!;
+    outData.fill(0);
     const outSpikes = Matrix.fromFlat(outData, [batch, this.outputDim]);
-    this.lastPotentials = Matrix.fromFlat(new Float32Array(batch * this.outputDim), [batch, this.outputDim]);
+    // lastPotentials is already ensured in shape
 
     if (isNativeAvailable()) {
         lifStepNativeWrapper(
             this.potentials._data,
             dotData,
             outData,
-            this.lastPotentials._data,
+            this.lastPotentials!._data,
             this.beta,
             this.threshold
         );
     } else {
         const potData = this.potentials._data;
-        const lpData = this.lastPotentials._data;
+        const lpData = this.lastPotentials!._data;
         
         for (let b = 0; b < batch; b++) {
             const offset = b * this.outputDim;
@@ -126,7 +150,7 @@ export class SpikingEmbedding extends BaseLayer {
             }
         }
     }
-
+    
     this.lastInputs = inputs;
     this.lastSpikes = outSpikes;
 

@@ -8,9 +8,11 @@ mod lif;
 mod surrogate;
 mod delta;
 mod embedding;
+mod contrastive;
 
 pub use dot_product::*;
 pub use lif::*;
 pub use surrogate::*;
 pub use delta::*;
 pub use embedding::*;
+pub use contrastive::*;
