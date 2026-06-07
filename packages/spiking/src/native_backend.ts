@@ -107,3 +107,20 @@ export const applyEmbeddingDeltaNativeWrapper = (
     outputDim
   );
 };
+
+export const contrastiveHebbianNativeWrapper = (
+  spikes: Float32Array,
+  errData: Float32Array,
+  numPairs: number,
+  sequenceLength: number,
+  dModel: number
+): number => {
+  if (!native) throw new Error("Spiking Native backend not available");
+  return native.contrastiveHebbianNative(
+    spikes,
+    errData,
+    numPairs,
+    sequenceLength,
+    dModel
+  );
+};

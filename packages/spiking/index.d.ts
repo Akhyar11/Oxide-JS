@@ -8,3 +8,4 @@ export declare function lifStepNative(potentials: Float32Array, dot: Float32Arra
 export declare function maskSurrogateNative(errorSignal: Float32Array, potentials: Float32Array, threshold: Float32Array, windowSize: number): void
 export declare function applyAddOnlyDeltaNative(kernel: Float32Array, bias: Float32Array, inputs: Float32Array, errorSignal: Float32Array, learningRate: number, batch: number, inFeatures: number, units: number, useBias: boolean): void
 export declare function applyEmbeddingDeltaNative(embeddings: Float32Array, inputs: Float32Array, errorSignal: Float32Array, learningRate: number, inputDim: number, outputDim: number): void
+export declare function contrastiveHebbianNative(spikes: Float32Array, errData: Float32Array, numPairs: number, sequenceLength: number, dModel: number): number

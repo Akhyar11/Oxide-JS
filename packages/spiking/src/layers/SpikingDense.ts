@@ -12,6 +12,8 @@ export interface SpikingDenseConfig extends LayerConfig {
   useBias?: boolean;
   kernelInitializer?: string;
   biasInitializer?: string;
+  betaRange?: [number, number];
+  thresholdRange?: [number, number];
 }
 
 export class SpikingDense extends BaseLayer {
@@ -19,6 +21,8 @@ export class SpikingDense extends BaseLayer {
   public useBias: boolean;
   public kernelInitializer: string;
   public biasInitializer: string;
+  public betaRange: [number, number];
+  public thresholdRange: [number, number];
   public beta!: Float32Array;
   public threshold!: Float32Array;
 
@@ -41,6 +45,8 @@ export class SpikingDense extends BaseLayer {
     this.useBias = config.useBias ?? true;
     this.kernelInitializer = config.kernelInitializer || "glorot_normal";
     this.biasInitializer = config.biasInitializer || "zeros";
+    this.betaRange = config.betaRange || [0.8, 0.99];
+    this.thresholdRange = config.thresholdRange || [0.5, 1.0];
   }
 
   public computeOutputShape(inputShape: number[]): number[] {
@@ -65,23 +71,27 @@ export class SpikingDense extends BaseLayer {
     this.beta = new Float32Array(this.units);
     this.threshold = new Float32Array(this.units);
     for (let i = 0; i < this.units; i++) {
-        this.beta[i] = 0.8 + Math.random() * 0.19; 
-        this.threshold[i] = 0.5 + Math.random() * 0.5; // Max 1.0
+        this.beta[i] = this.betaRange[0] + Math.random() * (this.betaRange[1] - this.betaRange[0]);
+        this.threshold[i] = this.thresholdRange[0] + Math.random() * (this.thresholdRange[1] - this.thresholdRange[0]);
     }
     
     // Inisialisasi state
     this.potentials = Matrix.fromFlat(new Float32Array(this.units), [1, this.units]); 
   }
 
+  private outSpikesDataBuffer?: Float32Array;
+
   private ensurePotentialsShape(batch: number) {
-    if (this.potentials._shape[0] !== batch) {
+    if (this.potentials._shape[0] !== batch || !this.outSpikesDataBuffer) {
        this.potentials = Matrix.fromFlat(new Float32Array(batch * this.units), [batch, this.units]);
+       this.outSpikesDataBuffer = new Float32Array(batch * this.units);
+       this.lastPotentials = Matrix.fromFlat(new Float32Array(batch * this.units), [batch, this.units]);
     }
   }
 
   public resetState() {
      if (this.potentials) this.potentials._data.fill(0);
-     this.lastPotentials = undefined;
+     if (this.lastPotentials) this.lastPotentials._data.fill(0);
      this.lastInputs = undefined;
      this.lastSpikes = undefined;
   }
@@ -100,23 +110,23 @@ export class SpikingDense extends BaseLayer {
     }
 
     // 3 & 4. Leaky Integrate, Fire & Reset
-    const outData = new Float32Array(batch * this.units);
+    const outData = this.outSpikesDataBuffer!;
+    outData.fill(0);
     const outSpikes = Matrix.fromFlat(outData, [batch, this.units]);
-    this.lastPotentials = Matrix.fromFlat(new Float32Array(batch * this.units), [batch, this.units]);
 
     if (isNativeAvailable()) {
         lifStepNativeWrapper(
             this.potentials._data,
             dot._data,
             outSpikes._data,
-            this.lastPotentials._data,
+            this.lastPotentials!._data,
             this.beta,
             this.threshold
         );
     } else {
         const potData = this.potentials._data;
         const dotData = dot._data;
-        const lpData = this.lastPotentials._data;
+        const lpData = this.lastPotentials!._data;
         
         for (let b = 0; b < batch; b++) {
             const offset = b * this.units;

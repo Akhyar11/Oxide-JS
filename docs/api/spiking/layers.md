@@ -20,10 +20,12 @@ Extends standard `LayerConfig`.
 | `useBias` | `boolean` | `true` | Whether the layer uses a bias vector. |
 | `kernelInitializer` | `string` | `"glorot_normal"` | Initializer for the synaptic weight matrix. |
 | `biasInitializer` | `string` | `"zeros"` | Initializer for the bias vector. |
+| `betaRange` | `[number, number]` | `[0.8, 0.99]` | The minimum and maximum range for neuron memory decay rates ($\beta$). |
+| `thresholdRange` | `[number, number]` | `[0.5, 1.0]` | The minimum and maximum range for neuron spiking thresholds ($\theta$). |
 
 ### Heterogeneous LIF Dynamics (Forward Pass)
 
-Unlike standard SNNs that use a global leak factor (`beta`) and `threshold`, Oxide-JS utilizes **Heterogeneous Neuron Dynamics**. Every neuron is initialized with its own random `beta` ($0.8 - 0.99$) and `threshold` ($0.5 - 1.0$). This stochasticity promotes model diversity and prevents premature synchronization or representation collapse.
+Unlike standard SNNs that use a global leak factor (`beta`) and `threshold`, Oxide-JS utilizes **Heterogeneous Neuron Dynamics**. Every neuron is initialized with its own random `beta` and `threshold` based on the configured `betaRange` and `thresholdRange`. This stochasticity promotes model diversity, allows for Latency Coding, and prevents premature synchronization or representation collapse.
 
 The `SpikingDense` layer processes incoming binary spikes through the following equation:
 
@@ -65,8 +67,10 @@ Extends standard `LayerConfig`.
 | `inputDim` | `number` | **Required** | Size of the vocabulary (max integer index + 1). |
 | `outputDim` | `number` | **Required** | Dimension of the continuous embedding space. |
 | `embeddingsInitializer` | `string` | `"glorot_normal"` | Weight initializer. |
+| `betaRange` | `[number, number]` | `[0.8, 0.99]` | Range for neuron memory decay rates ($\beta$). |
+| `thresholdRange` | `[number, number]` | `[0.01, 0.1]` | Range for neuron spiking thresholds ($\theta$). Typically very small to preserve Latency Coding for penalized weights. |
 
-*Note: Similar to `SpikingDense`, `SpikingEmbedding` automatically initializes and utilizes heterogeneous neuron dynamics (per-neuron `beta` and `threshold`) and clamps embedding weights to `[-1.0, 1.0]` during updates.*
+*Note: Similar to `SpikingDense`, `SpikingEmbedding` automatically initializes and utilizes configurable heterogeneous neuron dynamics and clamps embedding weights to `[-1.0, 1.0]` during updates.*
 
 ### Word2Vec CBOW-style Hebbian Contrastive Learning
 
@@ -97,4 +101,72 @@ By manually orchestrating `learnHebbian`, you can train SNN embeddings for downs
 
 ---
 
+## 3. `SpikingSelfAttention`
+
+The `SpikingSelfAttention` layer is the neuromorphic equivalent of the Transformer Attention mechanism. It processes temporal sequences entirely using discrete binary spikes without relying on the computationally expensive `Softmax` function.
+
+### Configuration (`SpikingSelfAttentionConfig`)
+
+Extends standard `LayerConfig`.
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `d_model` | `number` | **Required** | The dimensionality of the input and output features. |
+| `sequenceLength` | `number` | **Required** | The maximum length of the temporal sequence. |
+| `kernelInitializer` | `string` | `"glorot_normal"` | Initializer for the Query, Key, and Value synaptic weight matrices. |
+| `betaRange` | `[number, number]` | `[0.8, 0.99]` | Range for the memory decay rates ($\beta$) of the Q, K, and V neurons. |
+| `thresholdRange` | `[number, number]` | `[0.1, 0.3]` | Range for the spiking thresholds ($\theta$). Lower thresholds ensure rapid attention alignment. |
+
+### Neuromorphic Attention Mechanism
+
+Instead of computing standard scaled dot-product attention with `Softmax`, this layer uses continuous accumulation and dynamic thresholding:
+1. Input sequences are linearly projected into $Q$, $K$, and $V$ spike trains using parallel LIF integrations.
+2. The layer calculates raw attention scores by taking the temporal dot product between $Q$ and $K$.
+3. These raw attention scores are fed into a dedicated set of **Score LIF Neurons**. Because Softmax is not available in biology, these LIF neurons accumulate the raw dot-product similarity over time and fire discrete spikes only when the similarity exceeds a strict threshold.
+4. The emitted Score Spikes are then used to gate the $V$ spikes, effectively mimicking attention routing but natively in the time domain.
+
+---
+
 > **Note on Native Acceleration**: Both `SpikingDense` and `SpikingEmbedding` automatically hook into `@oxide-js/core`'s Rust Native Backend. The LIF computations (`lifStepNativeWrapper`), Surrogate Masking, and Add-Only Delta Updates run completely in heavily optimized Rust routines (via **Rayon Data Parallelism**) when native dependencies are present. The Rust implementations handle slicing correctly to ensure `Send + Sync` constraints are satisfied across thread pools.
+
+---
+
+## 4. `SpikingDenseBPTT`
+
+The `SpikingDenseBPTT` layer serves as the **Temporal Pooler** in sequence modeling tasks (e.g., Sentence Embeddings). Unlike `SpikingDense` which processes inputs spatially at a single time step, `SpikingDenseBPTT` processes sequences across the temporal dimension $T$, naturally capturing the word order through recurrent membrane potential dynamics.
+
+### Configuration (`SpikingDenseConfig`)
+
+Extends standard `LayerConfig`. Uses the exact same initialization configuration as `SpikingDense` (e.g., `units`, `betaRange`, `thresholdRange`).
+
+### Temporal Accumulation & L2 Normalization (Sequence Pooling)
+
+A critical limitation of applying SNNs to long NLP sequences is **Membrane Saturation**—as sequences get longer, potentials inevitably hit the ceiling limit (`1.0`), causing all long sentences to have identical, saturated representations. 
+
+`SpikingDenseBPTT` resolves this via **Spike-Count Accumulation**:
+1. During the forward pass (`forwardSequence`), it processes the entire sequence step-by-step ($t=0$ to $T-1$), storing potentials and output spikes in historical buffers.
+2. It accumulates (sums) the discrete spikes across all valid time steps (ignoring `<PAD>` tokens dynamically).
+3. The accumulated sum vector is then projected onto a unit hypersphere using **L2 Normalization**.
+
+This guarantees that the final vector represents the precise firing frequency distribution of the sentence without ever saturating, effectively preserving deep semantic variance.
+
+### Backpropagation Through Time (BPTT)
+
+Because the output is a temporal sum, the spatial error at the final output is distributed uniformly across all valid historical time steps based on the Calculus Sum Rule (since the derivative of a sum w.r.t any element is $1$).
+The `backwardSequence` method injects this error into every active time step, applying the Surrogate Gradient mask to correctly update the spatial weights based on the historical membrane potentials ($V(t)$).
+
+```ts
+import { SpikingDenseBPTT } from "@oxide-js/spiking";
+
+const temporalPooler = new SpikingDenseBPTT({
+    units: 64,
+    useBias: false
+});
+
+// Assume sequenceInputs has shape [Batch, SequenceLength, d_model]
+// Initialize temporal buffers
+temporalPooler.resetSequence(sequenceLength);
+
+// Process temporal sequence and accumulate
+const accumulatedNormalizedSpikes = temporalPooler.forwardSequence(sequenceInputs, sequenceLength, padTokenId);
+```
