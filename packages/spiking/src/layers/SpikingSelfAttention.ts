@@ -308,8 +308,8 @@ export class SpikingSelfAttention extends BaseLayer {
               if (inVal > 0) { // Sparse update
                   const kOffset = i * d_model;
                   for (let d = 0; d < d_model; d++) {
-                      // Dopamine drive sangat kecil untuk membangkitkan neuron mati tanpa over-saturate
-                      const dopamine = 0.00005; 
+                      // Dopamine di-set 0 karena inisialisasi awal sudah di-scale up, tidak perlu revive paksa
+                      const dopamine = 0.0; 
                       
                       let deltaQ = (learningRate * err[errOffset + d] * inVal) + dopamine;
                       let deltaK = (learningRate * err[errOffset + d] * inVal) + dopamine;
