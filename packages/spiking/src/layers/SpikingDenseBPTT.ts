@@ -67,6 +67,13 @@ export class SpikingDenseBPTT extends BaseLayer {
     const inFeatures = inputShape[inputShape.length - 1];
 
     const kernelVal = this.createInitializer(this.kernelInitializer, [inFeatures, this.units]);
+    
+    // OPTIMIZATION: Scale up initial weights so neurons actually spike (prevent Dense layer death)
+    const scale = Math.sqrt(inFeatures);
+    for (let i = 0; i < kernelVal._data.length; i++) {
+        kernelVal._data[i] *= scale;
+    }
+    
     this.addParameter("kernel", kernelVal, true, [inFeatures, this.units]);
 
     if (this.useBias) {
