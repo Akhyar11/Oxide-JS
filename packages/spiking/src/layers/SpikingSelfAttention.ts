@@ -243,7 +243,7 @@ export class SpikingSelfAttention extends BaseLayer {
             if (nonZeroV.length === 0) continue;
 
             for (let i = 0; i < seqLen; i++) {
-                const gradedScore = matchScores[b * seqLen * seqLen + i * seqLen + j];
+                const gradedScore = sScoresData[b * seqLen * seqLen + i * seqLen + j];
                 if (gradedScore > 0) {
                     const outBase = b * seqLen * d_model + i * d_model;
                     for (let k = 0; k < nonZeroV.length; k++) {
